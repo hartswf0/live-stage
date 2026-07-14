@@ -92,8 +92,16 @@
   .open:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
   .open svg{width:12px;height:12px;fill:currentColor;transition:transform .16s}
   .open:hover svg{transform:translateX(2px)}
-  .chev{width:16px;height:16px;fill:var(--faint);transition:transform .2s;flex:0 0 auto}
+  .chev{width:16px;height:16px;fill:var(--faint);transition:transform .2s;flex:0 0 auto;display:block}
+  .chev-btn{display:grid;place-items:center;width:34px;height:34px;border-radius:8px;border:1px solid var(--line2);background:transparent;cursor:pointer;flex:0 0 auto;transition:.16s}
+  .chev-btn:hover{border-color:#3a3e49;background:var(--panel2)}
+  .chev-btn:hover .chev{fill:var(--dim)}
   details.build[open] .chev{transform:rotate(180deg)}
+  /* whole row reads as a link */
+  summary{transition:background .14s}
+  details.build:hover>summary{background:rgba(58,134,255,.04)}
+  details.build:hover .open{background:var(--accent);color:#fff;border-color:var(--accent)}
+  details.build:hover .open svg{transform:translateX(2px)}
 
   /* expanded detail */
   .detail{border-top:1px solid var(--line);padding:20px 22px 22px;display:grid;grid-template-columns:1.15fr .85fr;gap:24px}
@@ -187,7 +195,7 @@
 
   <section id="builds">
     <div class="shead"><h2>The builds</h2><span class="cnt" id="buildRange">simplest first</span></div>
-    <p class="sub">Each one is a self-contained page. They get more capable as you go down — open the first for a shoot, the last for a full scripted performance. Click a row to see what it does and how to run it.</p>
+    <p class="sub">Each one is a self-contained page. They get more capable as you go down — open the first for a shoot, the last for a full scripted performance. <b>Click any row to open it</b>, or tap the <span style="display:inline-flex;vertical-align:middle;width:20px;height:20px;border:1px solid var(--line2);border-radius:5px;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" style="width:11px;height:11px;fill:var(--faint)"><path d="M7 10l5 5 5-5z"/></svg></span> chevron to preview what it does.</p>
     <div class="builds" id="builds-list"></div>
   </section>
 
@@ -331,9 +339,9 @@
           <div class="brow"><h3>${b.name}</h3><span class="level ${b.levelCls}">${b.level}</span></div>
           <p>${b.one}</p>
         </div>
-        <div style="display:flex;align-items:center;gap:14px">
+        <div style="display:flex;align-items:center;gap:10px">
           <a class="open" href="${encodeURI(b.href)}" onclick="event.stopPropagation()">Open <svg viewBox="0 0 24 24"><path d="M8 5l8 7-8 7z"/></svg></a>
-          <svg class="chev" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>
+          <button type="button" class="chev-btn" aria-label="show details" title="details"><svg class="chev" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg></button>
         </div>
       </summary>
       <div class="detail">
@@ -349,6 +357,19 @@
     const prev=d.querySelector('.preview');
     d.addEventListener('toggle',()=>{ if(d.open) mountPreview(prev,b.preview); });
     if(b.featured) mountPreview(prev,b.preview);
+    // Clicking a build row OPENS the build (that's what people expect). The
+    // chevron button is the only thing that expands the details panel.
+    const summary=d.querySelector('summary');
+    summary.addEventListener('click',(e)=>{
+      if(e.target.closest('a')) return;              // Open link navigates itself
+      if(e.target.closest('.chev-btn')) return;      // chevron handled below
+      e.preventDefault();                            // don't toggle the <details>
+      window.location.href = b.href;
+    });
+    d.querySelector('.chev-btn').addEventListener('click',(e)=>{
+      e.preventDefault(); e.stopPropagation();       // just expand/collapse, never navigate
+      d.open=!d.open;
+    });
   });
 
   /* -------------------------------------------------------------

@@ -221,7 +221,7 @@
     <div class="step">
       <h3>2 · Load clips <span class="ok" id="clipCount">0 loaded</span></h3>
       <div class="sub" style="margin:0">Add clips to the gallery, then drag each onto a person. You can also do all of this later from the Settings gear.</div>
-      <div class="rowf" style="margin-top:8px"><button class="b primary" id="openGalleryBtn">Open clip gallery</button><button class="b ghost" id="pairBtn2">Pair a director phone</button></div>
+      <div class="rowf" style="margin-top:8px"><button class="b primary" id="openGalleryBtn">Open clip gallery</button><button class="b ghost" id="dirViewBtn" title="opens a director controller in a second window on this machine">Open director view</button></div>
     </div>
 
     <button id="enterBtn">Join meeting</button>
@@ -233,7 +233,7 @@
   <div class="setbar">
     <div><span class="st-title">Clip gallery</span><span class="st-sub">drag a clip onto a person · assign as many as you want</span></div>
     <div class="st-actions">
-      <button class="b ghost" id="pairFromSet">Pair director</button>
+      <button class="b ghost" id="dirViewFromSet" title="opens a director controller in a second window on this machine">Open director view</button>
       <button class="b primary" id="closeSet">Done</button>
     </div>
   </div>
@@ -735,8 +735,15 @@ function closeSettings(){
 document.getElementById('gearBtn')?.addEventListener('click',openSettings);
 document.getElementById('closeSet').onclick=closeSettings;
 document.getElementById('openGalleryBtn')?.addEventListener('click',openSettings);
-document.getElementById('pairFromSet').onclick=()=>{ROLE==='stage'?stageStartPair():null;};
-document.getElementById('pairBtn2')?.addEventListener('click',()=>{ROLE==='stage'&&stageStartPair();});
+// Director view: open a controller in a second window on this machine. It drives
+// the stage live over the same-browser BroadcastChannel — no QR, no pairing, no server.
+function openDirectorView(){
+  const w=window.open(location.pathname+'?role=director','_blank');
+  if(!w) flash('Allow pop-ups, then tap again to open the director view',false);
+  else flash('Director view opened — drive the scene from that window',false);
+}
+document.getElementById('dirViewFromSet')?.addEventListener('click',()=>{ if(ROLE==='stage') openDirectorView(); });
+document.getElementById('dirViewBtn')?.addEventListener('click',openDirectorView);
 
 /* =========================================================
    ENTER (Stage)
