@@ -169,15 +169,44 @@
   .toggle{appearance:none;width:38px;height:22px;border-radius:999px;background:#44464c;position:relative;cursor:pointer;transition:.2s}
   .toggle:after{content:"";position:absolute;width:16px;height:16px;left:3px;top:3px;border-radius:50%;background:#fff;transition:.2s}
   .toggle:checked{background:var(--blue)}.toggle:checked:after{transform:translateX(16px)}
-  .upload-list{display:grid;gap:6px}
-  .upload-row{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;border:1px solid #3c3d42;border-radius:7px;padding:7px 8px;font-size:11px}
-  .upload-row .lib-btn{font-size:10px;padding:5px 9px;border:1px solid #3c5a8f;background:#1b2333;color:#a9c3ff;border-radius:5px;cursor:pointer;white-space:nowrap}
-  .upload-row .lib-btn:hover{border-color:#5c85d6;color:#fff}
-  #soundBtn.on{color:#4ecb7a}
-  .upload-row input{width:112px;font-size:10px}
+  #soundBtn.active{color:#4ecb7a}
   .help{font-size:10px;line-height:1.5;color:#aeb1b8;margin-top:8px}
   kbd{padding:2px 5px;border-radius:4px;background:#393a40;border:1px solid #55565d;font-size:10px;color:#fff}
   .meter{height:7px;background:#3d3e43;border-radius:999px;overflow:hidden;margin-top:6px}.meter span{display:block;height:100%;width:0;background:#37c66d;transition:width .08s linear}
+
+  /* Cast & audio — one compact card per coworker: name, quick "speaking" flag,
+     per-person sound, and the two ways to set their loop (upload or library). */
+  .cast-list{display:grid;gap:7px;margin-top:10px}
+  .cast-row{border:1px solid #35363b;border-radius:9px;padding:9px 10px;background:#1c1d21;transition:border-color .15s}
+  .cast-row:hover{border-color:#45464c}
+  .cast-row-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+  .cast-name{font-size:12.5px;font-weight:650;color:#eef0f3}
+  .speak-btn{font-size:9.5px;letter-spacing:.03em;text-transform:uppercase;padding:5px 10px;border:1px solid #45464c;background:#26272b;color:#aeb1b8;border-radius:20px;cursor:pointer;white-space:nowrap}
+  .speak-btn:hover{border-color:#5c85d6;color:#fff}
+  .speak-btn.on{background:#37c66d;border-color:#37c66d;color:#06280f;font-weight:700}
+  .cast-row-controls{display:flex;gap:6px;align-items:center}
+  .mini-sound{width:26px;height:26px;flex:0 0 auto;border-radius:50%;border:1px solid #3c3d42;background:#131417;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s,border-color .15s}
+  .mini-sound svg{width:13px;height:13px;fill:#8d9096}
+  .mini-sound.on{background:var(--blue);border-color:var(--blue)}
+  .mini-sound.on svg{fill:#fff}
+  .mini-upload,.mini-lib{flex:1;font-size:10px;padding:6px 4px;border-radius:6px;cursor:pointer;white-space:nowrap;text-align:center}
+  .mini-upload{border:1px solid #3c3d42;background:transparent;color:#aeb1b8}
+  .mini-upload:hover{border-color:#5c5d63;color:#fff}
+  .mini-lib{border:1px solid #3c5a8f;background:#1b2333;color:#a9c3ff}
+  .mini-lib:hover{border-color:#5c85d6;color:#fff}
+
+  /* Themed scrollbars — the panel and cue list get their own thin, unobtrusive bar
+     instead of the default OS scrollbar. */
+  #director{scrollbar-width:thin;scrollbar-color:#46474d transparent}
+  #director::-webkit-scrollbar{width:9px}
+  #director::-webkit-scrollbar-track{background:transparent}
+  #director::-webkit-scrollbar-thumb{background:#3f4046;border-radius:20px;border:2px solid #14151800}
+  #director::-webkit-scrollbar-thumb:hover{background:#57585f}
+  .cue-list{scrollbar-width:thin;scrollbar-color:#46474d transparent}
+  .cue-list::-webkit-scrollbar{width:6px}
+  .cue-list::-webkit-scrollbar-track{background:transparent}
+  .cue-list::-webkit-scrollbar-thumb{background:#3f4046;border-radius:20px}
+  .cue-list::-webkit-scrollbar-thumb:hover{background:#57585f}
 
   /* Clean/presentation states */
   body.clean .topbar,body.clean .toolbar,body.clean #director,body.clean #captionBar,body.clean .status-strip{opacity:0;pointer-events:none}
@@ -308,22 +337,10 @@
     </section>
 
     <section class="section">
-      <h2>Reactive dialogue</h2>
-      <div class="row"><label>Browser speech recognition</label><input class="toggle" type="checkbox" id="speechToggle" /></div>
-      <div class="row"><label>Remote actor voices</label><input class="toggle" type="checkbox" id="voiceToggle" checked /></div>
-      <div class="row"><label>Auto-advance from Nat's lines</label><input class="toggle" type="checkbox" id="autoAdvanceToggle" checked /></div>
-      <div class="row"><label for="aiEndpoint">Optional local AI endpoint</label></div>
-      <input class="field" id="aiEndpoint" placeholder="e.g. http://localhost:11434/api/chat" />
-      <div class="row"><label for="aiModel">Model</label><input class="field" id="aiModel" value="llama3.2" /></div>
-      <div class="row"><label>Use generative replies</label><input class="toggle" type="checkbox" id="generativeToggle" /></div>
-      <div class="help">For a reliable shoot, the scripted cue engine is the default. Generative mode can call a local Ollama-style endpoint; secrets are never embedded in this file.</div>
-    </section>
-
-    <section class="section">
-      <h2>Remote participant media</h2>
+      <h2>Cast &amp; audio</h2>
       <div class="row"><label>Coworker loop audio</label><input class="toggle" type="checkbox" id="soundToggle" /></div>
-      <div class="upload-list" id="uploadList"></div>
-      <div class="help">Load a portrait or looping video for any coworker, or pick one from the built-in 27-loop library. Files stay local; loops carry their own recorded audio — muted by default, toggle above to play it.</div>
+      <div class="help">Muted by default. Toggle above to play everyone's own recorded audio, or use the speaker icon on any one tile to control just that person.</div>
+      <div class="cast-list" id="uploadList"></div>
     </section>
 
     <section class="section">
@@ -414,10 +431,9 @@
   const state = {
     preset:'team4', activeIds:[...presets.team4], count:4, focus:'phil', cueIndex:0,
     playing:false, playTimer:null, cameraStream:null, cameraOn:false, muted:false,
-    mirror:true, captions:true, voice:true, motionReact:true, motionCooldown:0,
-    recognition:null, recognitionOn:false, autoAdvance:true, transcript:'',
+    mirror:true, captions:true, motionReact:true, motionCooldown:0,
     mediaRecorder:null, recordChunks:[], displayStream:null, startTime:performance.now(),
-    generative:false, aiBusy:false, idleTimer:null, coworkerSound:false
+    idleTimer:null, coworkerSound:false
   };
 
   const tilesEl = $('#tiles');
@@ -481,11 +497,13 @@
     return face||null;
   }
   function refreshTileSoundIcon(id){
-    const tile=tileMap.get(id); const btn=tile?.querySelector('.tile-sound'); if(!btn) return;
     const v=activeSynthVideo(id);
     const on = v ? !v.muted : state.coworkerSound;
-    btn.classList.toggle('on',on);
-    btn.innerHTML = on ? LIVE_STAGE.speakerOnIcon : LIVE_STAGE.speakerOffIcon;
+    [tileMap.get(id)?.querySelector('.tile-sound'), document.querySelector(`.mini-sound[data-id="${id}"]`)].forEach(btn=>{
+      if(!btn) return;
+      btn.classList.toggle('on',on);
+      btn.innerHTML = on ? LIVE_STAGE.speakerOnIcon : LIVE_STAGE.speakerOffIcon;
+    });
   }
   function toggleTileSound(id){
     const v=activeSynthVideo(id); if(!v) return;
@@ -538,6 +556,13 @@
 
   function markSpeaker(id){
     tileMap.forEach((tile,pid)=>tile.classList.toggle('speaking',pid===id && state.activeIds.includes(pid)));
+    document.querySelectorAll('.speak-btn').forEach(b=>b.classList.toggle('on',b.dataset.id===id));
+  }
+  // Manual override so the director can flag any coworker as the active
+  // speaker outside the fixed cue script — click again to clear it.
+  function toggleSpeaker(id){
+    const tile=tileMap.get(id);
+    markSpeaker(tile?.classList.contains('speaking') ? null : id);
   }
   function react(id,type){
     const tile=tileMap.get(id); if(!tile || !state.activeIds.includes(id)) return;
@@ -553,7 +578,7 @@
     if(temporary){clearTimeout(showCaption.timer);showCaption.timer=setTimeout(()=>bar.classList.remove('show'),7000)}
   }
 
-  function applyCue(index,{speak=true}={}){
+  function applyCue(index){
     state.cueIndex=(index+cues.length)%cues.length;
     const cue=cues[state.cueIndex];
     clearTransient();
@@ -566,20 +591,7 @@
     const who=cue.speaker?byId[cue.speaker].name:'';
     showCaption(who,cue.line);
     $$('.cue').forEach((el,i)=>el.classList.toggle('active',i===state.cueIndex));
-    if(speak && cue.speaker && state.voice) speakLine(cue.speaker,cue.line);
     if(state.playing){ clearTimeout(state.playTimer); state.playTimer=setTimeout(()=>applyCue(state.cueIndex+1),cue.duration||5000); }
-  }
-
-  function speakLine(id,text){
-    if(!('speechSynthesis' in window)) return;
-    window.speechSynthesis.cancel();
-    const p=byId[id]; const u=new SpeechSynthesisUtterance(text);
-    u.rate=id==='phil'?.9:id==='ernie'?1.04:.96; u.pitch=id==='samantha'?1.12:id==='chris'?.86:1;
-    const voices=speechSynthesis.getVoices();
-    const preferred = id==='samantha' ? voices.find(v=>/Samantha|Karen|Female/i.test(v.name)) : id==='chris'||id==='ernie'||id==='phil' ? voices.find(v=>/Daniel|Alex|Male|David/i.test(v.name)) : voices.find(v=>/Samantha|Karen|Female/i.test(v.name));
-    if(preferred) u.voice=preferred;
-    u.onstart=()=>markSpeaker(id); u.onend=()=>{const cue=cues[state.cueIndex]; if(cue.speaker===id) markSpeaker(null)};
-    speechSynthesis.speak(u);
   }
 
   function playSequence(){
@@ -651,47 +663,6 @@
     },220);
   }
 
-  function setupRecognition(enable){
-    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-    if(!SR){$('#speechToggle').checked=false;toast('Speech recognition is not available in this browser');return}
-    if(!state.recognition){
-      const r=new SR();r.continuous=true;r.interimResults=true;r.lang='en-US';
-      r.onresult=e=>{let final='',interim='';for(let i=e.resultIndex;i<e.results.length;i++){const t=e.results[i][0].transcript;if(e.results[i].isFinal)final+=t;else interim+=t}
-        const text=(final||interim).trim();if(text)showCaption('Natalie',text,false);
-        if(final){state.transcript=(state.transcript+' '+final).trim();handleNatSpeech(final.trim())}
-      };
-      r.onerror=e=>{if(e.error!=='no-speech')toast(`Speech recognition: ${e.error}`)};
-      r.onend=()=>{if(state.recognitionOn)try{r.start()}catch{}}; state.recognition=r;
-    }
-    state.recognitionOn=enable; if(enable){try{state.recognition.start()}catch{};toast('Listening for Nat’s lines')}else{try{state.recognition.stop()}catch{}}
-  }
-
-  const phraseMap=[
-    [/i can do it|samantha can help/i,'samantha'],
-    [/three o.?clock|client/i,'ernie'],
-    [/what if we split|two parts|first part/i,'spin-noticed'],
-    [/did you (guys )?hear me/i,'repeat'],
-    [/good morning.*phil|perfect timing/i,'review']
-  ];
-  async function handleNatSpeech(text){
-    if(state.generative && $('#aiEndpoint').value.trim()) return generativeReply(text);
-    if(!state.autoAdvance)return;
-    const match=phraseMap.find(([re])=>re.test(text));
-    if(match){const idx=cues.findIndex(c=>c.id===match[1]);if(idx>=0)setTimeout(()=>applyCue(idx),700)}
-  }
-
-  async function generativeReply(text){
-    if(state.aiBusy)return;state.aiBusy=true;
-    const endpoint=$('#aiEndpoint').value.trim(),model=$('#aiModel').value.trim()||'llama3.2';
-    const current=cues[state.cueIndex];const responder=current.speaker&&current.speaker!=='nat'?current.speaker:(state.preset==='review2'?'phil':'chris');const p=byId[responder];
-    const system=`You are ${p.name}, a coworker in a filmed Zoom meeting. Stay professional and natural. Reply in one short sentence, maximum 18 words. The scene concerns onboarding, a 3 PM client meeting, and Natalie trying to solve the conflict.`;
-    try{
-      const res=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model,stream:false,messages:[{role:'system',content:system},{role:'user',content:text}]})});
-      if(!res.ok)throw new Error(`${res.status} ${res.statusText}`);const data=await res.json();const reply=data?.message?.content||data?.choices?.[0]?.message?.content||data?.response||data?.text;
-      if(!reply)throw new Error('No reply text returned');showCaption(p.name,reply);markSpeaker(responder);if(state.voice)speakLine(responder,reply);
-    }catch(err){toast(`AI endpoint failed: ${err.message}`)}finally{state.aiBusy=false}
-  }
-
   async function toggleRecording(){
     if(state.mediaRecorder && state.mediaRecorder.state==='recording'){state.mediaRecorder.stop();return}
     if(!navigator.mediaDevices?.getDisplayMedia){toast('Screen recording is unavailable');return}
@@ -745,10 +716,21 @@
   participants.forEach(p=>{const o=document.createElement('option');o.value=p.id;o.textContent=p.name;$('#focusSelect').append(o)});$('#focusSelect').value=state.focus;
   cues.forEach((c,i)=>{const el=document.createElement('div');el.className='cue';el.innerHTML=`<div class="cue-num">${i+1}</div><div><div class="cue-title">${c.label}</div><div class="cue-line">${c.line}</div></div>`;el.onclick=()=>applyCue(i);$('#cueList').append(el)});
   participants.filter(p=>p.id!=='nat').forEach(p=>{
-    const row=document.createElement('div');row.className='upload-row';
-    row.innerHTML=`<span>${p.name}</span><label style="margin:0"><input type="file" accept="image/*,video/*" style="display:none" /><span class="lib-btn" style="border-color:#3c3d42;background:transparent;color:#bbb">Upload</span></label><button type="button" class="lib-btn">Library</button>`;
+    const row=document.createElement('div');row.className='cast-row';row.dataset.id=p.id;
+    row.innerHTML=`
+      <div class="cast-row-top">
+        <span class="cast-name">${p.name}</span>
+        <button type="button" class="speak-btn" data-id="${p.id}">Speaking</button>
+      </div>
+      <div class="cast-row-controls">
+        <button type="button" class="mini-sound" data-id="${p.id}" title="${p.name} — click to play or mute their audio"></button>
+        <label class="mini-upload"><input type="file" accept="image/*,video/*" hidden />Upload</label>
+        <button type="button" class="mini-lib">Library</button>
+      </div>`;
+    row.querySelector('.speak-btn').onclick=()=>toggleSpeaker(p.id);
+    row.querySelector('.mini-sound').onclick=()=>toggleTileSound(p.id);
     row.querySelector('input').onchange=e=>loadParticipantMedia(p.id,e.target.files[0]);
-    row.querySelector('button.lib-btn').onclick=()=>LIVE_STAGE.openPicker((src)=>loadParticipantMedia(p.id,src),{label:p.name});
+    row.querySelector('.mini-lib').onclick=()=>LIVE_STAGE.openPicker((src)=>loadParticipantMedia(p.id,src),{label:p.name});
     $('#uploadList').append(row);
   });
 
@@ -759,12 +741,8 @@
   $('#mirrorToggle').onchange=e=>{state.mirror=e.target.checked;updateCameraVisibility()};
   $('#officeGuideToggle').onchange=e=>{tileMap.get('nat').querySelector('.nat-office').hidden=!e.target.checked};
   $('#motionToggle').onchange=e=>state.motionReact=e.target.checked;
-  $('#speechToggle').onchange=e=>setupRecognition(e.target.checked);
-  $('#voiceToggle').onchange=e=>state.voice=e.target.checked;
   $('#soundToggle').onchange=e=>setCoworkerSound(e.target.checked);
   $('#soundBtn').onclick=()=>setCoworkerSound(!state.coworkerSound);
-  $('#autoAdvanceToggle').onchange=e=>state.autoAdvance=e.target.checked;
-  $('#generativeToggle').onchange=e=>state.generative=e.target.checked;
   $('#prevCueBtn').onclick=()=>applyCue(state.cueIndex-1);$('#nextCueBtn').onclick=()=>applyCue(state.cueIndex+1);$('#playCueBtn').onclick=playSequence;
   $('#recordBtn').onclick=toggleRecording;$('#fullBtn').onclick=toggleFullscreen;$('#cleanBtn').onclick=()=>toggleClean();
   $('#captionsBtn').onclick=()=>{state.captions=!state.captions;$('#captionsBtn').textContent=state.captions?'Captions on':'Captions off';if(!state.captions)$('#captionBar').classList.remove('show')};
@@ -774,8 +752,8 @@
   $('#videoBtn').onclick=()=>state.cameraOn?stopCamera():resumeCamera();
   $('#viewBtn').onclick=()=>{document.body.classList.toggle('chrome-hidden');toast(document.body.classList.contains('chrome-hidden')?'Meeting chrome hidden':'Meeting chrome visible')};
   $('#endBtn').onclick=()=>{if(confirm('End the staged meeting?')){state.cameraStream?.getTracks().forEach(t=>t.stop());location.reload()}};
-  $('#joinWithCamera').onclick=async()=>{$('#permissionSplash').remove();setPreset('team4');applyCue(0,{speak:false});await startCamera();toggleDirector(true)};
-  $('#joinWithoutCamera').onclick=()=>{$('#permissionSplash').remove();setPreset('team4');applyCue(0,{speak:false});toggleDirector(true)};
+  $('#joinWithCamera').onclick=async()=>{$('#permissionSplash').remove();setPreset('team4');applyCue(0);await startCamera();toggleDirector(true)};
+  $('#joinWithoutCamera').onclick=()=>{$('#permissionSplash').remove();setPreset('team4');applyCue(0);toggleDirector(true)};
 
   document.addEventListener('keydown',e=>{
     if(['INPUT','SELECT','TEXTAREA'].includes(document.activeElement?.tagName))return;
@@ -814,15 +792,30 @@
       v.src = urls[slot]; v.style.opacity='0'; v.style.transition='opacity .25s ease';
       media.appendChild(v); bank[slot]=v; return v;
     }
+    // Never cut from the old loop to the new one until the new one actually has a
+    // decodable frame — otherwise you see a flash of black (or the avatar behind it)
+    // for the split second the fresh <video> is still downloading.
     function setFace(id, slot){
       const v = ensureFace(id, slot); if(!v) return;
+      if(v.style.opacity==='1') return; // already the visible one
       const bank = faceCache.get(id);
-      if(bank) Object.values(bank).forEach(o=>{ if(o!==v){ o.style.opacity='0'; o.pause(); } });
-      v.style.opacity='1'; v.play().catch(()=>{});
-      refreshTileSoundIcon(id);
+      const reveal = ()=>{
+        if(bank) Object.values(bank).forEach(o=>{ if(o!==v){ o.style.opacity='0'; o.pause(); } });
+        v.style.opacity='1';
+        refreshTileSoundIcon(id);
+      };
+      v.play().catch(()=>{});
+      if(v.readyState>=2) reveal();
+      else v.addEventListener('canplay',reveal,{once:true});
     }
-    // seed every non-Nat tile with its idle/listen loop
-    participants.forEach(p=>{ if(p.id!=='nat' && LIVE_STAGE.castUrls(p.id)) setFace(p.id,'listen'); });
+    // seed every non-Nat tile with its idle/listen loop, then drop the procedural
+    // cartoon avatar entirely — it was left mounted behind the real video and
+    // cross-faded visibly through every clip switch.
+    participants.forEach(p=>{
+      if(p.id==='nat' || !LIVE_STAGE.castUrls(p.id)) return;
+      setFace(p.id,'listen');
+      tileMap.get(p.id)?.querySelector('.avatar-stage')?.remove();
+    });
     // Nat: fallback loop shown whenever her webcam is off
     const natUrls = LIVE_STAGE.castUrls('nat');
     const natOff = tileMap.get('nat')?.querySelector('.camera-off');
@@ -848,8 +841,8 @@
   })();
 
   // Initialize
-  setPreset('team4');applyCue(0,{speak:false});tickTime();wakeChrome();enumerateCameras();
-  window.addEventListener('beforeunload',()=>{state.cameraStream?.getTracks().forEach(t=>t.stop());state.displayStream?.getTracks().forEach(t=>t.stop());if(state.recognitionOn)state.recognition?.stop()});
+  setPreset('team4');applyCue(0);tickTime();wakeChrome();enumerateCameras();
+  window.addEventListener('beforeunload',()=>{state.cameraStream?.getTracks().forEach(t=>t.stop());state.displayStream?.getTracks().forEach(t=>t.stop())});
 })();
 </script>
 </body>
