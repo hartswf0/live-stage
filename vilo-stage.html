@@ -1,0 +1,816 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>Vilo Live Meeting Stage — Scene 06</title>
+<style>
+  :root{
+    --bg:#111214; --panel:#1f2023; --panel2:#2a2b2f; --line:#3a3b40;
+    --text:#f5f5f6; --muted:#b7bac0; --blue:#2d8cff; --green:#23d366;
+    --red:#e64a4a; --tile:#26272b; --shadow:0 14px 42px rgba(0,0,0,.42);
+  }
+  *{box-sizing:border-box}
+  html,body{width:100%;height:100%;margin:0;overflow:hidden;background:#08090b;color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+  button,input,select{font:inherit}
+  button{color:inherit}
+  #app{position:relative;width:100%;height:100%;background:var(--bg);user-select:none}
+
+  /* Zoom-like chrome */
+  .topbar{position:absolute;inset:0 0 auto 0;height:42px;z-index:30;display:flex;align-items:center;justify-content:space-between;padding:0 12px;background:linear-gradient(#27282c,#1d1e21);border-bottom:1px solid #090a0b;transition:opacity .2s ease}
+  .top-left,.top-right{display:flex;align-items:center;gap:9px;min-width:180px}
+  .top-right{justify-content:flex-end}
+  .security{width:21px;height:21px;border-radius:6px;background:#2da15e;display:grid;place-items:center;font-size:12px}
+  .meeting-title{font-size:13px;font-weight:600;letter-spacing:.01em}
+  .top-chip{border:1px solid #4a4b50;background:#34353a;border-radius:6px;padding:5px 9px;font-size:12px}
+  .meeting-time{font-variant-numeric:tabular-nums;color:#d7d8dc;font-size:12px}
+
+  #meetingStage{position:absolute;inset:42px 0 72px 0;background:#0d0e10;overflow:hidden;display:grid;place-items:center}
+  #tiles{width:100%;height:100%;padding:10px;display:grid;gap:8px;grid-auto-flow:row;align-content:stretch;justify-content:stretch;transition:padding .2s ease,gap .2s ease}
+  #tiles[data-count="1"]{grid-template-columns:1fr;grid-template-rows:1fr;padding:0;gap:0}
+  #tiles[data-count="2"]{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:1fr}
+  #tiles[data-count="3"]{grid-template-columns:1.35fr 1fr;grid-template-rows:repeat(2,minmax(0,1fr))}
+  #tiles[data-count="3"] .tile:first-child{grid-row:1 / span 2}
+  #tiles[data-count="4"]{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr))}
+  #tiles[data-count="5"],#tiles[data-count="6"]{grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr))}
+  #tiles[data-count="7"],#tiles[data-count="8"],#tiles[data-count="9"]{grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(3,minmax(0,1fr))}
+  #tiles[data-count="5"] .tile:nth-last-child(2){grid-column:1 / span 1;margin-left:50%}
+  #tiles[data-count="5"] .tile:last-child{grid-column:2 / span 1;margin-left:50%}
+
+  .tile{position:relative;overflow:hidden;background:var(--tile);border:2px solid transparent;min-width:0;min-height:0;box-shadow:inset 0 0 0 1px rgba(255,255,255,.035);transition:border-color .12s ease,transform .25s ease,filter .25s ease}
+  .tile.speaking{border-color:var(--green)}
+  .tile.focused{border-color:var(--blue)}
+  .tile.glitch{animation:tileGlitch .12s steps(2,end) infinite;filter:saturate(.8) contrast(1.3)}
+  @keyframes tileGlitch{0%{transform:translate(0)}25%{transform:translate(3px,-1px)}50%{transform:translate(-4px,1px)}75%{transform:translate(2px,2px)}100%{transform:translate(0)}}
+  .tile.react-confused .avatar-stage,.tile.react-confused video{animation:confused .6s ease-in-out 2}
+  .tile.react-laugh .avatar-stage,.tile.react-laugh video{animation:laugh .42s ease-in-out 3}
+  .tile.react-nod .avatar-stage,.tile.react-nod video{animation:nod .6s ease-in-out 2}
+  .tile.react-shake .avatar-stage,.tile.react-shake video{animation:shake .38s ease-in-out 4}
+  @keyframes confused{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-2%) rotate(-1.5deg)}}
+  @keyframes laugh{0%,100%{transform:translateY(0)}50%{transform:translateY(2.3%) scale(.995)}}
+  @keyframes nod{0%,100%{transform:translateY(0)}50%{transform:translateY(2.8%)}}
+  @keyframes shake{0%,100%{transform:translateX(0)}50%{transform:translateX(2.1%)}}
+
+  .media-layer{position:absolute;inset:0;background:#18191d;overflow:hidden}
+  .media-layer video,.media-layer img{width:100%;height:100%;object-fit:cover;display:block}
+  .media-layer .custom-media{position:absolute;inset:0;z-index:8;width:100%;height:100%;object-fit:cover}
+  .media-layer video.mirrored{transform:scaleX(-1)}
+  .camera-off{position:absolute;inset:0;display:grid;place-items:center;background:#222328}
+  .camera-off .initials{width:min(22vw,150px);aspect-ratio:1;border-radius:50%;display:grid;place-items:center;font-size:clamp(26px,5vw,64px);font-weight:600;box-shadow:inset 0 0 0 1px rgba(255,255,255,.15)}
+
+  /* Procedural remote cast */
+  .avatar-stage{position:absolute;inset:0;overflow:hidden;background:radial-gradient(circle at 50% 32%,var(--room1),var(--room2) 58%,#17181b 100%);transform-origin:50% 70%}
+  .avatar-window{position:absolute;left:8%;top:7%;width:28%;height:38%;border:8px solid rgba(255,255,255,.12);background:linear-gradient(145deg,#8eb4cb,#d7e2e6 70%)}
+  .avatar-window:after{content:"";position:absolute;inset:45% -8px auto -8px;height:8px;background:rgba(255,255,255,.12)}
+  .avatar-plant{position:absolute;right:7%;bottom:15%;width:16%;height:31%;border-bottom:12px solid rgba(30,20,17,.45)}
+  .avatar-plant:before,.avatar-plant:after{content:"";position:absolute;left:46%;bottom:6%;width:46%;height:55%;border-radius:100% 0 100% 0;background:rgba(45,86,65,.68);transform:rotate(30deg);transform-origin:bottom left}
+  .avatar-plant:after{left:6%;transform:scaleX(-1) rotate(24deg)}
+  .shoulders{position:absolute;left:50%;bottom:-5%;width:52%;height:44%;transform:translateX(-50%);border-radius:48% 48% 0 0;background:var(--shirt);box-shadow:0 -18px 40px rgba(0,0,0,.18)}
+  .neck{position:absolute;left:50%;top:55%;width:11%;height:17%;transform:translateX(-50%);background:var(--skin);border-radius:0 0 38% 38%;z-index:3}
+  .head{position:absolute;left:50%;top:17%;width:27%;height:43%;transform:translateX(-50%);background:var(--skin);border-radius:48% 48% 44% 44%;z-index:4;box-shadow:inset -12px -10px 28px rgba(95,44,25,.08),0 10px 30px rgba(0,0,0,.18)}
+  .hair{position:absolute;left:-7%;top:-9%;width:114%;height:44%;background:var(--hair);border-radius:52% 52% 35% 35%;z-index:2}
+  .hair.short{height:33%;border-radius:55% 55% 28% 28%}
+  .hair.side{clip-path:polygon(0 0,100% 0,100% 72%,78% 60%,70% 100%,0 74%)}
+  .hair.long:after{content:"";position:absolute;right:-7%;top:28%;width:22%;height:155%;background:var(--hair);border-radius:0 60% 50% 80%}
+  .brow{position:absolute;top:41%;width:22%;height:4%;background:rgba(45,30,25,.55);border-radius:999px;transition:transform .2s ease}
+  .brow.left{left:18%;transform:rotate(-4deg)} .brow.right{right:18%;transform:rotate(4deg)}
+  .eye{position:absolute;top:47%;width:10%;height:5%;background:#202124;border-radius:50%;transform-origin:center;animation:blink var(--blink,5.2s) infinite}
+  .eye.left{left:25%}.eye.right{right:25%}
+  @keyframes blink{0%,45%,48%,100%{transform:scaleY(1)}46%,47%{transform:scaleY(.05)}}
+  .nose{position:absolute;left:48%;top:49%;width:5%;height:17%;border-right:2px solid rgba(75,40,30,.18);border-bottom:2px solid rgba(75,40,30,.12);border-radius:0 0 70% 0}
+  .mouth{position:absolute;left:50%;top:72%;width:19%;height:3.5%;transform:translateX(-50%);background:#7d4242;border-radius:50%;transition:height .08s ease,top .08s ease}
+  .tile.speaking .mouth{animation:talk .18s ease-in-out infinite alternate}
+  @keyframes talk{from{height:3.5%;top:72%}to{height:10%;top:69.5%;border-radius:45% 45% 55% 55%}}
+  .glasses{position:absolute;inset:43% 13% auto 13%;height:15%;z-index:6;display:none}
+  .glasses.show{display:block}
+  .glasses:before,.glasses:after{content:"";position:absolute;top:0;width:31%;height:66%;border:3px solid rgba(20,20,22,.72);border-radius:8px}
+  .glasses:before{left:0}.glasses:after{right:0}
+  .glasses i{position:absolute;left:44%;top:14%;width:12%;height:3px;background:rgba(20,20,22,.72)}
+  .tie{position:absolute;left:50%;top:66%;width:7%;height:30%;background:#5b2430;clip-path:polygon(50% 0,100% 14%,72% 100%,28% 100%,0 14%);transform:translateX(-50%);z-index:5;display:none}
+  .tie.show{display:block}
+  .nameplate{position:absolute;left:8px;bottom:7px;z-index:10;padding:4px 7px;border-radius:4px;background:rgba(0,0,0,.72);font-size:12px;line-height:1;display:flex;align-items:center;gap:6px;text-shadow:0 1px 1px #000}
+  .mic-dot{font-size:10px;color:#f06767}
+  .live-badge{position:absolute;top:8px;left:8px;z-index:10;background:#d94747;border-radius:4px;padding:4px 6px;font-size:10px;font-weight:700;letter-spacing:.04em;display:none}
+  .tile[data-id="nat"] .live-badge{display:block}
+
+  /* Nat feed overlays */
+  .nat-office{position:absolute;inset:0;pointer-events:none;opacity:.23;background:linear-gradient(90deg,transparent 0 72%,rgba(215,225,236,.34) 72% 100%)}
+  .nat-office:before{content:"";position:absolute;right:8%;top:13%;width:18%;height:36%;border:5px solid rgba(255,255,255,.25);background:rgba(160,188,208,.14)}
+  .roomba-rider{position:absolute;left:-28%;bottom:11%;width:16%;aspect-ratio:1.75;z-index:12;display:none;animation:roombaRide 8s linear infinite}
+  .roomba-rider.show{display:block}
+  .roomba{position:absolute;left:0;bottom:0;width:100%;height:42%;border-radius:50%;background:radial-gradient(circle at 50% 30%,#555,#171719 67%);box-shadow:0 9px 13px rgba(0,0,0,.45)}
+  .monster{position:absolute;left:34%;bottom:26%;width:32%;height:64%;background:#d9684b;border-radius:48% 48% 32% 32%;filter:drop-shadow(0 5px 4px rgba(0,0,0,.35));animation:monsterBob .5s ease-in-out infinite alternate}
+  .monster:before,.monster:after{content:"";position:absolute;top:21%;width:18%;aspect-ratio:1;border-radius:50%;background:#fff;box-shadow:inset 0 0 0 4px #252525}
+  .monster:before{left:17%}.monster:after{right:17%}
+  .monster i{position:absolute;left:33%;bottom:16%;width:34%;height:13%;border-radius:0 0 50% 50%;background:#272327}
+  @keyframes roombaRide{0%{transform:translateX(0)}50%{transform:translateX(780%)}50.1%{transform:translateX(780%) scaleX(-1)}100%{transform:translateX(0) scaleX(-1)}}
+  @keyframes monsterBob{from{transform:translateY(0) rotate(-2deg)}to{transform:translateY(-8%) rotate(2deg)}}
+
+  /* Overlays */
+  #captionBar{position:absolute;left:50%;bottom:86px;transform:translateX(-50%);z-index:25;max-width:min(85vw,1040px);padding:10px 15px;border-radius:8px;background:rgba(0,0,0,.75);font-size:clamp(15px,1.7vw,25px);line-height:1.35;text-align:center;opacity:0;transition:opacity .2s ease;pointer-events:none;text-shadow:0 2px 3px #000}
+  #captionBar.show{opacity:1}
+  #captionBar strong{color:#80b8ff}
+  #incomingCall{position:absolute;right:26px;top:58px;z-index:34;width:min(360px,34vw);padding:16px;border-radius:12px;background:rgba(34,35,39,.96);box-shadow:var(--shadow);border:1px solid #4a4b50;display:none}
+  #incomingCall.show{display:block;animation:incoming .25s ease-out}
+  @keyframes incoming{from{opacity:0;transform:translateY(-12px)}to{opacity:1;transform:none}}
+  .incoming-title{font-size:13px;color:var(--muted)}
+  .incoming-name{font-size:18px;font-weight:650;margin-top:4px}
+  .incoming-actions{display:flex;gap:8px;margin-top:13px}
+  .incoming-actions button{border:0;border-radius:7px;padding:8px 12px;background:#3b3c41}
+  .incoming-actions .join{background:var(--blue)}
+  #collisionWindow{position:absolute;z-index:28;right:3.5%;bottom:7%;width:38%;height:46%;background:#18191d;border:1px solid #55565c;box-shadow:0 20px 70px rgba(0,0,0,.7);display:none;overflow:hidden}
+  #collisionWindow.show{display:block;animation:windowOpen .35s ease-out}
+  @keyframes windowOpen{from{opacity:0;transform:scale(.88) translate(12%,12%)}to{opacity:1;transform:none}}
+  .collision-header{height:30px;background:#2c2d32;display:flex;align-items:center;justify-content:center;font-size:11px;color:#ddd;border-bottom:1px solid #111}
+  .collision-body{position:absolute;inset:30px 0 0;display:grid;place-items:center;background:radial-gradient(circle at 50% 30%,#4b5060,#202126 65%)}
+  .phil-mini{width:46%;aspect-ratio:1;border-radius:50%;display:grid;place-items:center;background:#c99074;color:#181818;font-weight:700;font-size:clamp(28px,5vw,70px);box-shadow:0 0 0 7px rgba(255,255,255,.1)}
+
+  /* Bottom meeting toolbar */
+  .toolbar{position:absolute;inset:auto 0 0 0;height:72px;z-index:31;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:0 16px;background:linear-gradient(#202124,#18191c);border-top:1px solid #0a0a0b;transition:opacity .2s ease,transform .2s ease}
+  .toolbar-left,.toolbar-center,.toolbar-right{display:flex;align-items:center;gap:5px}
+  .toolbar-center{justify-content:center}
+  .toolbar-right{justify-content:flex-end}
+  .tool{height:62px;min-width:64px;border:0;background:transparent;border-radius:7px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11px;cursor:pointer}
+  .tool.active{background:rgba(45,140,255,.16);color:#7ab0ff}
+  .tool:hover{background:#303136}.tool .ico{font-size:22px;line-height:1}
+  .tool.primary .ico{color:#fff}.tool.danger{background:#d84545;height:34px;min-width:72px;margin-left:10px;font-weight:650}
+  .tool.danger:hover{background:#ef5555}
+  .split-tool{display:flex;align-items:center}
+  .caret{border:0;background:transparent;color:#ddd;padding:6px 3px;font-size:10px}
+  .status-strip{position:absolute;left:12px;bottom:79px;z-index:23;display:flex;gap:8px;align-items:center}
+  .rec{display:none;align-items:center;gap:7px;padding:5px 8px;border-radius:5px;background:rgba(0,0,0,.7);font-size:11px}
+  .rec.show{display:flex}.rec-dot{width:9px;height:9px;border-radius:50%;background:#ef4545;animation:pulse 1s infinite}
+  @keyframes pulse{50%{opacity:.3}}
+  .motion-meter{display:none;padding:5px 8px;border-radius:5px;background:rgba(0,0,0,.7);font-size:10px;color:#ddd}
+  body.debug-motion .motion-meter{display:block}
+
+  /* Director panel */
+  #director{position:absolute;top:42px;right:0;bottom:72px;width:min(390px,92vw);z-index:50;background:rgba(20,21,24,.975);border-left:1px solid #3d3e43;box-shadow:-18px 0 45px rgba(0,0,0,.48);transform:translateX(100%);transition:transform .22s ease;overflow:auto;padding:18px 16px 28px;user-select:text}
+  #director.open{transform:translateX(0)}
+  .director-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:18px}
+  .director-head h1{font-size:17px;margin:0 0 3px}.director-head p{font-size:11px;color:var(--muted);margin:0;line-height:1.4}
+  .close-x{border:0;background:#34353a;border-radius:7px;width:30px;height:30px;cursor:pointer}
+  .section{padding:14px 0;border-top:1px solid #35363b}.section:first-of-type{border-top:0}
+  .section h2{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:#aeb1b8;margin:0 0 10px}
+  .button-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+  .button-grid.nine{grid-template-columns:repeat(9,minmax(0,1fr));gap:4px}
+  .director-btn{border:1px solid #44464c;background:#2a2b30;border-radius:7px;padding:9px 8px;font-size:12px;cursor:pointer;text-align:left}
+  .director-btn:hover{background:#36383e}.director-btn.active{border-color:var(--blue);background:#183c67}
+  .button-grid.nine .director-btn{text-align:center;padding:8px 0}
+  .cue-list{display:grid;gap:6px;max-height:310px;overflow:auto;padding-right:3px}
+  .cue{display:grid;grid-template-columns:28px 1fr;gap:8px;align-items:center;border:1px solid #414248;background:#27282c;border-radius:7px;padding:8px;cursor:pointer}
+  .cue.active{border-color:var(--green);background:#173b28}.cue-num{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:#3a3b40;font-size:11px}.cue-title{font-size:12px}.cue-line{font-size:10px;color:#b8bbc1;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .row{display:flex;gap:8px;align-items:center;margin-top:8px}.row>*{min-width:0}
+  .row label{font-size:11px;color:#c6c8cd;flex:1}
+  .field{width:100%;border:1px solid #45464c;background:#25262a;color:#fff;border-radius:6px;padding:8px;font-size:12px}
+  .toggle{appearance:none;width:38px;height:22px;border-radius:999px;background:#44464c;position:relative;cursor:pointer;transition:.2s}
+  .toggle:after{content:"";position:absolute;width:16px;height:16px;left:3px;top:3px;border-radius:50%;background:#fff;transition:.2s}
+  .toggle:checked{background:var(--blue)}.toggle:checked:after{transform:translateX(16px)}
+  .upload-list{display:grid;gap:6px}
+  .upload-row{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;border:1px solid #3c3d42;border-radius:7px;padding:7px 8px;font-size:11px}
+  .upload-row .lib-btn{font-size:10px;padding:5px 9px;border:1px solid #3c5a8f;background:#1b2333;color:#a9c3ff;border-radius:5px;cursor:pointer;white-space:nowrap}
+  .upload-row .lib-btn:hover{border-color:#5c85d6;color:#fff}
+  #soundBtn.on{color:#4ecb7a}
+  .upload-row input{width:112px;font-size:10px}
+  .help{font-size:10px;line-height:1.5;color:#aeb1b8;margin-top:8px}
+  kbd{padding:2px 5px;border-radius:4px;background:#393a40;border:1px solid #55565d;font-size:10px;color:#fff}
+  .meter{height:7px;background:#3d3e43;border-radius:999px;overflow:hidden;margin-top:6px}.meter span{display:block;height:100%;width:0;background:#37c66d;transition:width .08s linear}
+
+  /* Clean/presentation states */
+  body.clean .topbar,body.clean .toolbar,body.clean #director,body.clean #captionBar,body.clean .status-strip{opacity:0;pointer-events:none}
+  body.clean #meetingStage{inset:0}
+  body.clean #tiles{padding:0;gap:3px}
+  body.chrome-hidden .topbar,body.chrome-hidden .toolbar{opacity:0;pointer-events:none}
+  body.chrome-hidden #meetingStage{inset:0}
+  body.chrome-hidden #director{top:0;bottom:0}
+  body.idle:not(.director-open) .topbar,body.idle:not(.director-open) .toolbar{opacity:0;pointer-events:none}
+  body.idle:not(.director-open) #meetingStage{inset:0}
+  body.idle:not(.director-open) #tiles{padding:3px;gap:3px}
+
+  #toast{position:absolute;left:50%;top:60px;z-index:70;transform:translateX(-50%) translateY(-10px);opacity:0;padding:9px 13px;border-radius:7px;background:rgba(0,0,0,.8);box-shadow:var(--shadow);font-size:12px;transition:.2s;pointer-events:none}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  #permissionSplash{position:absolute;inset:0;z-index:80;display:grid;place-items:center;background:radial-gradient(circle at 50% 30%,#242832,#0a0b0e 72%)}
+  .splash-card{width:min(600px,90vw);padding:34px;border-radius:18px;background:rgba(31,32,36,.96);border:1px solid #44464d;box-shadow:0 30px 90px rgba(0,0,0,.65);text-align:center}
+  .splash-mark{width:72px;height:72px;border-radius:20px;background:var(--blue);display:grid;place-items:center;margin:0 auto 18px;font-size:34px;font-weight:800}
+  .splash-card h1{margin:0 0 10px;font-size:28px}.splash-card p{margin:0 auto 21px;max-width:470px;color:#c2c4ca;line-height:1.5;font-size:14px}
+  .splash-actions{display:flex;justify-content:center;gap:10px;flex-wrap:wrap}
+  .splash-actions button{border:0;border-radius:8px;padding:12px 16px;background:#3a3b40;font-weight:650;cursor:pointer}.splash-actions .go{background:var(--blue)}
+  .splash-note{font-size:10px!important;color:#9699a1!important;margin-top:18px!important}
+
+  @media(max-width:760px){
+    .toolbar{grid-template-columns:1fr auto}.toolbar-center{display:none}.toolbar-left{overflow:hidden}.tool{min-width:54px}.top-left{min-width:0}.meeting-title{max-width:43vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.top-right{min-width:0}.top-chip{display:none}
+    #tiles{padding:5px;gap:4px}.nameplate{font-size:10px}.director-btn{font-size:11px}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="topbar">
+    <div class="top-left">
+      <div class="security">✓</div>
+      <div class="meeting-title">Vilo Product Team — Scene 06</div>
+    </div>
+    <div class="meeting-time" id="meetingTime">00:00:00</div>
+    <div class="top-right">
+      <button class="top-chip" id="viewBtn">View</button>
+      <button class="top-chip" id="directorTopBtn">Director <kbd>D</kbd></button>
+    </div>
+  </div>
+
+  <main id="meetingStage" aria-label="Live meeting stage">
+    <div id="tiles" data-count="4"></div>
+  </main>
+
+  <div id="captionBar"></div>
+
+  <section id="incomingCall" aria-live="polite">
+    <div class="incoming-title">Important meeting starting now</div>
+    <div class="incoming-name">Performance Review — Phil</div>
+    <div class="incoming-actions">
+      <button>Dismiss</button><button class="join" id="joinIncoming">Join</button>
+    </div>
+  </section>
+
+  <section id="collisionWindow">
+    <div class="collision-header">Performance Review — Connecting…</div>
+    <div class="collision-body"><div class="phil-mini">PH</div></div>
+  </section>
+
+  <div class="status-strip">
+    <div class="rec" id="recBadge"><span class="rec-dot"></span><span>Recording</span></div>
+    <div class="motion-meter">MOTION <span id="motionValue">0</span></div>
+  </div>
+
+  <nav class="toolbar" aria-label="Meeting controls">
+    <div class="toolbar-left">
+      <div class="split-tool"><button class="tool" id="muteBtn"><span class="ico">🎙</span><span>Mute</span></button><button class="caret">⌃</button></div>
+      <div class="split-tool"><button class="tool" id="videoBtn"><span class="ico">📹</span><span>Stop Video</span></button><button class="caret">⌃</button></div>
+    </div>
+    <div class="toolbar-center">
+      <button class="tool"><span class="ico">🛡</span><span>Security</span></button>
+      <button class="tool" id="participantsBtn"><span class="ico">👥</span><span id="participantsLabel">Participants (4)</span></button>
+      <button class="tool"><span class="ico">💬</span><span>Chat</span></button>
+      <button class="tool"><span class="ico">⬆</span><span>Share Screen</span></button>
+      <button class="tool" id="soundBtn" title="Play or mute the coworkers' own recorded audio"><span class="ico">🔇</span><span>Sound off</span></button>
+      <button class="tool"><span class="ico">◉</span><span>Record</span></button>
+      <button class="tool"><span class="ico">☺</span><span>Reactions</span></button>
+      <button class="tool"><span class="ico">•••</span><span>More</span></button>
+    </div>
+    <div class="toolbar-right"><button class="tool danger" id="endBtn">End</button></div>
+  </nav>
+
+  <aside id="director">
+    <div class="director-head">
+      <div><h1>Scene 06 Live Stage</h1><p>Real actress camera + reactive remote cast + clean screen recording.</p></div>
+      <button class="close-x" id="closeDirector">×</button>
+    </div>
+
+    <section class="section">
+      <h2>Shot presets</h2>
+      <div class="button-grid" id="presetButtons">
+        <button class="director-btn active" data-preset="team4">Team — 4</button>
+        <button class="director-btn" data-preset="team9">Team — 9</button>
+        <button class="director-btn" data-preset="review2">Review — 2</button>
+        <button class="director-btn" data-preset="phil1">Phil — 1</button>
+        <button class="director-btn" data-preset="nat1">Nat — 1</button>
+        <button class="director-btn" data-preset="collision">Collision</button>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Visible heads</h2>
+      <div class="button-grid nine" id="countButtons"></div>
+      <div class="row"><label for="focusSelect">One-head focus</label><select class="field" id="focusSelect"></select></div>
+    </section>
+
+    <section class="section">
+      <h2>Live actress</h2>
+      <button class="director-btn" id="startCameraBtn">Start / change camera</button>
+      <div class="row"><label for="cameraSelect">Camera</label><select class="field" id="cameraSelect"><option value="">Default camera</option></select></div>
+      <div class="row"><label>Mirror Nat preview</label><input class="toggle" type="checkbox" id="mirrorToggle" checked /></div>
+      <div class="row"><label>Show camera office guide</label><input class="toggle" type="checkbox" id="officeGuideToggle" /></div>
+      <div class="row"><label>Motion-reactive coworkers</label><input class="toggle" type="checkbox" id="motionToggle" checked /></div>
+      <div class="meter"><span id="motionMeterBar"></span></div>
+      <div class="help">The actress performs normally in front of the real computer. Motion analysis notices a chair turn or sudden movement and makes coworkers react. No camera frames leave the browser.</div>
+    </section>
+
+    <section class="section">
+      <h2>Scene cues</h2>
+      <div class="cue-list" id="cueList"></div>
+      <div class="row">
+        <button class="director-btn" id="prevCueBtn">◀ Previous</button>
+        <button class="director-btn" id="playCueBtn">Play sequence</button>
+        <button class="director-btn" id="nextCueBtn">Next ▶</button>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Reactive dialogue</h2>
+      <div class="row"><label>Browser speech recognition</label><input class="toggle" type="checkbox" id="speechToggle" /></div>
+      <div class="row"><label>Remote actor voices</label><input class="toggle" type="checkbox" id="voiceToggle" checked /></div>
+      <div class="row"><label>Auto-advance from Nat's lines</label><input class="toggle" type="checkbox" id="autoAdvanceToggle" checked /></div>
+      <div class="row"><label for="aiEndpoint">Optional local AI endpoint</label></div>
+      <input class="field" id="aiEndpoint" placeholder="e.g. http://localhost:11434/api/chat" />
+      <div class="row"><label for="aiModel">Model</label><input class="field" id="aiModel" value="llama3.2" /></div>
+      <div class="row"><label>Use generative replies</label><input class="toggle" type="checkbox" id="generativeToggle" /></div>
+      <div class="help">For a reliable shoot, the scripted cue engine is the default. Generative mode can call a local Ollama-style endpoint; secrets are never embedded in this file.</div>
+    </section>
+
+    <section class="section">
+      <h2>Remote participant media</h2>
+      <div class="row"><label>Coworker loop audio</label><input class="toggle" type="checkbox" id="soundToggle" /></div>
+      <div class="upload-list" id="uploadList"></div>
+      <div class="help">Load a portrait or looping video for any coworker, or pick one from the built-in 27-loop library. Files stay local; loops carry their own recorded audio — muted by default, toggle above to play it.</div>
+    </section>
+
+    <section class="section">
+      <h2>Capture</h2>
+      <div class="button-grid">
+        <button class="director-btn" id="recordBtn">Record screen</button>
+        <button class="director-btn" id="fullBtn">Fullscreen</button>
+        <button class="director-btn" id="cleanBtn">Clean feed</button>
+        <button class="director-btn" id="captionsBtn">Captions on</button>
+      </div>
+      <div class="help">For screen recording, choose this browser tab/window. The recorder mixes shared-screen audio with Nat's microphone when available.</div>
+    </section>
+
+    <section class="section">
+      <h2>Keyboard</h2>
+      <div class="help"><kbd>D</kbd> director · <kbd>1–9</kbd> heads · <kbd>Space</kbd> next cue · <kbd>F</kbd> fullscreen · <kbd>H</kbd> hide chrome · <kbd>C</kbd> camera · <kbd>R</kbd> record · <kbd>Esc</kbd> exit clean feed</div>
+    </section>
+  </aside>
+
+  <div id="toast"></div>
+
+  <section id="permissionSplash">
+    <div class="splash-card">
+      <div class="splash-mark">V</div>
+      <h1>Join the Scene 06 meeting</h1>
+      <p>This film-stage meeting uses the computer's real camera and microphone for Nat, while the remote cast follows the scripted scene and reacts live.</p>
+      <div class="splash-actions">
+        <button class="go" id="joinWithCamera">Join with camera</button>
+        <button id="joinWithoutCamera">Rehearse without camera</button>
+      </div>
+      <p class="splash-note">Camera and screen-recording permissions require a secure page or localhost in most browsers. Nothing is uploaded by this file.</p>
+    </div>
+  </section>
+</div>
+
+<canvas id="motionCanvas" width="48" height="27" hidden></canvas>
+
+<script src="clips.js"></script>
+<script>
+(() => {
+  'use strict';
+
+  const $ = (sel, root=document) => root.querySelector(sel);
+  const $$ = (sel, root=document) => [...root.querySelectorAll(sel)];
+
+  const participants = [
+    {id:'nat', name:'Natalie', initials:'N', role:'self', skin:'#e9b391', hair:'#c8ad8e', shirt:'#1d2430', room1:'#66717f', room2:'#30343d', hairClass:'long side', blink:'4.7s'},
+    {id:'chris', name:'Chris', initials:'C', role:'team', skin:'#8b583c', hair:'#1f1b1a', shirt:'#273d52', room1:'#7c8490', room2:'#343941', hairClass:'short', blink:'5.6s'},
+    {id:'samantha', name:'Samantha', initials:'S', role:'team', skin:'#d4a07f', hair:'#864f74', shirt:'#2b293d', room1:'#7d756b', room2:'#363230', hairClass:'long side', glasses:true, blink:'6.1s'},
+    {id:'ernie', name:'Ernie', initials:'E', role:'team', skin:'#b97855', hair:'#2b211d', shirt:'#415442', room1:'#7b8373', room2:'#333830', hairClass:'short', blink:'4.9s'},
+    {id:'phil', name:'Phil', initials:'P', role:'executive', skin:'#d2a07f', hair:'#74675f', shirt:'#303743', room1:'#777e8c', room2:'#34363c', hairClass:'short side', tie:true, blink:'5.9s'},
+    {id:'maya', name:'Maya', initials:'M', role:'team', skin:'#8f5d45', hair:'#151416', shirt:'#563844', room1:'#83736c', room2:'#332f31', hairClass:'long', blink:'4.5s'},
+    {id:'devon', name:'Devon', initials:'D', role:'team', skin:'#c88e68', hair:'#37271f', shirt:'#3b4557', room1:'#72808e', room2:'#303740', hairClass:'short', blink:'6.4s'},
+    {id:'alex', name:'Alex', initials:'A', role:'team', skin:'#d9ae8f', hair:'#50352b', shirt:'#45403a', room1:'#818174', room2:'#35352f', hairClass:'side', glasses:true, blink:'5.2s'},
+    {id:'jordan', name:'Jordan', initials:'J', role:'team', skin:'#986247', hair:'#251e1b', shirt:'#314a46', room1:'#75847c', room2:'#303a36', hairClass:'short', blink:'4.3s'}
+  ];
+
+  const byId = Object.fromEntries(participants.map(p => [p.id,p]));
+  const teamOrder = ['chris','samantha','ernie','nat','maya','devon','alex','jordan','phil'];
+  const broadOrder = ['nat','chris','samantha','ernie','phil','maya','devon','alex','jordan'];
+  const presets = {
+    team4: ['chris','samantha','ernie','nat'],
+    team9: ['chris','samantha','ernie','nat','maya','devon','alex','jordan','phil'],
+    review2: ['phil','nat'],
+    phil1: ['phil'],
+    nat1: ['nat']
+  };
+
+  const cues = [
+    {id:'establish', label:'Meeting established', preset:'team4', speaker:null, line:'The team settles into the call.', duration:2500},
+    {id:'chris', label:'Chris raises onboarding', preset:'team4', speaker:'chris', line:'How will we manage onboarding some of the new team members?', duration:5600, reactions:{nat:'nod',samantha:'nod'}},
+    {id:'nat-volunteer', label:'Nat volunteers', preset:'team4', speaker:'nat', line:'I can do it. No problem. Samantha can help me as well.', duration:5200, reactions:{chris:'nod',ernie:'nod'}},
+    {id:'samantha', label:'Samantha remembers client call', preset:'team4', speaker:'samantha', line:"Wait, what about the three o’clock meeting with the clients?", duration:5200, reactions:{chris:'confused',nat:'confused'}},
+    {id:'ernie', label:'Ernie asks for ideas', preset:'team4', speaker:'ernie', line:'And we need to onboard our new team pronto. Anybody got any ideas?', duration:5600, reactions:{samantha:'nod'}},
+    {id:'nat-plan', label:'Nat begins her plan', preset:'team4', speaker:'nat', line:'I’m thinking... what if we split the onboarding into two parts. First part...', duration:6500},
+    {id:'spin-noticed', label:'Coworkers notice the spin', preset:'team4', speaker:'chris', line:'Natalie?', duration:2500, reactions:{chris:'confused',ernie:'confused',samantha:'confused'}},
+    {id:'back-head', label:'Everyone sees her back', preset:'team4', speaker:'samantha', line:'Honey, you’re spinning!', duration:3600, reactions:{chris:'shake',ernie:'shake',samantha:'confused'}},
+    {id:'nat-return', label:'Nat snaps back', preset:'team4', speaker:'nat', line:'Oh my gosh, I’m so sorry. Did you guys hear me?', duration:4800, reactions:{chris:'shake',ernie:'shake',samantha:'shake'}},
+    {id:'repeat', label:'Group asks for repeat', preset:'team4', speaker:'samantha', line:'Could you repeat that please?', duration:3000, reactions:{chris:'laugh',ernie:'laugh'}},
+    {id:'notification', label:'Second meeting notification', preset:'team4', speaker:null, line:'Important meeting starting now.', duration:3200, incoming:true},
+    {id:'collision', label:'Two meetings collide', preset:'team4', speaker:'phil', line:'Hi Natalie, are you ready for your performance review?', duration:5200, collision:true, glitchNat:true},
+    {id:'review', label:'Performance review', preset:'review2', speaker:'phil', line:'Very well then, let’s start with last quarter…', duration:6200},
+    {id:'monster', label:'Monster rides the Roomba', preset:'review2', speaker:'phil', line:'Phil continues, unaware of the chaos behind Nat.', duration:7200, monster:true, reactions:{nat:'confused'}},
+    {id:'phil-single', label:'Clean Phil pickup', preset:'phil1', speaker:'phil', line:'Very well then, let’s start with last quarter…', duration:6000},
+    {id:'nat-single', label:'Clean Nat pickup', preset:'nat1', speaker:'nat', line:'Good morning, Phil. Perfect timing!', duration:5000}
+  ];
+
+  const state = {
+    preset:'team4', activeIds:[...presets.team4], count:4, focus:'phil', cueIndex:0,
+    playing:false, playTimer:null, cameraStream:null, cameraOn:false, muted:false,
+    mirror:true, captions:true, voice:true, motionReact:true, motionCooldown:0,
+    recognition:null, recognitionOn:false, autoAdvance:true, transcript:'',
+    mediaRecorder:null, recordChunks:[], displayStream:null, startTime:performance.now(),
+    generative:false, aiBusy:false, idleTimer:null, coworkerSound:false
+  };
+
+  const tilesEl = $('#tiles');
+  const tileMap = new Map();
+  const natVideo = document.createElement('video');
+  natVideo.autoplay = true; natVideo.muted = true; natVideo.playsInline = true;
+
+  function makeAvatar(p){
+    const el = document.createElement('div');
+    el.className = 'avatar-stage';
+    el.style.setProperty('--skin',p.skin); el.style.setProperty('--hair',p.hair);
+    el.style.setProperty('--shirt',p.shirt); el.style.setProperty('--room1',p.room1);
+    el.style.setProperty('--room2',p.room2); el.style.setProperty('--blink',p.blink);
+    el.innerHTML = `
+      <div class="avatar-window"></div><div class="avatar-plant"></div>
+      <div class="shoulders"></div><div class="neck"></div>
+      <div class="head"><div class="hair ${p.hairClass||''}"></div>
+      <div class="brow left"></div><div class="brow right"></div>
+      <div class="eye left"></div><div class="eye right"></div><div class="nose"></div>
+      <div class="mouth"></div><div class="glasses ${p.glasses?'show':''}"><i></i></div></div>
+      <div class="tie ${p.tie?'show':''}"></div>`;
+    return el;
+  }
+
+  function createTile(p){
+    const tile = document.createElement('article');
+    tile.className='tile'; tile.dataset.id=p.id;
+    const media = document.createElement('div'); media.className='media-layer';
+    if(p.id==='nat'){
+      natVideo.className='mirrored';
+      media.append(natVideo);
+      const off = document.createElement('div'); off.className='camera-off'; off.innerHTML=`<div class="initials" style="background:${p.room1}">${p.initials}</div>`; media.append(off);
+      const guide = document.createElement('div'); guide.className='nat-office'; guide.hidden=true; media.append(guide);
+      const rider = document.createElement('div'); rider.className='roomba-rider'; rider.innerHTML='<div class="monster"><i></i></div><div class="roomba"></div>'; media.append(rider);
+    } else {
+      media.append(makeAvatar(p));
+    }
+    tile.append(media);
+    const live = document.createElement('div'); live.className='live-badge'; live.textContent='LIVE'; tile.append(live);
+    const plate = document.createElement('div'); plate.className='nameplate'; plate.innerHTML=`<span class="mic-dot">●</span><span>${p.name}</span>`; tile.append(plate);
+    tile.addEventListener('dblclick',()=>{state.focus=p.id; setPreset(p.id==='nat'?'nat1':p.id==='phil'?'phil1':'customFocus');});
+    tileMap.set(p.id,tile);
+    return tile;
+  }
+  participants.forEach(createTile);
+
+  function clearTransient(){
+    tileMap.forEach(tile=>{tile.classList.remove('speaking','focused','glitch','react-confused','react-laugh','react-nod','react-shake')});
+    $('#incomingCall').classList.remove('show'); $('#collisionWindow').classList.remove('show');
+    tileMap.get('nat').querySelector('.roomba-rider').classList.remove('show');
+  }
+
+  function setActive(ids, presetName='custom'){
+    state.activeIds=[...ids]; state.count=ids.length; state.preset=presetName;
+    tilesEl.replaceChildren(...ids.map(id=>tileMap.get(id)));
+    tilesEl.dataset.count=String(ids.length);
+    $('#participantsLabel').textContent=`Participants (${ids.length})`;
+    $$('#countButtons .director-btn').forEach(b=>b.classList.toggle('active',Number(b.dataset.count)===ids.length));
+    $$('#presetButtons .director-btn').forEach(b=>b.classList.toggle('active',b.dataset.preset===presetName));
+    updateCameraVisibility();
+  }
+
+  function setPreset(name){
+    clearTransient();
+    if(name==='collision'){
+      setActive(presets.team4,'collision');
+      $('#collisionWindow').classList.add('show');
+      tileMap.get('nat').classList.add('glitch');
+      return;
+    }
+    if(name==='customFocus'){
+      setActive([state.focus],'customFocus');
+      return;
+    }
+    const ids=presets[name]; if(ids) setActive(ids,name);
+  }
+
+  function setCount(n){
+    clearTransient();
+    n=Math.max(1,Math.min(9,n));
+    if(n===1){ setActive([state.focus||'nat'],'custom'); return; }
+    const order = state.preset.startsWith('team') ? teamOrder : broadOrder;
+    const ids = order.slice(0,n);
+    if(!ids.includes('nat')) ids[ids.length-1]='nat';
+    setActive(ids,'custom');
+  }
+
+  function markSpeaker(id){
+    tileMap.forEach((tile,pid)=>tile.classList.toggle('speaking',pid===id && state.activeIds.includes(pid)));
+  }
+  function react(id,type){
+    const tile=tileMap.get(id); if(!tile || !state.activeIds.includes(id)) return;
+    tile.classList.remove('react-confused','react-laugh','react-nod','react-shake');
+    void tile.offsetWidth;
+    tile.classList.add(`react-${type}`);
+    setTimeout(()=>tile.classList.remove(`react-${type}`),2800);
+  }
+
+  function showCaption(name,line,temporary=true){
+    if(!state.captions){$('#captionBar').classList.remove('show');return;}
+    const bar=$('#captionBar'); bar.innerHTML=name?`<strong>${name}:</strong> ${line}`:line; bar.classList.add('show');
+    if(temporary){clearTimeout(showCaption.timer);showCaption.timer=setTimeout(()=>bar.classList.remove('show'),7000)}
+  }
+
+  function applyCue(index,{speak=true}={}){
+    state.cueIndex=(index+cues.length)%cues.length;
+    const cue=cues[state.cueIndex];
+    clearTransient();
+    if(cue.preset) setPreset(cue.preset);
+    markSpeaker(cue.speaker);
+    if(cue.reactions) Object.entries(cue.reactions).forEach(([id,type],i)=>setTimeout(()=>react(id,type),650+i*220));
+    if(cue.incoming) $('#incomingCall').classList.add('show');
+    if(cue.collision){$('#collisionWindow').classList.add('show');tileMap.get('nat').classList.toggle('glitch',!!cue.glitchNat)}
+    if(cue.monster) tileMap.get('nat').querySelector('.roomba-rider').classList.add('show');
+    const who=cue.speaker?byId[cue.speaker].name:'';
+    showCaption(who,cue.line);
+    $$('.cue').forEach((el,i)=>el.classList.toggle('active',i===state.cueIndex));
+    if(speak && cue.speaker && state.voice) speakLine(cue.speaker,cue.line);
+    if(state.playing){ clearTimeout(state.playTimer); state.playTimer=setTimeout(()=>applyCue(state.cueIndex+1),cue.duration||5000); }
+  }
+
+  function speakLine(id,text){
+    if(!('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    const p=byId[id]; const u=new SpeechSynthesisUtterance(text);
+    u.rate=id==='phil'?.9:id==='ernie'?1.04:.96; u.pitch=id==='samantha'?1.12:id==='chris'?.86:1;
+    const voices=speechSynthesis.getVoices();
+    const preferred = id==='samantha' ? voices.find(v=>/Samantha|Karen|Female/i.test(v.name)) : id==='chris'||id==='ernie'||id==='phil' ? voices.find(v=>/Daniel|Alex|Male|David/i.test(v.name)) : voices.find(v=>/Samantha|Karen|Female/i.test(v.name));
+    if(preferred) u.voice=preferred;
+    u.onstart=()=>markSpeaker(id); u.onend=()=>{const cue=cues[state.cueIndex]; if(cue.speaker===id) markSpeaker(null)};
+    speechSynthesis.speak(u);
+  }
+
+  function playSequence(){
+    state.playing=!state.playing;
+    $('#playCueBtn').textContent=state.playing?'Pause sequence':'Play sequence';
+    if(state.playing) applyCue(state.cueIndex);
+    else clearTimeout(state.playTimer);
+  }
+
+  async function startCamera(){
+    try{
+      if(state.cameraStream) state.cameraStream.getTracks().forEach(t=>t.stop());
+      const deviceId=$('#cameraSelect').value;
+      const constraints={video:{width:{ideal:1920},height:{ideal:1080},frameRate:{ideal:30,max:60},...(deviceId?{deviceId:{exact:deviceId}}:{facingMode:'user'})},audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}};
+      state.cameraStream=await navigator.mediaDevices.getUserMedia(constraints);
+      natVideo.srcObject=state.cameraStream; await natVideo.play(); state.cameraOn=true;
+      updateCameraVisibility(); await enumerateCameras(); setupAudioMeter(); startMotionLoop();
+      toast('Camera and microphone are live');
+    }catch(err){console.error(err);toast(`Camera unavailable: ${err.message}`);state.cameraOn=false;updateCameraVisibility()}
+  }
+
+  function stopCamera(){
+    if(state.cameraStream) state.cameraStream.getVideoTracks().forEach(t=>t.enabled=false);
+    state.cameraOn=false; updateCameraVisibility();
+  }
+  function resumeCamera(){
+    if(state.cameraStream){state.cameraStream.getVideoTracks().forEach(t=>t.enabled=true);state.cameraOn=true;updateCameraVisibility()} else startCamera();
+  }
+  function updateCameraVisibility(){
+    const off=tileMap.get('nat').querySelector('.camera-off'); off.style.display=state.cameraOn?'none':'grid';
+    natVideo.classList.toggle('mirrored',state.mirror);
+    $('#videoBtn').querySelector('span:last-child').textContent=state.cameraOn?'Stop Video':'Start Video';
+  }
+
+  async function enumerateCameras(){
+    if(!navigator.mediaDevices?.enumerateDevices) return;
+    const devices=await navigator.mediaDevices.enumerateDevices();
+    const select=$('#cameraSelect'); const current=select.value; select.innerHTML='<option value="">Default camera</option>';
+    devices.filter(d=>d.kind==='videoinput').forEach((d,i)=>{const o=document.createElement('option');o.value=d.deviceId;o.textContent=d.label||`Camera ${i+1}`;select.append(o)}); select.value=current;
+  }
+
+  let audioContext, analyser, audioSource;
+  function setupAudioMeter(){
+    try{
+      audioContext?.close(); audioContext=new AudioContext(); analyser=audioContext.createAnalyser(); analyser.fftSize=256;
+      audioSource=audioContext.createMediaStreamSource(state.cameraStream); audioSource.connect(analyser);
+      const data=new Uint8Array(analyser.frequencyBinCount);
+      const tick=()=>{if(!analyser)return;analyser.getByteFrequencyData(data);const level=data.reduce((a,b)=>a+b,0)/data.length;document.documentElement.style.setProperty('--mic-level',String(level));requestAnimationFrame(tick)};tick();
+    }catch(e){console.warn(e)}
+  }
+
+  let prevFrame=null, motionTimer=null;
+  function startMotionLoop(){
+    clearInterval(motionTimer); const canvas=$('#motionCanvas'),ctx=canvas.getContext('2d',{willReadFrequently:true});
+    motionTimer=setInterval(()=>{
+      if(!state.cameraOn||natVideo.readyState<2) return;
+      ctx.drawImage(natVideo,0,0,canvas.width,canvas.height);
+      const data=ctx.getImageData(0,0,canvas.width,canvas.height).data; const current=new Uint8Array(canvas.width*canvas.height);
+      for(let i=0,j=0;i<data.length;i+=4,j++) current[j]=(data[i]*.299+data[i+1]*.587+data[i+2]*.114)|0;
+      if(prevFrame){let diff=0;for(let i=0;i<current.length;i++) diff+=Math.abs(current[i]-prevFrame[i]);const score=diff/current.length;
+        $('#motionValue').textContent=score.toFixed(1);$('#motionMeterBar').style.width=`${Math.min(100,score*4)}%`;
+        if(state.motionReact && performance.now()>state.motionCooldown && score>17){
+          const cue=cues[state.cueIndex];
+          if(cue.id==='nat-plan'){state.motionCooldown=performance.now()+5000;applyCue(cues.findIndex(c=>c.id==='spin-noticed'));toast('Coworkers noticed Nat moving')}
+          else if(cue.id==='spin-noticed' && score>22){state.motionCooldown=performance.now()+5000;applyCue(cues.findIndex(c=>c.id==='back-head'))}
+        }
+      }
+      prevFrame=current;
+    },220);
+  }
+
+  function setupRecognition(enable){
+    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    if(!SR){$('#speechToggle').checked=false;toast('Speech recognition is not available in this browser');return}
+    if(!state.recognition){
+      const r=new SR();r.continuous=true;r.interimResults=true;r.lang='en-US';
+      r.onresult=e=>{let final='',interim='';for(let i=e.resultIndex;i<e.results.length;i++){const t=e.results[i][0].transcript;if(e.results[i].isFinal)final+=t;else interim+=t}
+        const text=(final||interim).trim();if(text)showCaption('Natalie',text,false);
+        if(final){state.transcript=(state.transcript+' '+final).trim();handleNatSpeech(final.trim())}
+      };
+      r.onerror=e=>{if(e.error!=='no-speech')toast(`Speech recognition: ${e.error}`)};
+      r.onend=()=>{if(state.recognitionOn)try{r.start()}catch{}}; state.recognition=r;
+    }
+    state.recognitionOn=enable; if(enable){try{state.recognition.start()}catch{};toast('Listening for Nat’s lines')}else{try{state.recognition.stop()}catch{}}
+  }
+
+  const phraseMap=[
+    [/i can do it|samantha can help/i,'samantha'],
+    [/three o.?clock|client/i,'ernie'],
+    [/what if we split|two parts|first part/i,'spin-noticed'],
+    [/did you (guys )?hear me/i,'repeat'],
+    [/good morning.*phil|perfect timing/i,'review']
+  ];
+  async function handleNatSpeech(text){
+    if(state.generative && $('#aiEndpoint').value.trim()) return generativeReply(text);
+    if(!state.autoAdvance)return;
+    const match=phraseMap.find(([re])=>re.test(text));
+    if(match){const idx=cues.findIndex(c=>c.id===match[1]);if(idx>=0)setTimeout(()=>applyCue(idx),700)}
+  }
+
+  async function generativeReply(text){
+    if(state.aiBusy)return;state.aiBusy=true;
+    const endpoint=$('#aiEndpoint').value.trim(),model=$('#aiModel').value.trim()||'llama3.2';
+    const current=cues[state.cueIndex];const responder=current.speaker&&current.speaker!=='nat'?current.speaker:(state.preset==='review2'?'phil':'chris');const p=byId[responder];
+    const system=`You are ${p.name}, a coworker in a filmed Zoom meeting. Stay professional and natural. Reply in one short sentence, maximum 18 words. The scene concerns onboarding, a 3 PM client meeting, and Natalie trying to solve the conflict.`;
+    try{
+      const res=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model,stream:false,messages:[{role:'system',content:system},{role:'user',content:text}]})});
+      if(!res.ok)throw new Error(`${res.status} ${res.statusText}`);const data=await res.json();const reply=data?.message?.content||data?.choices?.[0]?.message?.content||data?.response||data?.text;
+      if(!reply)throw new Error('No reply text returned');showCaption(p.name,reply);markSpeaker(responder);if(state.voice)speakLine(responder,reply);
+    }catch(err){toast(`AI endpoint failed: ${err.message}`)}finally{state.aiBusy=false}
+  }
+
+  async function toggleRecording(){
+    if(state.mediaRecorder && state.mediaRecorder.state==='recording'){state.mediaRecorder.stop();return}
+    if(!navigator.mediaDevices?.getDisplayMedia){toast('Screen recording is unavailable');return}
+    try{
+      const display=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:{ideal:30,max:60}},audio:true});state.displayStream=display;
+      const out=new MediaStream();display.getVideoTracks().forEach(t=>out.addTrack(t));
+      const audioTracks=[...display.getAudioTracks(),...(state.cameraStream?.getAudioTracks()||[])];
+      let mixContext=null;
+      if(audioTracks.length){mixContext=new AudioContext();const dest=mixContext.createMediaStreamDestination();audioTracks.forEach(track=>{const src=mixContext.createMediaStreamSource(new MediaStream([track]));src.connect(dest)});dest.stream.getAudioTracks().forEach(t=>out.addTrack(t))}
+      const types=['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];const mimeType=types.find(t=>MediaRecorder.isTypeSupported(t))||'';
+      state.recordChunks=[];state.mediaRecorder=new MediaRecorder(out,mimeType?{mimeType,videoBitsPerSecond:12_000_000}:undefined);
+      state.mediaRecorder.ondataavailable=e=>{if(e.data.size)state.recordChunks.push(e.data)};
+      state.mediaRecorder.onstop=()=>{display.getTracks().forEach(t=>t.stop());mixContext?.close();const blob=new Blob(state.recordChunks,{type:state.mediaRecorder.mimeType||'video/webm'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`Vilo_Scene06_${new Date().toISOString().replace(/[:.]/g,'-')}.webm`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5000);$('#recBadge').classList.remove('show');$('#recordBtn').textContent='Record screen';toast('Recording saved')};
+      display.getVideoTracks()[0].onended=()=>{if(state.mediaRecorder?.state==='recording')state.mediaRecorder.stop()};
+      state.mediaRecorder.start(1000);$('#recBadge').classList.add('show');$('#recordBtn').textContent='Stop recording';toast('Recording started — choose this tab/window for a clean result');
+    }catch(err){if(err.name!=='NotAllowedError')toast(`Recording failed: ${err.message}`)}
+  }
+
+  // source may be a File (from the upload input) or a plain URL string (from the library picker)
+  function loadParticipantMedia(id,source){
+    const tile=tileMap.get(id),media=tile.querySelector('.media-layer');
+    if(id==='nat'||!source)return;
+    const old=media.querySelector('.custom-media');
+    if(old){ if(old.dataset.blob) URL.revokeObjectURL(old.dataset.url); old.remove(); }
+    const isFile = typeof source!=='string';
+    const url = isFile ? URL.createObjectURL(source) : source;
+    const isVideo = isFile ? source.type.startsWith('video/') : /\.(mp4|webm|mov)(#|\?|$)/i.test(source);
+    let el;
+    if(isVideo){el=document.createElement('video');el.autoplay=true;el.loop=true;el.muted=!state.coworkerSound;el.playsInline=true;el.play().catch(()=>{})}else{el=document.createElement('img')}
+    el.className=isVideo?'custom-media synth-audio':'custom-media';el.dataset.url=url; if(isFile) el.dataset.blob='1'; el.src=url;media.append(el);toast(`${byId[id].name} media loaded`)
+  }
+  function setCoworkerSound(on){
+    state.coworkerSound=on;
+    document.querySelectorAll('video.synth-audio').forEach(v=>{ v.muted=!on; });
+    const btn=$('#soundBtn');
+    if(btn){ btn.classList.toggle('active',on); btn.querySelector('.ico').textContent=on?'🔊':'🔇'; btn.querySelector('span:last-child').textContent=on?'Sound on':'Sound off'; }
+    const sb=$('#soundToggle'); if(sb) sb.checked=on;
+  }
+
+  function toast(msg){const el=$('#toast');el.textContent=msg;el.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.remove('show'),2800)}
+  function toggleDirector(force){const open=force??!$('#director').classList.contains('open');$('#director').classList.toggle('open',open);document.body.classList.toggle('director-open',open);wakeChrome()}
+  function toggleClean(force){const on=force??!document.body.classList.contains('clean');document.body.classList.toggle('clean',on);if(on)toggleDirector(false);toast(on?'Clean feed — press Esc to return':'Controls restored')}
+  async function toggleFullscreen(){try{if(!document.fullscreenElement)await document.documentElement.requestFullscreen();else await document.exitFullscreen()}catch(e){toast(e.message)}}
+  function wakeChrome(){document.body.classList.remove('idle');clearTimeout(state.idleTimer);state.idleTimer=setTimeout(()=>document.body.classList.add('idle'),3200)}
+  function tickTime(){const sec=Math.floor((performance.now()-state.startTime)/1000);const h=String(Math.floor(sec/3600)).padStart(2,'0'),m=String(Math.floor(sec/60)%60).padStart(2,'0'),s=String(sec%60).padStart(2,'0');$('#meetingTime').textContent=`${h}:${m}:${s}`;requestAnimationFrame(tickTime)}
+
+  // Build controls
+  for(let i=1;i<=9;i++){const b=document.createElement('button');b.className='director-btn';b.dataset.count=i;b.textContent=i;b.onclick=()=>setCount(i);$('#countButtons').append(b)}
+  participants.forEach(p=>{const o=document.createElement('option');o.value=p.id;o.textContent=p.name;$('#focusSelect').append(o)});$('#focusSelect').value=state.focus;
+  cues.forEach((c,i)=>{const el=document.createElement('div');el.className='cue';el.innerHTML=`<div class="cue-num">${i+1}</div><div><div class="cue-title">${c.label}</div><div class="cue-line">${c.line}</div></div>`;el.onclick=()=>applyCue(i);$('#cueList').append(el)});
+  participants.filter(p=>p.id!=='nat').forEach(p=>{
+    const row=document.createElement('div');row.className='upload-row';
+    row.innerHTML=`<span>${p.name}</span><label style="margin:0"><input type="file" accept="image/*,video/*" style="display:none" /><span class="lib-btn" style="border-color:#3c3d42;background:transparent;color:#bbb">Upload</span></label><button type="button" class="lib-btn">Library</button>`;
+    row.querySelector('input').onchange=e=>loadParticipantMedia(p.id,e.target.files[0]);
+    row.querySelector('button.lib-btn').onclick=()=>LIVE_STAGE.openPicker((src)=>loadParticipantMedia(p.id,src),{label:p.name});
+    $('#uploadList').append(row);
+  });
+
+  // UI events
+  $('#presetButtons').addEventListener('click',e=>{const b=e.target.closest('[data-preset]');if(b)setPreset(b.dataset.preset)});
+  $('#focusSelect').onchange=e=>{state.focus=e.target.value;if(state.count===1)setCount(1)};
+  $('#startCameraBtn').onclick=startCamera;$('#cameraSelect').onchange=startCamera;
+  $('#mirrorToggle').onchange=e=>{state.mirror=e.target.checked;updateCameraVisibility()};
+  $('#officeGuideToggle').onchange=e=>{tileMap.get('nat').querySelector('.nat-office').hidden=!e.target.checked};
+  $('#motionToggle').onchange=e=>state.motionReact=e.target.checked;
+  $('#speechToggle').onchange=e=>setupRecognition(e.target.checked);
+  $('#voiceToggle').onchange=e=>state.voice=e.target.checked;
+  $('#soundToggle').onchange=e=>setCoworkerSound(e.target.checked);
+  $('#soundBtn').onclick=()=>setCoworkerSound(!state.coworkerSound);
+  $('#autoAdvanceToggle').onchange=e=>state.autoAdvance=e.target.checked;
+  $('#generativeToggle').onchange=e=>state.generative=e.target.checked;
+  $('#prevCueBtn').onclick=()=>applyCue(state.cueIndex-1);$('#nextCueBtn').onclick=()=>applyCue(state.cueIndex+1);$('#playCueBtn').onclick=playSequence;
+  $('#recordBtn').onclick=toggleRecording;$('#fullBtn').onclick=toggleFullscreen;$('#cleanBtn').onclick=()=>toggleClean();
+  $('#captionsBtn').onclick=()=>{state.captions=!state.captions;$('#captionsBtn').textContent=state.captions?'Captions on':'Captions off';if(!state.captions)$('#captionBar').classList.remove('show')};
+  $('#directorTopBtn').onclick=()=>toggleDirector();$('#participantsBtn').onclick=()=>toggleDirector(true);$('#closeDirector').onclick=()=>toggleDirector(false);
+  $('#joinIncoming').onclick=()=>applyCue(cues.findIndex(c=>c.id==='collision'));
+  $('#muteBtn').onclick=()=>{state.muted=!state.muted;state.cameraStream?.getAudioTracks().forEach(t=>t.enabled=!state.muted);$('#muteBtn').querySelector('span:last-child').textContent=state.muted?'Unmute':'Mute';$('#muteBtn').querySelector('.ico').textContent=state.muted?'🔇':'🎙'};
+  $('#videoBtn').onclick=()=>state.cameraOn?stopCamera():resumeCamera();
+  $('#viewBtn').onclick=()=>{document.body.classList.toggle('chrome-hidden');toast(document.body.classList.contains('chrome-hidden')?'Meeting chrome hidden':'Meeting chrome visible')};
+  $('#endBtn').onclick=()=>{if(confirm('End the staged meeting?')){state.cameraStream?.getTracks().forEach(t=>t.stop());location.reload()}};
+  $('#joinWithCamera').onclick=async()=>{$('#permissionSplash').remove();setPreset('team4');applyCue(0,{speak:false});await startCamera();toggleDirector(true)};
+  $('#joinWithoutCamera').onclick=()=>{$('#permissionSplash').remove();setPreset('team4');applyCue(0,{speak:false});toggleDirector(true)};
+
+  document.addEventListener('keydown',e=>{
+    if(['INPUT','SELECT','TEXTAREA'].includes(document.activeElement?.tagName))return;
+    if(e.key>='1'&&e.key<='9'){setCount(Number(e.key));return}
+    if(e.code==='Space'){e.preventDefault();applyCue(state.cueIndex+1);return}
+    if(e.key.toLowerCase()==='d'){toggleDirector();return}
+    if(e.key.toLowerCase()==='f'){toggleFullscreen();return}
+    if(e.key.toLowerCase()==='h'){document.body.classList.toggle('chrome-hidden');return}
+    if(e.key.toLowerCase()==='c'){state.cameraOn?stopCamera():resumeCamera();return}
+    if(e.key.toLowerCase()==='r'){toggleRecording();return}
+    if(e.key.toLowerCase()==='s'){setCoworkerSound(!state.coworkerSound);toast(state.coworkerSound?'Coworker audio on':'Coworker audio off');return}
+    if(e.key==='Escape'&&document.body.classList.contains('clean'))toggleClean(false);
+  });
+  ['mousemove','mousedown','touchstart'].forEach(ev=>document.addEventListener(ev,wakeChrome,{passive:true}));
+
+  /* =========================================================
+     AUTO-WIRE — real participant loops from clips.js.
+     Each non-Nat avatar gets a looping face video (listen by
+     default). A MutationObserver swaps to the talk/react loop
+     when the tile is marked speaking or a reaction fires, and
+     Nat gets a fallback loop behind her camera-off state.
+     ========================================================= */
+  (function wireFaces(){
+    if(!window.LIVE_STAGE) return;
+    const faceCache = new Map(); // id -> { slot: videoEl }
+    function ensureFace(id, slot){
+      const urls = LIVE_STAGE.castUrls(id); if(!urls) return null;
+      let bank = faceCache.get(id); if(!bank){ bank = {}; faceCache.set(id, bank); }
+      if(bank[slot]) return bank[slot];
+      const media = tileMap.get(id)?.querySelector('.media-layer'); if(!media) return null;
+      const v = document.createElement('video');
+      v.className='custom-media face synth-audio'; v.muted=!state.coworkerSound; v.loop=true; v.playsInline=true; v.preload='auto';
+      v.src = urls[slot]; v.style.opacity='0'; v.style.transition='opacity .25s ease';
+      media.appendChild(v); bank[slot]=v; return v;
+    }
+    function setFace(id, slot){
+      const v = ensureFace(id, slot); if(!v) return;
+      const bank = faceCache.get(id);
+      if(bank) Object.values(bank).forEach(o=>{ if(o!==v){ o.style.opacity='0'; o.pause(); } });
+      v.style.opacity='1'; v.play().catch(()=>{});
+    }
+    // seed every non-Nat tile with its idle/listen loop
+    participants.forEach(p=>{ if(p.id!=='nat' && LIVE_STAGE.castUrls(p.id)) setFace(p.id,'listen'); });
+    // Nat: fallback loop shown whenever her webcam is off
+    const natUrls = LIVE_STAGE.castUrls('nat');
+    const natOff = tileMap.get('nat')?.querySelector('.camera-off');
+    if(natUrls && natOff){
+      const v=document.createElement('video');
+      v.className='synth-audio'; v.muted=!state.coworkerSound; v.loop=true; v.playsInline=true; v.src=natUrls.listen;
+      v.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:cover';
+      natOff.innerHTML=''; natOff.appendChild(v); v.play().catch(()=>{});
+    }
+    // swap loops as tiles change speaking / reaction state
+    const REACT = { 'react-laugh':'react', 'react-confused':'react', 'react-shake':'react', 'react-nod':'talk' };
+    participants.forEach(p=>{
+      if(p.id==='nat' || !LIVE_STAGE.castUrls(p.id)) return;
+      const tile = tileMap.get(p.id);
+      const obs = new MutationObserver(()=>{
+        let slot='listen';
+        if(tile.classList.contains('speaking')) slot='talk';
+        for(const k in REACT){ if(tile.classList.contains(k)){ slot=REACT[k]; break; } }
+        setFace(p.id, slot);
+      });
+      obs.observe(tile,{attributes:true,attributeFilter:['class']});
+    });
+  })();
+
+  // Initialize
+  setPreset('team4');applyCue(0,{speak:false});tickTime();wakeChrome();enumerateCameras();
+  window.addEventListener('beforeunload',()=>{state.cameraStream?.getTracks().forEach(t=>t.stop());state.displayStream?.getTracks().forEach(t=>t.stop());if(state.recognitionOn)state.recognition?.stop()});
+})();
+</script>
+</body>
+</html>

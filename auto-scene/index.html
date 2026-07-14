@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Zoom Meeting</title>
+<style>
+  :root{--bg:#0b0b0d;--tile:#141417;--bar:#1b1b1f;--txt:#f3f3f5;--dim:#9a9aa2;--accent:#2d8cff;--green:#43c463;--red:#e8402f}
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;background:#000;overflow:hidden}
+  body{font-family:"Segoe UI",-apple-system,BlinkMacSystemFont,Roboto,Helvetica,Arial,sans-serif;color:var(--txt)}
+
+  /* ===== recorded window ===== */
+  #win{position:fixed;inset:0;display:flex;flex-direction:column;background:var(--bg)}
+  .top{height:36px;background:#161619;display:flex;align-items:center;justify-content:space-between;padding:0 12px;font-size:12px;color:var(--dim);flex:0 0 auto;border-bottom:1px solid #000}
+  .rec{display:flex;gap:6px;align-items:center;color:#e5e5e8}
+  .rec .dot{width:9px;height:9px;border-radius:50%;background:var(--red);animation:blink 1.5s infinite}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+  .pill{background:#2a2a30;border-radius:5px;padding:3px 9px;font-size:11px;color:#d8d8dc}
+  #view{color:var(--dim)}
+
+  #grid{flex:1 1 auto;display:grid;gap:4px;padding:5px;grid-template-columns:1fr 1fr;grid-auto-rows:1fr;background:var(--bg)}
+  .tile{position:relative;background:var(--tile);overflow:hidden;outline:0 solid var(--accent);transition:outline-width .1s}
+  .tile.spk{outline-width:4px;z-index:2}
+  .tile video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#0e0e11;opacity:0;transition:opacity .1s}
+  .tile video.on{opacity:1}
+  .tile.mir video.live{transform:scaleX(-1)}
+  .ph{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:radial-gradient(circle at 50% 42%,#22222c,#0e0e12);z-index:1}
+  .ph .av{width:76px;height:76px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:600;color:#fff}
+  .tile.has .ph{display:none}
+  .nm{position:absolute;left:7px;bottom:7px;background:rgba(0,0,0,.55);padding:2px 8px;border-radius:4px;font-size:12px;font-weight:500;display:flex;gap:5px;align-items:center;z-index:3}
+  .nm .m{width:12px;height:12px}.nm .m svg{width:100%;height:100%;fill:#fff}.nm.mut .m svg{fill:#ff5a4d}
+  .nm .h{font-size:8px;background:var(--accent);color:#fff;padding:1px 4px;border-radius:3px;text-transform:uppercase}
+  .glitch{position:absolute;inset:0;z-index:4;pointer-events:none;opacity:0}
+  .tile.gl .glitch{opacity:1;background:repeating-linear-gradient(0deg,rgba(45,140,255,.18) 0 2px,transparent 2px 4px),#05070d;animation:gf .15s steps(2) infinite}
+  @keyframes gf{0%{transform:translateX(0);opacity:.9}50%{transform:translateX(3px);opacity:.4}100%{transform:translateX(-2px)}}
+  .tile.gl video,.tile.gl .ph{filter:hue-rotate(35deg) contrast(1.3) saturate(0)}
+
+  #toast{position:absolute;top:48px;right:14px;z-index:20;background:#26262b;border:1px solid #34343a;border-radius:10px;padding:12px 14px;width:270px;box-shadow:0 12px 40px rgba(0,0,0,.6);display:none}
+  #toast.on{display:block}
+  #toast .a{font-size:12px;font-weight:600;color:#fff;margin-bottom:3px}
+  #toast .b{font-size:11px;color:var(--dim);margin-bottom:10px}
+  #toast button{border:none;border-radius:6px;padding:7px 12px;font-size:11px;font-weight:600;background:var(--accent);color:#fff;cursor:pointer}
+
+  .bot{height:52px;background:var(--bar);display:flex;align-items:center;justify-content:center;gap:16px;flex:0 0 auto;border-top:1px solid #000;position:relative}
+  .c{display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--txt)}
+  .c svg{width:20px;height:20px;fill:currentColor}.c span{font-size:9px;color:var(--dim)}
+  .c.leave{position:absolute;right:14px}.c.leave .lp{background:var(--red);color:#fff;padding:6px 13px;border-radius:6px;font-size:12px;font-weight:600}
+
+  /* ===== controller (bottom sheet, phone-first) ===== */
+  #ctrlBtn{position:fixed;right:12px;bottom:60px;z-index:60;background:var(--accent);color:#fff;border:none;border-radius:30px;padding:12px 18px;font-size:14px;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.5);cursor:pointer}
+  #panel{position:fixed;left:0;right:0;bottom:0;z-index:70;background:#0e0e12;border-top:1px solid #2a2a30;transform:translateY(100%);transition:transform .22s;max-height:82vh;overflow-y:auto;padding:12px 12px 28px;box-shadow:0 -10px 40px rgba(0,0,0,.6)}
+  #panel.up{transform:translateY(0)}
+  .ph-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+  .ph-top h3{font-size:14px}
+  .ph-top .x{font-size:22px;color:#888;background:none;border:none;cursor:pointer;padding:4px 10px}
+
+  .scenes{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:14px}
+  .scenes button{font-size:11px;padding:10px 6px;border:1px solid #2a2a30;background:#141418;color:#dcdce0;border-radius:9px;cursor:pointer;line-height:1.25}
+  .scenes button b{display:block;font-size:12px;margin-bottom:1px}
+  .scenes button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+
+  .person{border:1px solid #26262c;border-radius:11px;padding:9px;margin-bottom:8px;background:#101014}
+  .person .pr{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .person .pd{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#fff;flex:0 0 auto}
+  .person .pn{font-size:13px;font-weight:600;flex:1}
+  .person .flags{display:flex;gap:5px}
+  .person .flags button{font-size:10px;padding:5px 9px;border:1px solid #2a2a30;background:#0c0c0e;color:#aaa;border-radius:6px;cursor:pointer}
+  .person .flags button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .person .flags button.on.red{background:var(--red);border-color:var(--red)}
+  .cliprow{display:flex;gap:6px;flex-wrap:wrap}
+  .cliprow button{flex:1;min-width:74px;padding:9px 6px;border:1px solid #2a2a30;background:#0c0c0e;color:#cdcdd2;border-radius:8px;cursor:pointer;font-size:11px;display:flex;flex-direction:column;align-items:center;gap:4px}
+  .cliprow button.playing{background:var(--green);color:#052;border-color:var(--green);font-weight:600}
+  .cliprow button img{width:100%;max-width:80px;aspect-ratio:16/9;object-fit:cover;border-radius:4px;background:#000}
+  .foot{font-size:10px;color:#666;margin-top:6px;text-align:center}
+
+  /* start overlay */
+  #start{position:fixed;inset:0;z-index:100;background:#0c0c0e;display:flex;align-items:center;justify-content:center;padding:22px}
+  #start .card{width:min(420px,94vw);text-align:center}
+  #start h1{font-size:20px;margin-bottom:6px}
+  #start p{font-size:13px;color:#8a8a92;margin-bottom:20px;line-height:1.5}
+  #start .big{width:100%;font-size:16px;padding:15px;border:none;border-radius:11px;background:var(--accent);color:#fff;font-weight:600;cursor:pointer;margin-bottom:9px}
+  #start .lil{width:100%;font-size:13px;padding:12px;border:1px solid #2a2a30;border-radius:10px;background:#141418;color:#ccc;cursor:pointer}
+  #start .st{font-size:11px;color:#666;margin-top:14px}
+</style>
+</head>
+<body>
+
+<div id="win">
+  <div class="top">
+    <span class="rec"><span class="dot"></span>Recording…</span>
+    <span class="pill">Total non-video participants: <span id="nvp">1</span></span>
+    <span id="view">Gallery View</span>
+  </div>
+  <div id="grid"></div>
+  <div id="toast"><div class="a">Important meeting starting NOW</div><div class="b">Performance Review · Phil</div><button id="toastJoin">Join</button></div>
+  <div class="bot">
+    <div class="c"><svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21H8v2h8v-2h-3v-2.08A7 7 0 0 0 19 12z"/></svg><span>Mute</span></div>
+    <div class="c"><svg viewBox="0 0 24 24"><path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11z"/></svg><span>Video</span></div>
+    <div class="c"><svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 3-1.34 3-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5C15 14.17 10.33 13 8 13z"/></svg><span>Participants</span></div>
+    <div class="c"><svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg><span>Chat</span></div>
+    <div class="c"><svg viewBox="0 0 24 24"><path d="M19 7v3h-2V7h-3V5h3V2h2v3h3v2zm-3 4V8h-3V5H5c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2v-5z"/></svg><span>Share</span></div>
+    <div class="c leave"><span class="lp">Leave</span></div>
+  </div>
+</div>
+
+<button id="ctrlBtn">Controls</button>
+
+<div id="panel">
+  <div class="ph-top"><h3>Scene 06 — Director</h3><button class="x" id="closePanel">×</button></div>
+  <div class="scenes" id="scenes"></div>
+  <div id="people"></div>
+  <div class="foot">Set it and forget it — clips loop on their own. Tap a scene, or tap a clip to change one person.</div>
+</div>
+
+<div id="start">
+  <div class="card">
+    <h1>Scene 06 — Zoom</h1>
+    <p>Clips are already loaded. Add the actress's live camera, or run the meeting with the AI participants only.</p>
+    <button class="big" id="startCam">Start with live camera</button>
+    <button class="lil" id="startNoCam">Run without camera</button>
+    <div class="st" id="startStat">20 clips ready</div>
+  </div>
+</div>
+
+<script>
+/* ============ CAST ============ */
+const PEOPLE=[
+  {id:'nat',  name:'Natalie',color:'#c0392b',live:true, host:true, initials:'N'},
+  {id:'chris',name:'Chris',  color:'#2d6cdf',live:false,host:false,initials:'C'},
+  {id:'sam',  name:'Samantha',color:'#8e44ad',live:false,host:false,initials:'S'},
+  {id:'ernie',name:'Ernie',  color:'#16a085',live:false,host:false,initials:'E'},
+  {id:'phil', name:'Phil',   color:'#34495e',live:false,host:false,initials:'P'},
+  {id:'devon',name:'Devon',  color:'#d35400',live:false,host:false,initials:'D'},
+  {id:'priya',name:'Priya',  color:'#2c3e50',live:false,host:false,initials:'R'},
+];
+const P=Object.fromEntries(PEOPLE.map(p=>[p.id,p]));
+
+/* ============ CLIPS (preloaded, in ./clips/) ============ */
+const DIR='clips/';
+const CLIPS=[
+  {pid:'chris',label:'watching', file:'African-American_man_watching_sc__202607140033.mp4'},
+  {pid:'chris',label:'listening',file:'African-American_man_listening_w__202607140033.mp4'},
+  {pid:'chris',label:'typing',   file:'African-American_man_typing_message_202607140033.mp4'},
+  {pid:'sam',  label:'listening',file:'Asian_woman_listening_to_lens_202607140033.mp4'},
+  {pid:'sam',  label:'looking',  file:'Asian_woman_listening_webcam_beh__202607140033.mp4'},
+  {pid:'sam',  label:'pen',      file:'Asian_woman_playing_with_pen_202607140033.mp4'},
+  {pid:'ernie',label:'looking',  file:'Latino_man_looking_at_camera_202607140033.mp4'},
+  {pid:'ernie',label:'looking 2',file:'Latino_man_looking_at_lens_202607140033.mp4'},
+  {pid:'ernie',label:'laughing', file:'Latino_man_laughing_at_monitor_202607140033.mp4'},
+  {pid:'ernie',label:'tapping',  file:'Latino_man_tapping_pen_202607140033.mp4'},
+  {pid:'ernie',label:'webcam',   file:'Latino_man_webcam_behavior_202607140033.mp4'},
+  {pid:'phil', label:'speaking', file:'Man_speaking_in_video_meeting_202607140033.mp4'},
+  {pid:'phil', label:'looking',  file:'Man_looking_at_webcam_202607140033.mp4'},
+  {pid:'phil', label:'nodding',  file:'Man_nodding_at_camera_202607140033.mp4'},
+  {pid:'devon',label:'watching', file:'Man_watching_meeting_casually_202607140033.mp4'},
+  {pid:'devon',label:'listening',file:'Man_listening_to_webcam_202607140033.mp4'},
+  {pid:'devon',label:'leaning',  file:'Man_leaning_back_looking_screen_202607140033.mp4'},
+  {pid:'devon',label:'intent',   file:'Man_watching_intently_webcam_202607140033.mp4'},
+  {pid:'devon',label:'nodding',  file:'Man_nodding_in_office_202607140033.mp4'},
+  {pid:'priya',label:'listening',file:'South_Asian_woman_listening_webcam_202607140033.mp4'},
+];
+CLIPS.forEach((c,i)=>c.id='c'+i);
+function clipsFor(pid){return CLIPS.filter(c=>c.pid===pid);}
+
+/* ============ SCENES ============ */
+const SCENES={
+  team:    {name:'1 · Team',   desc:'normal',   view:'Gallery View',nvp:1,tiles:['nat','chris','sam','ernie'],cols:2,spk:'chris'},
+  spin:    {name:'2 · Spinning',desc:'confused', view:'Gallery View',nvp:1,tiles:['nat','chris','sam','ernie'],cols:2,spk:'sam',react:true},
+  glitch:  {name:'3 · Glitch', desc:'Nat fades',view:'Gallery View',nvp:1,tiles:['nat','chris','sam','ernie'],cols:2,spk:null,gl:'nat',react:true},
+  incoming:{name:'4 · Incoming',desc:'toast',   view:'Gallery View',nvp:1,tiles:['nat','chris','sam','ernie'],cols:2,spk:null,toast:true},
+  phil:    {name:'5 · Phil',   desc:'1:1 review',view:'Speaker View',nvp:0,tiles:['phil','nat'],cols:2,spk:'phil'},
+  monster: {name:'6 · Monster',desc:'Roomba',   view:'Speaker View',nvp:0,tiles:['phil','nat'],cols:2,spk:'phil'},
+};
+const SORDER=Object.keys(SCENES);
+
+const MIC_ON='<svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21H8v2h8v-2h-3v-2.08A7 7 0 0 0 19 12z"/></svg>';
+const MIC_OFF='<svg viewBox="0 0 24 24"><path d="M19 11h-1.7c0 .74-.16 1.43-.43 2.05l1.23 1.23c.56-.98.9-2.09.9-3.28zM4.27 3L3 4.27l6 6V12a3 3 0 0 0 3 3c.22 0 .44-.03.65-.08l1.66 1.66A5.98 5.98 0 0 1 12 17a5 5 0 0 1-5-5H5a7 7 0 0 0 6 6.92V21h2v-2.08c.85-.12 1.65-.4 2.36-.81L19.73 21 21 19.73 4.27 3z"/></svg>';
+
+const grid=document.getElementById('grid');
+const tiles={}, vids={}, thumbs={};
+let liveStream=null, current=null;
+
+/* build all tiles + all clip videos once, hidden */
+function build(){
+  PEOPLE.forEach(p=>{
+    const t=document.createElement('div');t.className='tile';t.id='t-'+p.id;t.style.display='none';
+    t.innerHTML=`<div class="ph"><div class="av" style="background:${p.color}">${p.initials}</div></div>
+      <div class="glitch"></div>
+      <div class="nm"><span class="m">${MIC_ON}</span><span>${p.name}</span>${p.host?'<span class="h">Host</span>':''}</div>`;
+    grid.appendChild(t);tiles[p.id]=t;vids[p.id]={};
+  });
+  // preload every clip as a paused looping video inside its person's tile
+  CLIPS.forEach(c=>{
+    const v=document.createElement('video');
+    v.src=DIR+encodeURIComponent(c.file);
+    v.loop=true;v.muted=true;v.playsInline=true;v.preload='auto';
+    tiles[c.pid].insertBefore(v,tiles[c.pid].querySelector('.ph'));
+    vids[c.pid][c.id]=v;
+  });
+}
+
+function playClip(pid,cid){
+  const bank=vids[pid];if(!bank)return;
+  Object.entries(bank).forEach(([id,v])=>{
+    if(id===cid){v.classList.add('on');v.currentTime=0;v.play().catch(()=>{});tiles[pid].classList.add('has');}
+    else{v.classList.remove('on');v.pause();}
+  });
+  document.querySelectorAll(`.cliprow button[data-pid="${pid}"]`).forEach(b=>b.classList.toggle('playing',b.dataset.cid===cid));
+  sync({t:'clip',pid,cid});
+}
+
+function flag(pid,f,on){
+  const t=tiles[pid];if(!t)return;
+  if(f==='spk')t.classList.toggle('spk',on);
+  if(f==='gl')t.classList.toggle('gl',on);
+  if(f==='mut'){const nm=t.querySelector('.nm');nm.classList.toggle('mut',on);nm.querySelector('.m').innerHTML=on?MIC_OFF:MIC_ON;}
+  document.querySelectorAll(`.flags button[data-pid="${pid}"][data-f="${f}"]`).forEach(b=>b.classList.toggle('on',on));
+  sync({t:'flag',pid,f,on});
+}
+
+/* apply a scene: show tiles, auto-pick a clip per person */
+function scene(key){
+  const s=SCENES[key];if(!s)return;current=key;
+  grid.style.gridTemplateColumns=`repeat(${s.cols},1fr)`;
+  PEOPLE.forEach(p=>{
+    const show=s.tiles.includes(p.id);
+    tiles[p.id].style.display=show?'':'none';
+    tiles[p.id].classList.remove('spk','gl');
+  });
+  // auto clip: react scenes prefer laughing/pen/looking; else first
+  s.tiles.forEach(pid=>{
+    if(P[pid].live)return;
+    const list=clipsFor(pid);if(!list.length)return;
+    let pick=list[0];
+    if(s.react){const r=list.find(c=>/laugh|pen|look|intent|lean/.test(c.label));if(r)pick=r;}
+    if(pid==='phil'){const sp=list.find(c=>c.label==='speaking');if(sp)pick=sp;}
+    playClip(pid,pick.id);
+  });
+  if(s.spk)flag(s.spk,'spk',true);
+  if(s.gl)flag(s.gl,'gl',true);
+  document.getElementById('view').textContent=s.view;
+  document.getElementById('nvp').textContent=s.nvp;
+  document.getElementById('toast').classList.toggle('on',!!s.toast);
+  document.querySelectorAll('#scenes button').forEach(b=>b.classList.toggle('on',b.dataset.k===key));
+  sync({t:'scene',key});
+}
+
+/* ============ camera ============ */
+async function startCam(){
+  try{
+    liveStream=await navigator.mediaDevices.getUserMedia({video:{width:1920,height:1080,facingMode:'user'},audio:false});
+    const t=tiles['nat'];
+    const v=document.createElement('video');v.className='live on';v.autoplay=true;v.muted=true;v.playsInline=true;
+    t.insertBefore(v,t.querySelector('.ph'));v.srcObject=liveStream;
+    t.classList.add('has','mir');
+  }catch(e){alert('No camera access — running without it. You can still record the AI participants.');}
+}
+
+/* ============ controller panel ============ */
+function buildPanel(){
+  const sc=document.getElementById('scenes');sc.innerHTML='';
+  SORDER.forEach(k=>{const s=SCENES[k];const b=document.createElement('button');b.dataset.k=k;b.innerHTML=`<b>${s.name}</b>${s.desc}`;b.onclick=()=>scene(k);sc.appendChild(b);});
+  const pe=document.getElementById('people');pe.innerHTML='';
+  PEOPLE.filter(p=>!p.live).forEach(p=>{
+    const list=clipsFor(p.id);
+    const row=document.createElement('div');row.className='person';
+    row.innerHTML=`<div class="pr"><div class="pd" style="background:${p.color}">${p.initials}</div><div class="pn">${p.name}</div>
+      <div class="flags">
+        <button data-pid="${p.id}" data-f="spk">Speak</button>
+        <button data-pid="${p.id}" data-f="mut">Mute</button>
+        <button data-pid="${p.id}" data-f="gl" class="red">Glitch</button>
+      </div></div>
+      <div class="cliprow">${list.map(c=>`<button data-pid="${p.id}" data-cid="${c.id}">${c.label}</button>`).join('')}</div>`;
+    pe.appendChild(row);
+  });
+  pe.querySelectorAll('.cliprow button').forEach(b=>b.onclick=()=>playClip(b.dataset.pid,b.dataset.cid));
+  pe.querySelectorAll('.flags button').forEach(b=>b.onclick=()=>{const on=!b.classList.contains('on');flag(b.dataset.pid,b.dataset.f,on);});
+}
+
+/* ============ optional 2-screen sync (same browser) ============ */
+const bc=('BroadcastChannel'in window)?new BroadcastChannel('scene6'):null;
+function sync(m){if(bc)bc.postMessage(m);}
+if(bc)bc.onmessage=e=>{const m=e.data;if(m.t==='scene')scene(m.key);else if(m.t==='clip')playClip(m.pid,m.cid);else if(m.t==='flag')flag(m.pid,m.f,m.on);};
+
+/* ============ panel open/close ============ */
+const panel=document.getElementById('panel');
+document.getElementById('ctrlBtn').onclick=()=>panel.classList.add('up');
+document.getElementById('closePanel').onclick=()=>panel.classList.remove('up');
+document.getElementById('toastJoin').onclick=()=>scene('phil');
+
+/* keyboard for desktop */
+window.addEventListener('keydown',e=>{
+  const k=e.key.toLowerCase();
+  if('123456'.includes(k))scene(SORDER[+k-1]);
+  if(k==='c')panel.classList.toggle('up');
+  if(k==='n')flag('nat','gl',!tiles['nat'].classList.contains('gl'));
+});
+
+/* ============ start ============ */
+document.getElementById('startCam').onclick=async()=>{await startCam();go();};
+document.getElementById('startNoCam').onclick=()=>go();
+function go(){document.getElementById('start').style.display='none';scene('team');}
+
+/* init */
+build();buildPanel();
+</script>
+</body>
+</html>

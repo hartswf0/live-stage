@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Live Room Stage</title>
+<style>
+  :root{
+    --bg:#0a0b0d; --bg2:#0e0f12; --panel:#131418; --panel2:#181a1f;
+    --line:#22242b; --line2:#2c2f38;
+    --txt:#eef0f3; --dim:#9ea3ad; --faint:#646a76; --fainter:#454b56;
+    --accent:#3a86ff; --accent-dim:#2f6bd0; --green:#3ec77a; --amber:#f2b544; --red:#e8503a;
+    --radius:12px; --maxw:1080px;
+    --mono:"SF Mono",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    background:
+      radial-gradient(1200px 600px at 50% -220px,rgba(58,134,255,.10),transparent 70%),
+      var(--bg);
+    color:var(--txt);
+    font-family:Inter,"Segoe UI",-apple-system,BlinkMacSystemFont,Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;line-height:1.5;
+  }
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+  a{color:inherit;text-decoration:none}
+
+  /* ---- styled scrollbar ---- */
+  html{scrollbar-width:thin;scrollbar-color:var(--line2) transparent}
+  ::-webkit-scrollbar{width:11px;height:11px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-thumb{background:var(--line2);border-radius:20px;border:3px solid var(--bg)}
+  ::-webkit-scrollbar-thumb:hover{background:#3a3e49}
+
+  /* ---- top bar ---- */
+  .topbar{position:sticky;top:0;z-index:50;background:rgba(10,11,13,.72);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+  .topbar .wrap{display:flex;align-items:center;gap:14px;height:56px}
+  .mark{display:flex;align-items:center;gap:11px;font-weight:600;letter-spacing:.02em}
+  .mark .glyph{width:26px;height:26px;flex:0 0 auto}
+  .mark .glyph rect,.mark .glyph line{stroke:var(--accent);stroke-width:1.6;fill:none}
+  .mark .nm{font-size:14px}
+  .mark .nm b{font-weight:700}
+  .mark .nm span{color:var(--faint);font-weight:500}
+  .status{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--dim);font-variant-numeric:tabular-nums}
+  .status .dot{width:8px;height:8px;border-radius:50%;background:var(--red);box-shadow:0 0 0 0 rgba(232,80,58,.5);animation:pulse 2s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(232,80,58,.45)}70%{box-shadow:0 0 0 7px rgba(232,80,58,0)}100%{box-shadow:0 0 0 0 rgba(232,80,58,0)}}
+  .status .sep{color:var(--fainter)}
+
+  /* ---- hero ---- */
+  .hero{padding:64px 0 40px}
+  .kicker{font-family:var(--mono);font-size:11.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--accent);margin-bottom:20px}
+  h1.title{font-size:clamp(30px,5.4vw,52px);line-height:1.04;letter-spacing:-.02em;font-weight:680;max-width:15ch}
+  .lede{margin-top:20px;max-width:60ch;font-size:16.5px;line-height:1.62;color:var(--dim)}
+  .lede b{color:var(--txt);font-weight:600}
+  .cta{margin-top:30px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .btn{display:inline-flex;align-items:center;gap:9px;font-size:14px;font-weight:600;padding:12px 20px;border-radius:9px;border:1px solid transparent;transition:.16s;cursor:pointer}
+  .btn.primary{background:var(--accent);color:#fff;box-shadow:0 8px 26px rgba(58,134,255,.28)}
+  .btn.primary:hover{background:var(--accent-dim);transform:translateY(-1px)}
+  .btn.ghost{border-color:var(--line2);color:var(--dim)}
+  .btn.ghost:hover{color:var(--txt);border-color:#3a3e49}
+  .btn svg{width:15px;height:15px;fill:currentColor}
+
+  /* ---- section headings ---- */
+  section{padding:26px 0}
+  .shead{display:flex;align-items:baseline;gap:14px;margin-bottom:6px}
+  .shead h2{font-size:13px;text-transform:uppercase;letter-spacing:.16em;color:var(--txt);font-weight:650}
+  .shead .cnt{font-family:var(--mono);font-size:12px;color:var(--faint)}
+  .sub{color:var(--dim);font-size:14px;max-width:62ch;margin-bottom:22px}
+
+  /* ---- numbered build list ---- */
+  .builds{display:flex;flex-direction:column;gap:12px}
+  details.build{background:linear-gradient(180deg,var(--panel),var(--bg2));border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;transition:border-color .16s,box-shadow .16s}
+  details.build[open]{border-color:var(--line2);box-shadow:0 14px 40px rgba(0,0,0,.34)}
+  details.build:hover{border-color:var(--line2)}
+  details.build.featured{border-color:rgba(58,134,255,.4)}
+  details.build.featured[open]{box-shadow:0 16px 46px rgba(58,134,255,.14)}
+  summary{list-style:none;cursor:pointer;display:grid;grid-template-columns:64px 1fr auto;align-items:center;gap:18px;padding:20px 22px}
+  summary::-webkit-details-marker{display:none}
+  .num{font-family:var(--mono);font-size:30px;font-weight:500;color:var(--fainter);letter-spacing:-.02em;text-align:center;transition:color .16s}
+  details.build[open] .num,details.build:hover .num{color:var(--accent)}
+  .binfo{min-width:0}
+  .brow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .binfo h3{font-size:17px;font-weight:640;letter-spacing:-.01em}
+  .level{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:20px;border:1px solid var(--line2);color:var(--dim)}
+  .level.start{background:rgba(62,199,122,.12);border-color:rgba(62,199,122,.4);color:var(--green)}
+  .level.auto{background:rgba(58,134,255,.12);border-color:rgba(58,134,255,.36);color:var(--accent)}
+  .level.adv{color:var(--faint)}
+  .binfo p{color:var(--dim);font-size:13.5px;margin-top:5px;line-height:1.5}
+  .open{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--accent);white-space:nowrap;padding:9px 15px;border:1px solid var(--line2);border-radius:8px;transition:.16s}
+  .open:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .open svg{width:12px;height:12px;fill:currentColor;transition:transform .16s}
+  .open:hover svg{transform:translateX(2px)}
+  .chev{width:16px;height:16px;fill:var(--faint);transition:transform .2s;flex:0 0 auto}
+  details.build[open] .chev{transform:rotate(180deg)}
+
+  /* expanded detail */
+  .detail{border-top:1px solid var(--line);padding:20px 22px 22px;display:grid;grid-template-columns:1.15fr .85fr;gap:24px}
+  @media(max-width:720px){.detail{grid-template-columns:1fr}summary{grid-template-columns:44px 1fr;gap:14px}.summary-open{display:none}}
+  .doblock{font-size:13.5px;color:var(--dim);line-height:1.65}
+  .doblock .lbl{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);display:block;margin-bottom:6px}
+  .doblock b{color:var(--txt);font-weight:600}
+  .keys{margin-top:16px;display:flex;flex-wrap:wrap;gap:6px}
+  kbd{font-family:var(--mono);font-size:11px;background:var(--panel2);border:1px solid var(--line2);border-bottom-width:2px;border-radius:5px;padding:2px 7px;color:var(--dim)}
+  .kcap{font-size:12px;color:var(--faint);width:100%;margin-bottom:2px}
+  .preview{aspect-ratio:16/10;border-radius:10px;overflow:hidden;background:#000;border:1px solid var(--line);display:grid;gap:2px}
+  .preview video{width:100%;height:100%;object-fit:cover;background:#111;display:block}
+
+  /* ---- cast ---- */
+  .toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+  .chip{font-family:var(--mono);font-size:11.5px;letter-spacing:.02em;padding:6px 13px;border:1px solid var(--line2);background:var(--panel);border-radius:20px;color:var(--dim);cursor:pointer;transition:.14s;user-select:none}
+  .chip:hover{color:var(--txt);border-color:#3a3e49}
+  .chip.on{background:var(--txt);color:var(--bg);border-color:var(--txt);font-weight:600}
+  .chip .n{opacity:.55}
+  .count{margin-left:auto;font-family:var(--mono);font-size:11.5px;color:var(--faint)}
+  .cast{display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:11px}
+  .clip{position:relative;border-radius:10px;overflow:hidden;background:#000;border:1px solid var(--line);aspect-ratio:1/1}
+  .clip video{width:100%;height:100%;object-fit:cover;display:block}
+  .clip .meta{position:absolute;inset:auto 0 0 0;padding:22px 10px 9px;background:linear-gradient(transparent,rgba(0,0,0,.85));pointer-events:none}
+  .clip .who{font-size:10.5px;color:var(--dim)}
+  .clip .act{font-size:12.5px;font-weight:600;line-height:1.25;margin-top:1px}
+  .clip .tag{position:absolute;top:8px;right:8px;font-family:var(--mono);font-size:8.5px;text-transform:uppercase;letter-spacing:.07em;padding:2px 6px;border-radius:5px;font-weight:600}
+  .tag.talk{background:rgba(62,199,122,.9);color:#04220f}
+  .tag.listen{background:rgba(58,134,255,.9);color:#fff}
+  .tag.react{background:rgba(242,181,68,.92);color:#231600}
+  .tag.idle{background:rgba(120,126,138,.85);color:#fff}
+
+  /* ---- reference cards ---- */
+  .refs{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  @media(max-width:720px){.refs{grid-template-columns:1fr}}
+  .ref{display:block;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px 18px 20px;transition:.16s}
+  .ref:hover{border-color:var(--line2);transform:translateY(-2px)}
+  .ref .rk{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
+  .ref h4{font-size:15px;font-weight:640;margin:9px 0 6px}
+  .ref p{font-size:13px;color:var(--dim);line-height:1.5}
+
+  footer{margin-top:40px;padding:28px 0 70px;border-top:1px solid var(--line);color:var(--faint);font-size:12.5px;line-height:1.7}
+  footer code{font-family:var(--mono);font-size:11.5px;background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:1px 6px;color:var(--dim)}
+  footer a{color:var(--dim);border-bottom:1px solid var(--line2)}
+  footer a:hover{color:var(--txt)}
+</style>
+</head>
+<body>
+
+<div class="topbar"><div class="wrap">
+  <a class="mark" href="#top">
+    <svg class="glyph" viewBox="0 0 26 26"><rect x="2" y="6" width="22" height="15" rx="2"/><line x1="2" y1="11" x2="24" y2="11"/><line x1="7" y1="6" x2="4.5" y2="11"/><line x1="12" y1="6" x2="9.5" y2="11"/><line x1="17" y1="6" x2="14.5" y2="11"/></svg>
+    <span class="nm"><b>Live Room</b> <span>Stage</span></span>
+  </a>
+  <div class="status"><span class="dot"></span>Production kit <span class="sep">·</span> <span id="buildCount">5</span> builds <span class="sep">·</span> <span id="loopCount">27</span> loops</div>
+</div></div>
+
+<a id="top"></a>
+<div class="wrap">
+
+  <div class="hero">
+    <div class="kicker">Browser stage · Scene 06</div>
+    <h1 class="title">The on-set computer, made into a scene partner.</h1>
+    <p class="lede">
+      A set of browser builds for staging a <b>live video meeting</b> around a real actress.
+      Her webcam is the host tile; a cast of synthetic coworkers listens, nods, laughs and
+      speaks around her. Start with the one-click shoot build, or open the fuller stages when
+      you want to drive the scene yourself. <b>Nothing installs, nothing uploads.</b>
+    </p>
+    <div class="cta">
+      <a class="btn primary" href="room-simple.html">
+        <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg> Open the Simple Shoot Build
+      </a>
+      <a class="btn ghost" href="#builds">See all builds</a>
+    </div>
+  </div>
+
+  <section id="builds">
+    <div class="shead"><h2>The builds</h2><span class="cnt">01 — 05 · simplest first</span></div>
+    <p class="sub">Each one is a self-contained page. They get more capable as you go down — open the first for a shoot, the last for a full scripted performance. Click a row to see what it does and how to run it.</p>
+    <div class="builds" id="builds-list"></div>
+  </section>
+
+  <section id="cast">
+    <div class="shead"><h2>The cast</h2><span class="cnt" id="castTotal">27</span></div>
+    <p class="sub">Twenty-seven looping coworker plates — the shared library every build draws from. Filter by what they're doing.</p>
+    <div class="toolbar" id="filters"></div>
+    <div class="cast" id="castGrid"></div>
+  </section>
+
+  <section id="reference">
+    <div class="shead"><h2>Reference &amp; kit</h2></div>
+    <div class="refs">
+      <a class="ref" href="https://github.com/hartswf0/live-stage/blob/main/README.md">
+        <div class="rk">Document</div><h4>Production write-up</h4>
+        <p>The full program: modes, cue sequence, director controls, failure playbook, day-of-shoot plan.</p>
+      </a>
+      <a class="ref" href="shoot/READ_ME_FIRST.txt">
+        <div class="rk">Shoot kit</div><h4>Launch scripts</h4>
+        <p>Mac and Windows one-double-click starters for the Simple Shoot Build, plus the on-set read-me.</p>
+      </a>
+      <a class="ref" href="https://github.com/hartswf0/live-stage">
+        <div class="rk">Source</div><h4>Repository</h4>
+        <p>Every build, the shared clip manifest, and the media library — all in one place.</p>
+      </a>
+    </div>
+  </section>
+
+  <footer>
+    Media lives in <code>media/</code>, declared once in <code>clips.js</code>; each build auto-wires from it — no manual uploads.
+    Inside any stage, press <kbd>D</kbd> for director controls and <kbd>H</kbd> to hide chrome for a clean take.<br>
+    <a href="https://github.com/hartswf0/live-stage" target="_blank" rel="noopener">github.com/hartswf0/live-stage</a>
+  </footer>
+
+</div>
+
+<script src="clips.js"></script>
+<script>
+  const LS = window.LIVE_STAGE;
+
+  /* -------------------------------------------------------------
+     BUILDS — ordered simplest → most capable (progressive)
+     ------------------------------------------------------------- */
+  const BUILDS = [
+    {
+      href:'room-simple.html', name:'Simple Shoot Build', level:'Start here', levelCls:'start', featured:true,
+      one:'Open it, choose 1 / 2 / 4 / 9 tiles, press start. The coworkers change on their own — nothing else to run.',
+      you:'Pick a head count, press <b>Start with actress camera</b>, then leave it alone. Fully self-contained and works with no internet.',
+      keys:[['1','2','4','9','shot'],['Space','fresh reactions'],['H','hide controls'],['F','full screen'],['R','record']],
+      preview:['nat','chris','sam','ernie']
+    },
+    {
+      href:'auto-scene/index.html', name:'Auto Scene 06', level:'Self-driving', levelCls:'auto',
+      one:'The six-beat scene plays itself — team, spinning, glitch, incoming call, review, monster.',
+      you:'Press <b>Start</b> and let it run, or tap the corner for the shot list. Good for rehearsal and B-roll passes.',
+      keys:[['1','–','6','jump to a beat'],['Space','advance']],
+      preview:['chris','sam','ernie','nat']
+    },
+    {
+      href:'zoom-stage.html', name:'Director Stage', level:'You drive', levelCls:'',
+      one:'A six-person meeting with a live-camera host, each coworker holding talk / listen / react / extra loops.',
+      you:'Grant the host camera if you want it — a fallback loop covers you if not — then <b>Join</b>. Press <b>D</b> for the director dock and trigger loops per person.',
+      keys:[['D','dock'],['1','–','6','scenes'],['Q','W','E','R','loops'],['Space','pause']],
+      preview:['chris','sam','ernie','devon']
+    },
+    {
+      href:'zoom-scene6.html', name:'Scene 06 · Collision', level:'Drive + pair', levelCls:'',
+      one:'The two-meetings-collide beat, with a pre-loaded clip gallery and phone-pairing remote control.',
+      you:'Everything is pre-assigned — <b>Join</b>, then drive scenes from the dock or pair a phone as a remote.',
+      keys:[['D','dock'],['1','–','6','scenes'],['N','glitch Nat'],['T','toast']],
+      preview:['nat','chris','sam','phil']
+    },
+    {
+      href:'vilo-stage.html', name:'Full Scripted Stage', level:'Advanced', levelCls:'adv',
+      one:'The complete cue-by-cue performance — up to nine tiles, speech- and motion-reactive faces, built-in screen recording.',
+      you:'Join with or without a camera and advance the script with <b>Space</b>. Real webcam faces swap between talking and listening automatically.',
+      keys:[['D','controls'],['1','–','9','heads'],['Space','cue'],['C','camera'],['H','chrome'],['F','full'],['R','record']],
+      preview:['chris','samantha','maya','jordan']
+    }
+  ];
+
+  // Build a preview's loop videos only when its row is open — keeps the number
+  // of simultaneously decoding videos small (real browsers self-throttle the rest).
+  function mountPreview(el, ids){
+    if(el.dataset.mounted) return; el.dataset.mounted='1';
+    el.innerHTML = ids.map(id=>{
+      const u=LS.castUrls(id); return u?`<video src="${u.listen}" muted loop autoplay playsinline preload="metadata"></video>`:'<div style="background:#16171c"></div>';
+    }).join('');
+  }
+
+  const list = document.getElementById('builds-list');
+  BUILDS.forEach((b,i)=>{
+    const n = String(i+1).padStart(2,'0');
+    const keys = b.keys.map(row=>{
+      const caps = row.slice(0,-1).map(k=>`<kbd>${k}</kbd>`).join(' ');
+      return `${caps} <span style="color:var(--faint);font-size:12px">${row[row.length-1]}</span>`;
+    }).join('<span style="color:var(--fainter);margin:0 4px">·</span>');
+    const d=document.createElement('details');
+    d.className='build'+(b.featured?' featured':'');
+    if(b.featured) d.open=true;
+    d.innerHTML=`
+      <summary>
+        <div class="num">${n}</div>
+        <div class="binfo">
+          <div class="brow"><h3>${b.name}</h3><span class="level ${b.levelCls}">${b.level}</span></div>
+          <p>${b.one}</p>
+        </div>
+        <div style="display:flex;align-items:center;gap:14px">
+          <a class="open" href="${encodeURI(b.href)}" onclick="event.stopPropagation()">Open <svg viewBox="0 0 24 24"><path d="M8 5l8 7-8 7z"/></svg></a>
+          <svg class="chev" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>
+        </div>
+      </summary>
+      <div class="detail">
+        <div class="doblock">
+          <span class="lbl">What you do</span>
+          ${b.you}
+          <div class="keys"><span class="kcap">Keys</span>${keys}</div>
+        </div>
+        <div class="preview" style="grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr"></div>
+      </div>`;
+    list.appendChild(d);
+    const prev=d.querySelector('.preview');
+    d.addEventListener('toggle',()=>{ if(d.open) mountPreview(prev,b.preview); });
+    if(b.featured) mountPreview(prev,b.preview);
+  });
+
+  /* -------------------------------------------------------------
+     CAST gallery + filters
+     ------------------------------------------------------------- */
+  const castGrid=document.getElementById('castGrid');
+  const TAGS=['all','talk','listen','react','idle'];
+  const LABEL={all:'All',talk:'Speaking',listen:'Listening',react:'Reacting',idle:'Idle'};
+  let active='all';
+  const filters=document.getElementById('filters');
+  TAGS.forEach(t=>{
+    const n=t==='all'?LS.clips.length:LS.clips.filter(c=>c.tag===t).length;
+    const b=document.createElement('div');b.className='chip'+(t==='all'?' on':'');b.dataset.tag=t;
+    b.innerHTML=`${LABEL[t]} <span class="n">${n}</span>`;
+    b.onclick=()=>{active=t;[...filters.querySelectorAll('.chip')].forEach(c=>c.classList.toggle('on',c.dataset.tag===t));render();};
+    filters.appendChild(b);
+  });
+  const count=document.createElement('div');count.className='count';filters.appendChild(count);
+  function render(){
+    const l=active==='all'?LS.clips:LS.clips.filter(c=>c.tag===active);
+    count.textContent=l.length+' shown';
+    castGrid.innerHTML=l.map(c=>`
+      <div class="clip">
+        <span class="tag ${c.tag}">${c.tag}</span>
+        <video src="${LS.url(c.file)}#t=0.5" muted loop playsinline preload="metadata"></video>
+        <div class="meta"><div class="who">${c.who}</div><div class="act">${c.act}</div></div>
+      </div>`).join('');
+    // Play on hover only — at rest each tile shows a still frame, so the page
+    // never has more than a couple of loops decoding at once.
+    castGrid.querySelectorAll('.clip').forEach(clip=>{
+      const v=clip.querySelector('video');
+      clip.addEventListener('mouseenter',()=>{ v.play().catch(()=>{}); });
+      clip.addEventListener('mouseleave',()=>{ v.pause(); });
+    });
+  }
+  document.getElementById('castTotal').textContent=LS.clips.length;
+  document.getElementById('loopCount').textContent=LS.clips.length;
+  document.getElementById('buildCount').textContent=BUILDS.length;
+  render();
+</script>
+</body>
+</html>

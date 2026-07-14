@@ -60,6 +60,8 @@
 
   .controlbar{height:64px;background:var(--bar);display:flex;align-items:center;justify-content:center;gap:20px;flex:0 0 auto;border-top:1px solid #000;position:relative}
   .ctrl{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:52px;color:var(--txt)}
+  #soundBtn.on svg{fill:var(--accent)}
+  #soundBtn.on span{color:var(--accent)}
   .ctrl svg{width:22px;height:22px;fill:currentColor}.ctrl span{font-size:10px;color:var(--dim)}
   .ctrl.settings{cursor:pointer}.ctrl.settings:hover{color:var(--accent)}
   .ctrl.leave{position:absolute;right:18px}.ctrl.leave .lp{background:#e8402f;color:#fff;padding:7px 15px;border-radius:6px;font-size:12.5px;font-weight:600}
@@ -194,6 +196,7 @@
     <div class="ctrl"><svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg><span>Chat</span></div>
     <div class="ctrl"><svg viewBox="0 0 24 24"><path d="M19 7v3h-2V7h-3V5h3V2h2v3h3v2zm-3 4V8h-3V5H5c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2v-5z"/></svg><span>Share Screen</span></div>
     <div class="ctrl settings" id="gearBtn" title="Open clip gallery"><svg viewBox="0 0 24 24"><path d="M19.14 12.94a7.5 7.5 0 0 0 .05-1.88l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.3 7.3 0 0 0-1.62-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54a7.3 7.3 0 0 0-1.62.94l-2.39-.96a.5.5 0 0 0-.6.22L2.62 8.84a.5.5 0 0 0 .12.64l2.03 1.58a7.5 7.5 0 0 0 0 1.88l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32a.5.5 0 0 0 .6.22l2.39-.96c.5.38 1.04.7 1.62.94l.36 2.54a.5.5 0 0 0 .5.42h3.84a.5.5 0 0 0 .5-.42l.36-2.54c.58-.24 1.12-.56 1.62-.94l2.39.96a.5.5 0 0 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7z"/></svg><span>Settings</span></div>
+    <div class="ctrl" id="soundBtn" style="cursor:pointer" title="Play or mute the coworkers' own audio"><svg id="soundIcon" viewBox="0 0 24 24"></svg><span id="soundLbl">Sound off</span></div>
     <div class="ctrl leave"><span class="lp">Leave Meeting</span></div>
   </div>
 </div>
@@ -275,6 +278,7 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="clips.js"></script>
 <script>
 /* =========================================================
    ROLE — Stage (records) vs Director (controls).
@@ -389,6 +393,13 @@ function renderGallery(){
   add.innerHTML=`<span style="font-size:22px">+</span><span>Add clips</span><input type="file" accept="video/*" multiple style="display:none">`;
   add.querySelector('input').onchange=e=>{[...e.target.files].forEach(addClipFromFile);};
   g.appendChild(add);
+  if(window.LIVE_STAGE){
+    const lib=document.createElement('div');
+    lib.className='addclip'; lib.style.cursor='pointer';
+    lib.innerHTML=`<span style="font-size:22px">+</span><span>From library</span>`;
+    lib.onclick=()=>LIVE_STAGE.openPicker((src,label)=>addClipFromUrl(src,label),{label:'the gallery'});
+    g.appendChild(lib);
+  }
   document.getElementById('galHint').textContent = clips.length? '' : 'drag a card onto a person, or tap a thumbnail to assign';
 }
 let previewEl=null;
@@ -451,7 +462,7 @@ function ensureVideo(pid,cid){
   if(videos[pid][cid])return videos[pid][cid];
   const c=getClip(cid); if(!c)return;
   const v=document.createElement('video');
-  v.loop=true;v.muted=true;v.playsInline=true;v.preload='auto';v.src=c.src;
+  v.loop=true;v.muted=!soundOn;v.playsInline=true;v.preload='auto';v.src=c.src;
   tiles[pid].insertBefore(v,tiles[pid].querySelector('.ph'));
   videos[pid][cid]=v;return v;
 }
@@ -463,7 +474,7 @@ function playClip(pid,cid){
   }
   ensureVideo(pid,cid);
   Object.entries(videos[pid]).forEach(([id,v])=>{
-    if(id===cid){v.classList.add('active');v.currentTime=0;v.play().catch(()=>{});tiles[pid].classList.add('hasvideo');}
+    if(id===cid){v.muted=!soundOn;v.classList.add('active');v.currentTime=0;v.play().catch(()=>{});tiles[pid].classList.add('hasvideo');}
     else{v.classList.remove('active');v.pause();}
   });
   document.querySelectorAll(`.clipbtns button[data-pid="${pid}"]`).forEach(b=>b.classList.toggle('playing',b.dataset.cid===cid));
@@ -504,8 +515,13 @@ function applyScene(key,fromWire){
     grid.style.gridTemplateColumns=`repeat(${s.cols},1fr)`;
     grid.style.gridTemplateRows=`repeat(${s.rows},1fr)`;
     PARTICIPANTS.forEach(p=>{tiles[p.id].style.display=s.tiles.includes(p.id)?'':'none';tiles[p.id].classList.remove('speaking','glitching');});
-    // auto-play first assigned clip for each visible AI tile
-    s.tiles.forEach(pid=>{if(!P[pid].live && assign[pid].length){playClip(pid,assign[pid][0]);}});
+    // auto-play a sensible clip per visible AI tile: speaker talks, others idle/listen
+    s.tiles.forEach(pid=>{
+      if(P[pid].live || !assign[pid].length) return;
+      const want = (pid===s.speak) ? 'talk' : 'listen';
+      const byNote = assign[pid].find(cid=>{const c=getClip(cid);return c&&c.note===want;});
+      playClip(pid, byNote || assign[pid][0]);
+    });
     if(s.speak)tiles[s.speak]?.classList.add('speaking');
     if(s.glitch)tiles[s.glitch]?.classList.add('glitching');
     document.getElementById('viewLabel').textContent=s.view;
@@ -534,12 +550,12 @@ function renderDock(){
     else if(assign[p.id].length){cb=assign[p.id].map(cid=>{const c=getClip(cid);return `<button data-pid="${p.id}" data-cid="${cid}" title="${c?c.name:''}">${c?c.name:cid}</button>`;}).join('');}
     else{cb=`<span class="none">no clips assigned</span>`;}
     col.innerHTML=`<div class="pt">${p.name}</div><div class="clipbtns">${cb}</div>
-      <div class="st"><button data-pid="${p.id}" data-a="speak">Speak</button><button data-pid="${p.id}" data-a="mute">Mute</button><button data-pid="${p.id}" data-a="hand">Hand</button><button data-pid="${p.id}" data-a="glitch" class="red">Glitch</button></div>`;
+      <div class="st"><button data-pid="${p.id}" data-a="speak">Speak</button><button data-pid="${p.id}" data-a="mute">Mute</button><button data-pid="${p.id}" data-a="hand">Hand</button><button data-pid="${p.id}" data-a="glitch" class="red">Glitch</button>${!p.live?`<button data-pid="${p.id}" data-a="sound">Sound</button>`:''}</div>`;
     dr.appendChild(col);
   });
   dr.querySelectorAll('.clipbtns button').forEach(b=>{if(b.dataset.cid){b.onclick=()=>{playClip(b.dataset.pid,b.dataset.cid);send({type:'play',pid:b.dataset.pid,cid:b.dataset.cid});};}});
   dr.querySelectorAll('.st button').forEach(b=>{b.onclick=()=>{b.classList.toggle('on');applyState(b.dataset.pid,b.dataset.a,b.classList.contains('on'));send({type:'state',pid:b.dataset.pid,act:b.dataset.a,on:b.classList.contains('on')});};});
-  document.getElementById('dockFoot').innerHTML=`<b>Keys:</b> <kbd>1-6</kbd> scenes · <kbd>N</kbd> glitch Nat · <kbd>T</kbd> toast · <kbd>D</kbd> hide dock · gear opens the gallery`;
+  document.getElementById('dockFoot').innerHTML=`<b>Keys:</b> <kbd>1-6</kbd> scenes · <kbd>N</kbd> glitch Nat · <kbd>T</kbd> toast · <kbd>S</kbd> sound · <kbd>D</kbd> hide dock · gear opens the gallery`;
 }
 function applyState(pid,act,on){
   if(ROLE!=='stage'){document.querySelectorAll(`.st button[data-pid="${pid}"][data-a="${act}"]`).forEach(b=>b.classList.toggle('on',on));return;}
@@ -548,8 +564,23 @@ function applyState(pid,act,on){
   if(act==='hand')t.classList.toggle('hand',on);
   if(act==='glitch')t.classList.toggle('glitching',on);
   if(act==='mute'){const nm=t.querySelector('.name');nm.classList.toggle('muted',on);nm.querySelector('.mic').innerHTML=on?MIC_OFF:MIC_ON;}
+  if(act==='sound'){Object.values(videos[pid]||{}).forEach(v=>v.muted=!on);}
   document.querySelectorAll(`.st button[data-pid="${pid}"][data-a="${act}"]`).forEach(b=>b.classList.toggle('on',on));
 }
+
+/* ---------- sound: global toggle for every participant's own recorded audio ---------- */
+let soundOn=false;
+function setSound(on){
+  soundOn=on;
+  Object.values(videos).forEach(bank=>Object.values(bank).forEach(v=>v.muted=!on));
+  const icon=document.getElementById('soundIcon'), lbl=document.getElementById('soundLbl');
+  if(icon) icon.innerHTML = on ? LIVE_STAGE.speakerOnIcon : LIVE_STAGE.speakerOffIcon;
+  if(lbl) lbl.textContent = on ? 'Sound on' : 'Sound off';
+  document.getElementById('soundBtn')?.classList.toggle('on',on);
+  document.querySelectorAll('.st button[data-a="sound"]').forEach(b=>b.classList.toggle('on',on));
+}
+document.getElementById('soundBtn')?.addEventListener('click',()=>setSound(!soundOn));
+if(ROLE==='stage') setSound(false);
 
 /* =========================================================
    TRANSPORT — redundant:
@@ -650,9 +681,23 @@ document.getElementById('applyAnswer').onclick=()=>stageApplyAnswer(document.get
 
 /* =========================================================
    SETTINGS / GALLERY open-close
+   The join gate (.cover) sits at z-index 100, above #settings (95) —
+   opening the gallery before Join must hide the gate too, or the
+   panel renders invisibly underneath it. Restore the gate on close
+   only if it was visible when we opened (i.e. we haven't joined yet).
    ========================================================= */
-function openSettings(){document.getElementById('settings').classList.add('show');renderGallery();renderPeople();}
-function closeSettings(){document.getElementById('settings').classList.remove('show');}
+let gateWasVisibleBeforeSettings=false;
+function openSettings(){
+  const gateEl=document.getElementById('gate');
+  gateWasVisibleBeforeSettings = gateEl && !gateEl.classList.contains('hidden');
+  gateEl?.classList.add('hidden');
+  document.getElementById('settings').classList.add('show');
+  renderGallery();renderPeople();
+}
+function closeSettings(){
+  document.getElementById('settings').classList.remove('show');
+  if(gateWasVisibleBeforeSettings) document.getElementById('gate')?.classList.remove('hidden');
+}
 document.getElementById('gearBtn')?.addEventListener('click',openSettings);
 document.getElementById('closeSet').onclick=closeSettings;
 document.getElementById('openGalleryBtn')?.addEventListener('click',openSettings);
@@ -676,13 +721,35 @@ window.addEventListener('keydown',e=>{
   if('123456'.includes(k)){applyScene(SCENE_ORDER[+k-1]);return;}
   if(k==='n'){applyState('nat','glitch',!tiles['nat']?.classList.contains('glitching'));send({type:'state',pid:'nat',act:'glitch',on:tiles['nat']?.classList.contains('glitching')});return;}
   if(k==='t'){const t=document.getElementById('toast');const on=!t.classList.contains('show');t.classList.toggle('show',on);send({type:'toast',on});return;}
+  if(k==='s'&&ROLE==='stage'){setSound(!soundOn);return;}
 });
+
+/* =========================================================
+   AUTO-WIRE — seed the shared clip manifest (clips.js) into the
+   gallery and pre-assign each loop to its participant, so the
+   Stage/Director open fully populated instead of empty.
+   ========================================================= */
+function seedManifest(){
+  if(!window.LIVE_STAGE || clips.length) return;
+  PARTICIPANTS.forEach(p=>{
+    if(p.live) return;
+    const urls=LIVE_STAGE.castUrls(p.id); if(!urls) return;
+    ['listen','talk','react','extra'].forEach(slot=>{
+      const id='clip'+(++clipCounter);
+      const clip={id,name:p.name+' · '+slot,note:slot,src:urls[slot],thumb:null};
+      clips.push(clip);
+      assign[p.id].push(id);
+      makeThumb(urls[slot]).then(t=>{clip.thumb=t;renderGallery();renderPeople();}).catch(()=>{});
+    });
+  });
+  updateClipCount();renderGallery();renderPeople();renderDock();
+}
 
 /* =========================================================
    INIT — branch by role
    ========================================================= */
 function initStage(){
-  buildTiles();renderGallery();renderPeople();renderDock();
+  buildTiles();seedManifest();renderGallery();renderPeople();renderDock();
   listCams();navigator.mediaDevices?.addEventListener?.('devicechange',listCams);
 }
 function initDirector(){
@@ -692,7 +759,7 @@ function initDirector(){
   document.getElementById('dock').classList.add('show');
   document.getElementById('hintTag').style.display='none';
   document.body.style.background='#0a0a0c';
-  renderGallery();renderPeople();renderDock();
+  seedManifest();renderGallery();renderPeople();renderDock();
   // if launched from a QR offer in the URL hash, connect
   const payload=location.hash.slice(1);
   if(payload){directorConsumeOffer(payload);}
