@@ -171,7 +171,7 @@
   </div>
 
   <section id="builds">
-    <div class="shead"><h2>The builds</h2><span class="cnt">01 — 05 · simplest first</span></div>
+    <div class="shead"><h2>The builds</h2><span class="cnt" id="buildRange">simplest first</span></div>
     <p class="sub">Each one is a self-contained page. They get more capable as you go down — open the first for a shoot, the last for a full scripted performance. Click a row to see what it does and how to run it.</p>
     <div class="builds" id="builds-list"></div>
   </section>
@@ -247,10 +247,28 @@
     },
     {
       href:'vilo-stage.html', name:'Full Scripted Stage', level:'Advanced', levelCls:'adv',
-      one:'The complete cue-by-cue performance — up to nine tiles, speech- and motion-reactive faces, built-in screen recording.',
-      you:'Join with or without a camera and advance the script with <b>Space</b>. Real webcam faces swap between talking and listening automatically.',
-      keys:[['D','controls'],['1','–','9','heads'],['Space','cue'],['C','camera'],['H','chrome'],['F','full'],['R','record']],
+      one:'The complete cue-by-cue performance — up to nine tiles, speech- and motion-reactive faces, built-in screen recording. Press <b>K</b> for the character casting board.',
+      you:'Join with or without a camera and advance the script with <b>Space</b>. Real webcam faces swap between talking and listening automatically. Press <b>K</b> to open Channels and cast each character; <b>D</b> for the director panel.',
+      keys:[['D','controls'],['K','channels'],['1','–','9','heads'],['Space','cue'],['C','camera'],['H','chrome'],['F','full'],['R','record']],
       preview:['chris','samantha','maya','jordan']
+    },
+    {
+      href:'scene06-live-room.html', name:'Scene 06 · Live Room', level:'Self-contained', levelCls:'auto',
+      one:'A single 68 MB file with every clip and its normalized audio baked in — a MONTE director table where each character is a row you cast for idle vs. speaking.',
+      you:'Press <b>Start room + clip sound</b>, approve the camera (or deny it and drive the grid). Leave <b>Auto</b> on and the room walks through Scene 06 itself. Press <b>D</b> for the director table: <b>I</b> = idle plate, <b>A</b> = the plate whose original MP4 audio plays when that character speaks. Works with no internet.',
+      keys:[['1','2','4','9','layout'],['Space','next cue'],['D','director table'],['H','clean feed'],['C','camera']],
+      preview:['chris','sam','ernie','phil']
+    },
+    {
+      href:'scene6-stage/scene6.html', name:'Scene 06 · MONTE Stage', level:'Stage + director', levelCls:'',
+      one:'The MONTE stage as a folder build — a monospace clip instrument for Scene 06, paired with a separate Zoom stage and a BroadcastChannel director table over 20 shared clips.',
+      you:'Open the <b>MONTE stage</b> to arrange and play the scene, the <b>Zoom stage</b> for the clean recorded window, or the <b>Director table</b> on a second screen/phone to drive the stage live over BroadcastChannel.',
+      keys:[['Space','play / advance'],['D','director']],
+      preview:['chris','sam','ernie','devon'],
+      companions:[
+        {label:'Zoom stage', href:'scene6-stage/index.html'},
+        {label:'Director table', href:'scene6-stage/director.html'}
+      ]
     }
   ];
 
@@ -290,6 +308,7 @@
           <span class="lbl">What you do</span>
           ${b.you}
           <div class="keys"><span class="kcap">Keys</span>${keys}</div>
+          ${b.companions?`<div class="keys" style="margin-top:14px"><span class="kcap">Also in this build</span>${b.companions.map(c=>`<a class="open" style="padding:6px 12px" href="${encodeURI(c.href)}">${c.label} <svg viewBox="0 0 24 24"><path d="M8 5l8 7-8 7z"/></svg></a>`).join(' ')}</div>`:''}
         </div>
         <div class="preview" style="grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr"></div>
       </div>`;
@@ -335,6 +354,7 @@
   document.getElementById('castTotal').textContent=LS.clips.length;
   document.getElementById('loopCount').textContent=LS.clips.length;
   document.getElementById('buildCount').textContent=BUILDS.length;
+  document.getElementById('buildRange').textContent='01 — '+String(BUILDS.length).padStart(2,'0')+' · simplest first';
   render();
 </script>
 </body>
