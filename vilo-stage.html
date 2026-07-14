@@ -54,6 +54,7 @@
   .media-layer{position:absolute;inset:0;background:#18191d;overflow:hidden}
   .media-layer video,.media-layer img{width:100%;height:100%;object-fit:cover;display:block}
   .media-layer .custom-media{position:absolute;inset:0;z-index:8;width:100%;height:100%;object-fit:cover}
+  .media-layer .assigned-media{z-index:9}
   .media-layer video.mirrored{transform:scaleX(-1)}
   .camera-off{position:absolute;inset:0;display:grid;place-items:center;background:#222328}
   .camera-off .initials{width:min(22vw,150px);aspect-ratio:1;border-radius:50%;display:grid;place-items:center;font-size:clamp(26px,5vw,64px);font-weight:600;box-shadow:inset 0 0 0 1px rgba(255,255,255,.15)}
@@ -208,6 +209,72 @@
   .cue-list::-webkit-scrollbar-thumb{background:#3f4046;border-radius:20px}
   .cue-list::-webkit-scrollbar-thumb:hover{background:#57585f}
 
+  /* ===== CHANNELS — the casting board (MONTE, adapted): one lane per character,
+     each with its live clip, an assignable clip strip, and its own audio. ===== */
+  #channels{position:fixed;inset:0;z-index:120;background:#0a0b0e;display:none;flex-direction:column;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  #channels.on{display:flex}
+  #channels .chd{display:flex;align-items:center;gap:12px;padding:13px 16px;border-bottom:1px solid #22242b;flex-wrap:wrap}
+  #channels .chd b{font-size:13px;letter-spacing:.14em}
+  #channels .chd .sub{font-size:10.5px;color:#7a7f8a;flex:1;min-width:120px;letter-spacing:.02em}
+  #channels .chd button{border:1px solid #2c2f38;border-radius:8px;background:transparent;color:#eef0f3;
+    font:inherit;font-size:10.5px;font-weight:700;padding:7px 13px;cursor:pointer;letter-spacing:.04em}
+  #channels .chd button:hover{border-color:var(--blue);color:#8fb4ff}
+  #channels .chd button.on{border-color:#3ec77a;color:#3ec77a}
+  #channels .chd #channelsX{border-color:var(--blue);color:#8fb4ff}
+  /* beat rail — the Scene-06 script, one chip per beat */
+  .chbeats{display:flex;gap:6px;overflow-x:auto;padding:11px 16px;border-bottom:1px solid #22242b;background:#0c0d11;scrollbar-width:thin;scrollbar-color:#3f4046 transparent}
+  .chbeats::-webkit-scrollbar{height:7px}
+  .chbeats::-webkit-scrollbar-thumb{background:#3f4046;border-radius:20px}
+  .chbeat{flex:0 0 auto;max-width:210px;border:1px solid #2a2c34;border-radius:9px;background:#141519;
+    padding:8px 11px;cursor:pointer;transition:border-color .14s;text-align:left}
+  .chbeat:hover{border-color:#454852}
+  .chbeat.cur{border-color:var(--blue);background:#16233a}
+  .chbeat .n{font-size:8.5px;color:#6b6f79;letter-spacing:.1em}
+  .chbeat .t{font-size:11px;font-weight:650;color:#eef0f3;margin:2px 0}
+  .chbeat .who{font-size:9px;color:#8fb4ff;text-transform:uppercase;letter-spacing:.05em}
+  .chbeat.cur .who{color:#a9c9ff}
+  /* channel grid — one row per character */
+  .chgrid{flex:1;overflow-y:auto;padding:12px 16px 40px;display:flex;flex-direction:column;gap:11px;
+    scrollbar-width:thin;scrollbar-color:#3f4046 transparent}
+  .chgrid .chan{flex:0 0 auto}
+  .chgrid::-webkit-scrollbar{width:9px}
+  .chgrid::-webkit-scrollbar-thumb{background:#3f4046;border-radius:20px;border:2px solid #0a0b0e}
+  .chan{border:1px solid #22242b;border-radius:12px;background:#111318;overflow:hidden;transition:border-color .15s;display:flex;flex-direction:column}
+  .chan.speaking{border-color:#3ec77a;box-shadow:0 0 0 1px rgba(62,199,122,.35) inset}
+  .chan-head{display:flex;align-items:center;gap:11px;padding:9px 11px}
+  .chan-live{flex:0 0 auto;width:78px;height:48px;border-radius:7px;overflow:hidden;background:#000;
+    border:1px solid #2a2c34;position:relative}
+  .chan-live video{width:100%;height:100%;object-fit:cover;display:block}
+  .chan-live .none{position:absolute;inset:0;display:grid;place-items:center;font-size:8px;color:#5b606b;text-align:center;letter-spacing:.05em}
+  .chan-meta{flex:1;min-width:0}
+  .chan-meta b{font-size:13px;font-weight:650;color:#eef0f3}
+  .chan-meta i{display:block;font-size:10px;color:#7a7f8a;font-style:normal;margin-top:1px}
+  .chan-now{font-size:9px;color:#8fb4ff;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .chan-ctl{display:flex;gap:6px;align-items:center;flex:0 0 auto}
+  .chan-speak{font-size:9.5px;text-transform:uppercase;letter-spacing:.04em;padding:6px 11px;border-radius:20px;
+    border:1px solid #2c2f38;background:#191b20;color:#8d9096;cursor:pointer;white-space:nowrap}
+  .chan-speak:hover{border-color:#5c85d6;color:#fff}
+  .chan-speak.on{background:#3ec77a;border-color:#3ec77a;color:#06280f;font-weight:700}
+  .chan-clear{font-size:9px;padding:6px 9px;border-radius:7px;border:1px solid #2c2f38;background:transparent;
+    color:#8d9096;cursor:pointer;white-space:nowrap}
+  .chan-clear:hover{border-color:#5c5d63;color:#fff}
+  /* the clip strip */
+  .chan-strip{display:flex;gap:6px;overflow-x:auto;padding:0 11px 11px;min-height:74px;scrollbar-width:thin;scrollbar-color:#3f4046 transparent}
+  .chan-strip::-webkit-scrollbar{height:7px}
+  .chan-strip::-webkit-scrollbar-thumb{background:#3f4046;border-radius:20px}
+  .chan-clip{flex:0 0 84px;position:relative;border-radius:7px;overflow:hidden;background:#000;
+    border:1px solid #2a2c34;cursor:pointer;height:52px;transition:border-color .12s,transform .12s}
+  .chan-clip:hover{transform:translateY(-2px);border-color:#454852}
+  .chan-clip.now{border-color:var(--blue);box-shadow:0 0 0 2px rgba(45,140,255,.5)}
+  .chan-clip video{width:100%;height:100%;object-fit:cover;display:block}
+  .chan-clip .cap{position:absolute;inset:auto 0 0 0;padding:11px 5px 3px;background:linear-gradient(transparent,rgba(0,0,0,.9));
+    font-size:8px;color:#dfe2e7;line-height:1.2;pointer-events:none}
+  .chan-clip .own{position:absolute;top:3px;left:3px;font-size:7px;font-weight:700;letter-spacing:.04em;
+    padding:1px 4px;border-radius:4px;background:rgba(45,140,255,.85);color:#fff;pointer-events:none}
+  .chan-sep{flex:0 0 auto;align-self:stretch;width:1px;background:#2a2c34;margin:4px 2px}
+  .chan-sep-lbl{flex:0 0 auto;align-self:center;font-size:8px;color:#5b606b;letter-spacing:.08em;padding:0 3px;writing-mode:vertical-rl}
+
   /* Clean/presentation states */
   body.clean .topbar,body.clean .toolbar,body.clean #director,body.clean #captionBar,body.clean .status-strip{opacity:0;pointer-events:none}
   body.clean #meetingStage{inset:0}
@@ -245,6 +312,7 @@
     <div class="meeting-time" id="meetingTime">00:00:00</div>
     <div class="top-right">
       <button class="top-chip" id="viewBtn">View</button>
+      <button class="top-chip" id="channelsBtn" title="the casting board — assign each character's clip and audio">Channels <kbd>K</kbd></button>
       <button class="top-chip" id="directorTopBtn">Director <kbd>D</kbd></button>
     </div>
   </div>
@@ -378,6 +446,17 @@
 
 <canvas id="motionCanvas" width="48" height="27" hidden></canvas>
 
+<div id="channels">
+  <div class="chd">
+    <b>SCENE 06 · CHANNELS</b>
+    <span class="sub">assign each character's clip · toggle their audio · tap a beat to stage it</span>
+    <button id="chSoundAll" title="play or mute every coworker's audio at once">Sound: off</button>
+    <button id="channelsX">DONE</button>
+  </div>
+  <div class="chbeats" id="chBeats"></div>
+  <div class="chgrid" id="chGrid"></div>
+</div>
+
 <script src="clips.js"></script>
 <script>
 (() => {
@@ -499,7 +578,10 @@
   function refreshTileSoundIcon(id){
     const v=activeSynthVideo(id);
     const on = v ? !v.muted : state.coworkerSound;
-    [tileMap.get(id)?.querySelector('.tile-sound'), document.querySelector(`.mini-sound[data-id="${id}"]`)].forEach(btn=>{
+    const btns=[tileMap.get(id)?.querySelector('.tile-sound')];
+    // .mini-sound[data-id] matches both the director-panel cast card and the channel board button
+    document.querySelectorAll(`.mini-sound[data-id="${id}"]`).forEach(b=>btns.push(b));
+    btns.forEach(btn=>{
       if(!btn) return;
       btn.classList.toggle('on',on);
       btn.innerHTML = on ? LIVE_STAGE.speakerOnIcon : LIVE_STAGE.speakerOffIcon;
@@ -556,7 +638,8 @@
 
   function markSpeaker(id){
     tileMap.forEach((tile,pid)=>tile.classList.toggle('speaking',pid===id && state.activeIds.includes(pid)));
-    document.querySelectorAll('.speak-btn').forEach(b=>b.classList.toggle('on',b.dataset.id===id));
+    document.querySelectorAll('.speak-btn,.chan-speak').forEach(b=>b.classList.toggle('on',b.dataset.id===id));
+    document.querySelectorAll('#chGrid .chan').forEach(c=>c.classList.toggle('speaking',c.dataset.id===id));
   }
   // Manual override so the director can flag any coworker as the active
   // speaker outside the fixed cue script — click again to clear it.
@@ -685,15 +768,31 @@
   function loadParticipantMedia(id,source){
     const tile=tileMap.get(id),media=tile.querySelector('.media-layer');
     if(id==='nat'||!source)return;
-    const old=media.querySelector('.custom-media');
+    // Director-assigned media is its own layer (.assigned-media), sitting above the
+    // auto talk/listen/react face loops — replace only the previous assigned clip,
+    // never a face. Inherit the tile's current audio choice so a swap doesn't re-mute.
+    const cur=activeSynthVideo(id);
+    const inheritMuted = cur ? cur.muted : !state.coworkerSound;
+    const old=media.querySelector('.assigned-media');
     if(old){ if(old.dataset.blob) URL.revokeObjectURL(old.dataset.url); old.remove(); }
     const isFile = typeof source!=='string';
     const url = isFile ? URL.createObjectURL(source) : source;
     const isVideo = isFile ? source.type.startsWith('video/') : /\.(mp4|webm|mov)(#|\?|$)/i.test(source);
     let el;
-    if(isVideo){el=document.createElement('video');el.autoplay=true;el.loop=true;el.muted=!state.coworkerSound;el.playsInline=true;el.play().catch(()=>{})}else{el=document.createElement('img')}
-    el.className=isVideo?'custom-media synth-audio':'custom-media';el.dataset.url=url; if(isFile) el.dataset.blob='1'; el.src=url;media.append(el);toast(`${byId[id].name} media loaded`)
+    if(isVideo){el=document.createElement('video');el.autoplay=true;el.loop=true;el.muted=inheritMuted;el.playsInline=true;el.play().catch(()=>{})}else{el=document.createElement('img')}
+    el.className=isVideo?'assigned-media custom-media synth-audio':'assigned-media custom-media';
+    el.dataset.url=url; el.dataset.file=(typeof source==='string'?source:''); if(isFile) el.dataset.blob='1';
+    el.src=url;media.append(el);
     refreshTileSoundIcon(id);
+    if(typeof onChannelAssigned==='function') onChannelAssigned(id,source);
+  }
+  // clear a director-assigned clip, revealing the auto face loops again
+  function clearParticipantMedia(id){
+    const media=tileMap.get(id)?.querySelector('.media-layer'); if(!media)return;
+    const old=media.querySelector('.assigned-media');
+    if(old){ if(old.dataset.blob) URL.revokeObjectURL(old.dataset.url); old.remove(); }
+    refreshTileSoundIcon(id);
+    if(typeof onChannelAssigned==='function') onChannelAssigned(id,null);
   }
   function setCoworkerSound(on){
     state.coworkerSound=on;
@@ -765,6 +864,8 @@
     if(e.key.toLowerCase()==='c'){state.cameraOn?stopCamera():resumeCamera();return}
     if(e.key.toLowerCase()==='r'){toggleRecording();return}
     if(e.key.toLowerCase()==='s'){setCoworkerSound(!state.coworkerSound);toast(state.coworkerSound?'Coworker audio on':'Coworker audio off');return}
+    if(e.key.toLowerCase()==='k'){$('#channels').classList.contains('on')?closeChannels():openChannels();return}
+    if(e.key==='Escape'&&$('#channels').classList.contains('on')){closeChannels();return}
     if(e.key==='Escape'&&document.body.classList.contains('clean'))toggleClean(false);
   });
   ['mousemove','mousedown','touchstart'].forEach(ev=>document.addEventListener(ev,wakeChrome,{passive:true}));
@@ -839,6 +940,127 @@
       obs.observe(tile,{attributes:true,attributeFilter:['class']});
     });
   })();
+
+  /* =========================================================================
+     CHANNELS — the casting board (MONTE, adapted to our clips).
+     One channel per Scene-06 character. Each shows the clip they're currently
+     performing, a strip of every clip you can assign to them (their own footage
+     first), their own audio toggle, and a Speaking flag. A beat rail up top
+     stages any moment of the scripted Zoom meeting. Everything drives the live
+     tiles behind it through the same loadParticipantMedia / toggleTileSound /
+     applyCue the rest of the app uses.
+     ========================================================================= */
+  const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  const CH_ALIAS = { samantha:'sam' };            // vilo participant id -> clips.js character id
+  const charId = pid => CH_ALIAS[pid] || pid;
+  const chChars = () => participants.filter(p => p.id!=='nat');
+  let channelPick = {};                            // pid -> assigned clip slug (or '(upload)')
+  const LS = window.LIVE_STAGE;
+
+  // called by loadParticipantMedia / clearParticipantMedia so the board tracks
+  // whatever is live, whether it was set here or from the director panel
+  function onChannelAssigned(id, source){
+    if(source==null) delete channelPick[id];
+    else if(typeof source==='string'){ const m=String(source).match(/([^/]+?)\.mp4/i); channelPick[id]=m?m[1]:source; }
+    else channelPick[id]='(upload)';
+    if($('#channels').classList.contains('on')) refreshChannelRow(id);
+  }
+  function currentFile(pid){
+    if(channelPick[pid] && channelPick[pid]!=='(upload)') return channelPick[pid];
+    const c = LS.cast[charId(pid)]; return c ? c.listen : null;
+  }
+  function updateLivePoster(pid, el){
+    if(channelPick[pid]==='(upload)'){ el.innerHTML='<div class="none">uploaded clip</div>'; return; }
+    const f=currentFile(pid);
+    el.innerHTML = f ? `<video src="${LS.url(f)}#t=0.5" muted playsinline preload="metadata"></video>`
+                     : '<div class="none">no clip</div>';
+  }
+  function refreshChannelRow(pid){
+    const row=$(`#chGrid .chan[data-id="${pid}"]`); if(!row) return;
+    const file=channelPick[pid];
+    row.querySelectorAll('.chan-clip').forEach(c=>c.classList.toggle('now',c.dataset.file===file));
+    updateLivePoster(pid, row.querySelector('.chan-live'));
+    const meta=file&&file!=='(upload)'?LS.clipMeta(file):(currentFile(pid)?LS.clipMeta(currentFile(pid)):null);
+    row.querySelector('.chan-now').textContent = channelPick[pid]==='(upload)' ? 'uploaded clip'
+      : meta ? (meta.who+' · '+meta.act) : 'auto (talk / listen / react)';
+    refreshTileSoundIcon(pid);
+  }
+  function clipCard(pid, file, own){
+    const meta=LS.clipMeta(file);
+    const el=document.createElement('button');
+    el.className='chan-clip'+(channelPick[pid]===file?' now':'');
+    el.dataset.file=file;
+    el.innerHTML=(own?'<span class="own">OWN</span>':'')
+      +`<video src="${LS.url(file)}#t=0.5" muted loop playsinline preload="metadata"></video>`
+      +`<div class="cap">${esc(meta.act)}</div>`;
+    const v=el.querySelector('video');
+    el.addEventListener('mouseenter',()=>v.play().catch(()=>{}));
+    el.addEventListener('mouseleave',()=>{v.pause();});
+    el.onclick=()=>{ loadParticipantMedia(pid, LS.url(file)); toast(byId[pid].name+' → '+meta.act); };
+    return el;
+  }
+  function buildChannels(){
+    buildBeats();
+    const grid=$('#chGrid'); grid.innerHTML='';
+    chChars().forEach(p=>{
+      const pid=p.id, ch=LS.characters.find(c=>c.id===charId(pid))||{};
+      const pool=LS.charClips(charId(pid));
+      const row=document.createElement('div');
+      row.className='chan'+(tileMap.get(pid)?.classList.contains('speaking')?' speaking':'');
+      row.dataset.id=pid;
+      row.innerHTML=
+        `<div class="chan-head">
+           <div class="chan-live"></div>
+           <div class="chan-meta"><b>${esc(p.name)}</b><i>${esc(ch.role||'team')}</i><div class="chan-now"></div></div>
+           <div class="chan-ctl">
+             <button class="chan-speak" data-id="${pid}">Speaking</button>
+             <button class="chan-snd mini-sound" data-id="${pid}" title="play or mute ${esc(p.name)}'s audio"></button>
+             <button class="chan-clear" data-id="${pid}" title="drop the assignment, return to the automatic talk/listen/react loops">Auto</button>
+           </div>
+         </div>
+         <div class="chan-strip"></div>`;
+      const strip=row.querySelector('.chan-strip');
+      pool.own.forEach(f=>strip.appendChild(clipCard(pid,f,true)));
+      // the rest of the library is one click away — keeps the board light on open
+      if(pool.rest.length){
+        const sep=document.createElement('div'); sep.className='chan-sep';
+        const more=document.createElement('button');
+        more.className='chan-clip'; more.style.cssText='flex:0 0 84px;display:grid;place-items:center;font-size:9px;color:#8fb4ff;border-style:dashed';
+        more.innerHTML='+ FULL<br>LIBRARY<br>('+pool.rest.length+')';
+        more.onclick=()=>{ more.remove(); sep.remove(); pool.rest.forEach(f=>strip.appendChild(clipCard(pid,f,false))); };
+        strip.appendChild(sep); strip.appendChild(more);
+      }
+      row.querySelector('.chan-speak').onclick=()=>toggleSpeaker(pid);
+      row.querySelector('.chan-snd').onclick=()=>toggleTileSound(pid);
+      row.querySelector('.chan-clear').onclick=()=>{ clearParticipantMedia(pid); toast(byId[pid].name+' → auto'); };
+      grid.appendChild(row);
+      updateLivePoster(pid, row.querySelector('.chan-live'));
+      refreshChannelRow(pid);
+    });
+    // reflect current speaker
+    const cur=cues[state.cueIndex]; if(cur&&cur.speaker) markSpeaker(cur.speaker);
+  }
+  function buildBeats(){
+    const wrap=$('#chBeats'); wrap.innerHTML='';
+    cues.forEach((c,i)=>{
+      const who=c.speaker?((byId[c.speaker]||{}).name||c.speaker):'—';
+      const el=document.createElement('div');
+      el.className='chbeat'+(i===state.cueIndex?' cur':'');
+      el.innerHTML=`<div class="n">BEAT ${String(i+1).padStart(2,'0')}</div>`
+        +`<div class="t">${esc(c.label)}</div>`
+        +`<div class="who">${esc(who)}${c.speaker?' speaks':''}</div>`;
+      el.onclick=()=>{ applyCue(i); buildBeats(); };
+      wrap.appendChild(el);
+    });
+  }
+  function openChannels(){ buildChannels(); $('#channels').classList.add('on'); }
+  function closeChannels(){ $('#channels').classList.remove('on'); }
+  $('#channelsBtn').onclick=()=>{ $('#channels').classList.contains('on')?closeChannels():openChannels(); };
+  $('#channelsX').onclick=closeChannels;
+  $('#chSoundAll').onclick=()=>{ setCoworkerSound(!state.coworkerSound);
+    $('#chSoundAll').textContent='Sound: '+(state.coworkerSound?'on':'off');
+    $('#chSoundAll').classList.toggle('on',state.coworkerSound);
+    chChars().forEach(p=>refreshChannelRow(p.id)); };
 
   // Initialize
   setPreset('team4');applyCue(0);tickTime();wakeChrome();enumerateCameras();

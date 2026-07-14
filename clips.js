@@ -63,6 +63,37 @@
 
   function url(slug) { return DIR + slug + '.mp4'; }
 
+  // ---------------------------------------------------------------------
+  // CHARACTER BACKEND (MONTE, adapted to our clips)
+  // The MONTE instrument organizes clips into lanes; here each lane is a
+  // Scene-06 character. Every character is tied to one actor ("who") group
+  // so their own footage surfaces first, but any of the 27 loops can be
+  // assigned to anyone — the director has full authority over the casting.
+  // ---------------------------------------------------------------------
+  var CHARACTERS = [
+    { id: 'chris',  name: 'Chris',    role: 'raises onboarding',    who: 'Latino man' },
+    { id: 'sam',    name: 'Samantha', role: 'remembers the 3 o’clock', who: 'Asian woman' },
+    { id: 'ernie',  name: 'Ernie',    role: 'asks for ideas',       who: 'Man' },
+    { id: 'phil',   name: 'Phil',     role: 'performance review',   who: 'Man' },
+    { id: 'devon',  name: 'Devon',    role: 'team',                 who: 'African-American man' },
+    { id: 'maya',   name: 'Maya',     role: 'team',                 who: 'Woman' },
+    { id: 'alex',   name: 'Alex',     role: 'team',                 who: 'South Asian woman' },
+    { id: 'jordan', name: 'Jordan',   role: 'team',                 who: 'Man' }
+  ];
+  var WHOS = [];
+  CLIPS.forEach(function (c) { if (WHOS.indexOf(c.who) < 0) WHOS.push(c.who); });
+  function clipMeta(slug) { return CLIPS.find(function (c) { return c.file === slug; }) || { file: slug, who: '', act: slug, tag: '' }; }
+  function clipsForWho(who) { return CLIPS.filter(function (c) { return c.who === who; }).map(function (c) { return c.file; }); }
+  // charClips(id) -> { own:[slug…], rest:[slug…] } : this character's own footage, then everything else
+  function charClips(id) {
+    var ch = CHARACTERS.find(function (c) { return c.id === id; });
+    var all = CLIPS.map(function (c) { return c.file; });
+    if (!ch) return { own: [], rest: all };
+    var own = clipsForWho(ch.who);
+    var rest = all.filter(function (f) { return own.indexOf(f) < 0; });
+    return { own: own, rest: rest };
+  }
+
   // Every clip in media/ carries its own recorded audio track (confirmed:
   // aac in all 27 files). Stages default new video elements to muted so
   // autoplay is never blocked, then unmute on the viewer's explicit click.
@@ -128,6 +159,11 @@
     dir: DIR,
     clips: CLIPS,
     cast: CAST,
+    characters: CHARACTERS,
+    whos: WHOS,
+    clipMeta: clipMeta,
+    clipsForWho: clipsForWho,
+    charClips: charClips,
     url: url,
     speakerOnIcon: SPEAKER_ON,
     speakerOffIcon: SPEAKER_OFF,
