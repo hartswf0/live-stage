@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zoom Meeting</title>
+<style>
+  :root{
+    --z-bg:#0b0b0d; --tile:#141417; --bar:#1b1b1f; --bar2:#26262b;
+    --txt:#f3f3f5; --dim:#a6a6ad; --accent:#2d8cff; --green:#43c463; --red:#e8402f;
+    --name:rgba(0,0,0,.5); --panel:#111114; --line:#26262c;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;user-select:none;-webkit-user-select:none}
+  html,body{height:100%;background:#000;overflow:hidden}
+  body{font-family:"Segoe UI",-apple-system,BlinkMacSystemFont,Roboto,Helvetica,Arial,sans-serif;color:var(--txt);cursor:default;-webkit-tap-highlight-color:transparent}
+  button,input{font-family:inherit}
+
+  /* ============ ZOOM WINDOW (record this) ============ */
+  #stageWindow{position:fixed;inset:0;display:flex;flex-direction:column;background:var(--z-bg)}
+  .topbar{height:38px;background:#161619;display:flex;align-items:center;justify-content:space-between;padding:0 12px;font-size:12.5px;color:var(--dim);flex:0 0 auto;border-bottom:1px solid #000}
+  .topbar .grp{display:flex;gap:14px;align-items:center}
+  .rec{display:flex;gap:6px;align-items:center;color:#e5e5e8}
+  .rec .dot{width:9px;height:9px;border-radius:50%;background:var(--red);animation:blink 1.5s infinite}
+  .rec .pz{display:flex;gap:3px;margin-left:4px}.rec .pz i{width:3px;height:11px;background:#8a8a90;display:block}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+  .zpill{background:#2a2a30;border-radius:5px;padding:4px 10px;display:flex;gap:7px;align-items:center;color:#d8d8dc;font-size:12px}
+  .zpill svg{width:12px;height:12px;fill:currentColor}
+  .zbtn{display:flex;gap:6px;align-items:center;color:var(--dim);padding:4px 8px;border-radius:5px}
+  .zbtn svg{width:14px;height:14px;fill:currentColor}
+
+  #grid{flex:1 1 auto;display:grid;gap:4px;padding:6px;grid-auto-rows:1fr;background:var(--z-bg)}
+  .tile{position:relative;background:var(--tile);overflow:hidden;outline:0 solid var(--accent);transition:outline-width .1s}
+  .tile.speaking{outline-width:4px;z-index:2}
+  .tile video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#0e0e11;opacity:0;transition:opacity .12s}
+  .tile video.active{opacity:1}
+  .tile.mirror video.livecam{transform:scaleX(-1)}
+  .ph{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:radial-gradient(circle at 50% 42%,#22222c,#0e0e12);z-index:1}
+  .ph .av{width:96px;height:96px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:38px;font-weight:600;color:#fff}
+  .ph .hn{font-size:12px;color:var(--dim)}
+  .tile.hasvideo .ph{display:none}
+  .name{position:absolute;left:8px;bottom:8px;background:var(--name);padding:3px 9px;border-radius:4px;font-size:13.5px;font-weight:500;display:flex;align-items:center;gap:6px;z-index:3;backdrop-filter:blur(2px)}
+  .name .mic{width:13px;height:13px}.name .mic svg{width:100%;height:100%;fill:#fff}
+  .name.muted .mic svg{fill:#ff5a4d}
+  .name .host{font-size:8.5px;background:var(--accent);color:#fff;padding:1px 4px;border-radius:3px;text-transform:uppercase;letter-spacing:.4px}
+  .hand{position:absolute;top:8px;left:8px;z-index:3;background:#f2b71c;width:30px;height:30px;border-radius:6px;display:none;align-items:center;justify-content:center}
+  .tile.hand .hand{display:flex}.hand svg{width:17px;height:17px;fill:#111}
+  .glitch{position:absolute;inset:0;z-index:4;pointer-events:none;opacity:0}
+  .tile.glitching .glitch{opacity:1;background:repeating-linear-gradient(0deg,rgba(45,140,255,.18) 0 2px,transparent 2px 4px),#05070d;animation:gf .15s steps(2) infinite}
+  @keyframes gf{0%{transform:translateX(0);opacity:.9}50%{transform:translateX(3px);opacity:.4}100%{transform:translateX(-2px);opacity:.85}}
+  .tile.glitching video,.tile.glitching .ph{filter:hue-rotate(35deg) contrast(1.3) saturate(0)}
+
+  #toast{position:absolute;top:56px;right:16px;z-index:20;background:#26262b;border:1px solid #34343a;border-radius:10px;padding:14px 16px;width:300px;box-shadow:0 12px 40px rgba(0,0,0,.6);display:none;animation:slidein .3s}
+  #toast.show{display:block}
+  @keyframes slidein{from{transform:translateX(20px);opacity:0}to{transform:translateX(0);opacity:1}}
+  #toast .th{font-size:13px;font-weight:600;margin-bottom:4px;color:#fff}
+  #toast .tb{font-size:12px;color:var(--dim);margin-bottom:12px}
+  #toast .ta{display:flex;gap:8px}
+  #toast .ta button{flex:1;padding:8px;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer}
+  #toast .ta .join{background:var(--accent);color:#fff}#toast .ta .later{background:#3a3a40;color:#ccc}
+
+  .controlbar{height:64px;background:var(--bar);display:flex;align-items:center;justify-content:center;gap:20px;flex:0 0 auto;border-top:1px solid #000;position:relative}
+  .ctrl{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:52px;color:var(--txt)}
+  .ctrl svg{width:22px;height:22px;fill:currentColor}.ctrl span{font-size:10px;color:var(--dim)}
+  .ctrl.settings{cursor:pointer}.ctrl.settings:hover{color:var(--accent)}
+  .ctrl.leave{position:absolute;right:18px}.ctrl.leave .lp{background:#e8402f;color:#fff;padding:7px 15px;border-radius:6px;font-size:12.5px;font-weight:600}
+
+  /* ============ SETUP GATE ============ */
+  .cover{position:fixed;inset:0;z-index:100;background:#0c0c0e;display:flex;align-items:center;justify-content:center;padding:20px;overflow-y:auto}
+  .cover.hidden{display:none}
+  .card{width:min(760px,95vw);background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:24px;margin:auto}
+  h1{font-size:19px;margin-bottom:3px}
+  .sub{font-size:12.5px;color:#8a8a92;margin-bottom:18px;line-height:1.5}
+  .step{border:1px solid var(--line);border-radius:10px;padding:13px;margin-bottom:11px;background:#101014}
+  .step h3{font-size:13px;margin-bottom:9px;display:flex;justify-content:space-between;align-items:center}
+  .step h3 .ok{color:var(--green);font-size:11px}
+  .rowf{display:flex;gap:8px;align-items:center}
+  select,.inp{font-size:12px;background:#0a0a0c;border:1px solid #2a2a30;color:#ddd;border-radius:6px;padding:7px}
+  .rowf select,.rowf .inp{flex:1}
+  .b{font-size:12px;padding:8px 13px;border:none;border-radius:6px;background:#2a2a30;color:#fff;cursor:pointer;white-space:nowrap}
+  .b.primary{background:var(--accent)}.b.ghost{background:#1a1a1f;border:1px solid var(--line)}
+  .chk{font-size:11px;color:#888;display:flex;gap:6px;align-items:center;margin-top:8px}
+  #enterBtn{width:100%;margin-top:6px;font-size:14px;padding:13px;border:none;border-radius:9px;background:var(--accent);color:#fff;cursor:pointer;font-weight:600}
+  #enterBtn:disabled{opacity:.4;cursor:not-allowed}
+
+  /* ============ CLIP GALLERY (settings layer) ============ */
+  #settings{position:fixed;inset:0;z-index:95;background:rgba(8,8,10,.97);display:none;flex-direction:column;padding:0}
+  #settings.show{display:flex}
+  .setbar{height:52px;flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;padding:0 16px;border-bottom:1px solid var(--line);background:#0e0e12}
+  .setbar .st-title{font-size:14px;font-weight:600}
+  .setbar .st-sub{font-size:11px;color:#777;margin-left:8px;font-weight:400}
+  .setbar .st-actions{display:flex;gap:8px}
+  #setBody{flex:1 1 auto;overflow-y:auto;padding:16px;display:grid;grid-template-columns:340px 1fr;gap:16px}
+  @media(max-width:800px){#setBody{grid-template-columns:1fr}}
+
+  /* gallery column */
+  .gal h4,.assign h4{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:#888;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+  .galgrid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+  .clipcard{border:1px solid var(--line);border-radius:9px;overflow:hidden;background:#101014;cursor:grab}
+  .clipcard.dragging{opacity:.4}
+  .clipcard .thumb{width:100%;aspect-ratio:16/9;background:#08080a;object-fit:cover;display:block}
+  .clipcard .meta{padding:7px 8px}
+  .clipcard .cn{font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .clipcard .cd{font-size:9px;color:#777;margin-top:2px}
+  .clipcard .cbtns{display:flex;gap:4px;padding:0 8px 8px}
+  .clipcard .cbtns button{flex:1;font-size:9px;padding:4px;border:1px solid #2a2a30;background:#0a0a0c;color:#aaa;border-radius:4px;cursor:pointer}
+  .addclip{border:1px dashed #333;border-radius:9px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;aspect-ratio:16/9;color:#666;font-size:11px;cursor:pointer;background:#0c0c0e}
+  .addclip:hover{border-color:var(--accent);color:var(--accent)}
+
+  /* assignment column */
+  .people{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  @media(max-width:560px){.people{grid-template-columns:1fr}}
+  .pslot{border:1px solid var(--line);border-radius:10px;padding:10px;background:#101014}
+  .pslot.dragover{border-color:var(--accent);background:#0f1622}
+  .pslot .ph-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .pslot .dot{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#fff;flex:0 0 auto}
+  .pslot .pnm{font-size:12px;font-weight:600}
+  .pslot .prl{font-size:9px;color:#777;text-transform:uppercase}
+  .assigned{display:flex;flex-direction:column;gap:5px;min-height:38px}
+  .achip{display:flex;align-items:center;gap:6px;background:#0a0a0c;border:1px solid #2a2a30;border-radius:6px;padding:5px 7px;font-size:10.5px}
+  .achip .ac-thumb{width:34px;height:20px;object-fit:cover;border-radius:3px;background:#000;flex:0 0 auto}
+  .achip .ac-name{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .achip .ac-x{color:#666;cursor:pointer;font-size:13px;padding:0 3px}
+  .achip.playing{border-color:var(--green);background:#0d1a10}
+  .achip .ac-play{color:#7ad;cursor:pointer;font-size:11px}
+  .emptyslot{font-size:10px;color:#555;text-align:center;padding:9px;border:1px dashed #2a2a30;border-radius:6px}
+
+  /* ============ DIRECTOR DOCK (in-frame ops, hidden by default) ============ */
+  #dock{position:fixed;left:0;right:0;bottom:0;z-index:90;background:rgba(9,9,11,.96);border-top:1px solid #2a2a30;padding:10px 12px;display:none;backdrop-filter:blur(8px);max-height:54vh;overflow-y:auto}
+  #dock.show{display:block}
+  .dh{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px;flex-wrap:wrap;gap:6px}
+  .dh h4{font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.6px}
+  .dh .link{font-size:10px;color:var(--dim)}.dh .link b{color:var(--accent)}
+  .scenes{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:11px}
+  .scenes button{font-size:11px;padding:8px 12px;border:1px solid #2a2a30;background:#141418;color:#cdcdd2;border-radius:7px;cursor:pointer;display:flex;flex-direction:column;gap:2px;align-items:flex-start;min-width:118px}
+  .scenes button .sn{font-weight:600}.scenes button .sd{font-size:9px;color:#777}
+  .scenes button.active{background:var(--accent);border-color:var(--accent);color:#fff}
+  .scenes button.active .sd{color:#dbe9ff}
+  .prows{display:flex;gap:8px;flex-wrap:wrap}
+  .pcol{border:1px solid var(--line);border-radius:8px;padding:8px;min-width:150px;flex:1}
+  .pcol .pt{font-size:11px;font-weight:600;margin-bottom:6px}
+  .clipbtns{display:flex;gap:3px;flex-wrap:wrap;margin-bottom:6px}
+  .clipbtns button{font-size:9.5px;padding:4px 7px;border:1px solid #2a2a30;background:#0e0e12;color:#bbb;border-radius:4px;cursor:pointer;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .clipbtns button.playing{background:var(--green);color:#062;border-color:var(--green);font-weight:600}
+  .clipbtns .none{font-size:9px;color:#555}
+  .st{display:flex;gap:3px;flex-wrap:wrap}
+  .st button{flex:1;font-size:9px;padding:4px;border:1px solid #2a2a30;background:#0e0e12;color:#aaa;border-radius:4px;cursor:pointer;min-width:40px}
+  .st button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .st button.on.red{background:var(--red);border-color:var(--red)}
+  #dockFoot{font-size:10px;color:#666;margin-top:8px;line-height:1.5}
+  #dockFoot kbd{background:#000;border:1px solid #333;border-radius:3px;padding:0 5px}
+  #hintTag{position:fixed;right:9px;bottom:7px;z-index:80;font-size:10px;color:#3a3a40}
+
+  /* ============ PAIRING MODAL ============ */
+  #pair{position:fixed;inset:0;z-index:110;background:rgba(6,6,8,.9);display:none;align-items:center;justify-content:center;padding:20px}
+  #pair.show{display:flex}
+  #pair .pcard{width:min(440px,94vw);background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px;text-align:center}
+  #pair h2{font-size:16px;margin-bottom:4px}
+  #pair .ps{font-size:12px;color:#888;margin-bottom:16px;line-height:1.5}
+  #qrbox{width:220px;height:220px;margin:0 auto 14px;background:#fff;border-radius:10px;padding:10px;display:flex;align-items:center;justify-content:center}
+  #qrbox canvas,#qrbox img{width:100%;height:100%}
+  .codebox{font-family:ui-monospace,monospace;font-size:22px;letter-spacing:4px;background:#0a0a0c;border:1px solid #2a2a30;border-radius:8px;padding:12px;margin-bottom:12px;color:var(--accent)}
+  #pair .b{margin:3px}
+  .status{font-size:11px;margin-top:10px}
+  .status.wait{color:#c9a227}.status.ok{color:var(--green)}.status.err{color:var(--red)}
+  .manual{margin-top:14px;border-top:1px solid var(--line);padding-top:14px}
+  .manual textarea{width:100%;height:64px;font-family:ui-monospace,monospace;font-size:10px;background:#0a0a0c;border:1px solid #2a2a30;color:#9ab;border-radius:6px;padding:8px;resize:none}
+</style>
+</head>
+<body>
+
+<!-- ==================== ZOOM WINDOW ==================== -->
+<div id="stageWindow">
+  <div class="topbar">
+    <div class="grp"><span class="rec"><span class="dot"></span>Recording…<span class="pz"><i></i><i></i></span></span></div>
+    <div class="grp"><span class="zpill"><svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 3-1.34 3-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5C15 14.17 10.33 13 8 13zm8 0c-.29 0-.62.02-.97.05C16.16 13.9 17 15.02 17 16.5V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>Total non-video participants: <span id="nvp">1</span></span></div>
+    <div class="grp">
+      <span class="zbtn"><svg viewBox="0 0 24 24"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/></svg><span id="viewLabel">Speaker View</span></span>
+      <span class="zbtn"><svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7zm-2-4h2V7h3V5H5zm12 7h-3v2h5v-5h-2zM14 5v2h3v3h2V5z"/></svg>Exit Full Screen</span>
+    </div>
+  </div>
+
+  <div id="grid"></div>
+
+  <div id="toast">
+    <div class="th">Important meeting starting NOW</div>
+    <div class="tb">Performance Review · Phil Danvers</div>
+    <div class="ta"><button class="join">Join</button><button class="later">Later</button></div>
+  </div>
+
+  <div class="controlbar">
+    <div class="ctrl"><svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21H8v2h8v-2h-3v-2.08A7 7 0 0 0 19 12z"/></svg><span>Mute</span></div>
+    <div class="ctrl"><svg viewBox="0 0 24 24"><path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11z"/></svg><span>Stop Video</span></div>
+    <div class="ctrl"><svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 3-1.34 3-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5C15 14.17 10.33 13 8 13z"/></svg><span>Participants</span></div>
+    <div class="ctrl"><svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg><span>Chat</span></div>
+    <div class="ctrl"><svg viewBox="0 0 24 24"><path d="M19 7v3h-2V7h-3V5h3V2h2v3h3v2zm-3 4V8h-3V5H5c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2v-5z"/></svg><span>Share Screen</span></div>
+    <div class="ctrl settings" id="gearBtn" title="Open clip gallery"><svg viewBox="0 0 24 24"><path d="M19.14 12.94a7.5 7.5 0 0 0 .05-1.88l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.3 7.3 0 0 0-1.62-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54a7.3 7.3 0 0 0-1.62.94l-2.39-.96a.5.5 0 0 0-.6.22L2.62 8.84a.5.5 0 0 0 .12.64l2.03 1.58a7.5 7.5 0 0 0 0 1.88l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32a.5.5 0 0 0 .6.22l2.39-.96c.5.38 1.04.7 1.62.94l.36 2.54a.5.5 0 0 0 .5.42h3.84a.5.5 0 0 0 .5-.42l.36-2.54c.58-.24 1.12-.56 1.62-.94l2.39.96a.5.5 0 0 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7z"/></svg><span>Settings</span></div>
+    <div class="ctrl leave"><span class="lp">Leave Meeting</span></div>
+  </div>
+</div>
+
+<!-- ==================== SETUP GATE ==================== -->
+<div id="gate" class="cover">
+  <div class="card">
+    <h1>Join meeting</h1>
+    <div class="sub">Set up the shot, then join. After you join, this screen is gone and the window records as clean Zoom. Open the gallery any time from the Settings gear. Pair a phone as director with the QR code, or run everything from this machine.</div>
+
+    <div class="step">
+      <h3>1 · Actress camera <span class="ok" id="camOk"></span></h3>
+      <div class="rowf"><select id="camSelect"><option value="">Grant access to list cameras…</option></select><button class="b primary" id="camBtn">Enable camera</button></div>
+      <label class="chk"><input type="checkbox" id="mirrorChk" checked> Mirror her tile (natural self-view)</label>
+    </div>
+
+    <div class="step">
+      <h3>2 · Load clips <span class="ok" id="clipCount">0 loaded</span></h3>
+      <div class="sub" style="margin:0">Add clips to the gallery, then drag each onto a person. You can also do all of this later from the Settings gear.</div>
+      <div class="rowf" style="margin-top:8px"><button class="b primary" id="openGalleryBtn">Open clip gallery</button><button class="b ghost" id="pairBtn2">Pair a director phone</button></div>
+    </div>
+
+    <button id="enterBtn">Join meeting</button>
+  </div>
+</div>
+
+<!-- ==================== CLIP GALLERY / SETTINGS ==================== -->
+<div id="settings">
+  <div class="setbar">
+    <div><span class="st-title">Clip gallery</span><span class="st-sub">drag a clip onto a person · assign as many as you want</span></div>
+    <div class="st-actions">
+      <button class="b ghost" id="pairFromSet">Pair director</button>
+      <button class="b primary" id="closeSet">Done</button>
+    </div>
+  </div>
+  <div id="setBody">
+    <div class="gal">
+      <h4>Gallery <span id="galHint" style="font-weight:400;text-transform:none;color:#666"></span></h4>
+      <div class="galgrid" id="galGrid"></div>
+    </div>
+    <div class="assign">
+      <h4>People — drop clips here</h4>
+      <div class="people" id="peopleGrid"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== DIRECTOR DOCK ==================== -->
+<div id="dock">
+  <div class="dh">
+    <h4>Director — Scene 06 · Zoom Review Collision</h4>
+    <span class="link">channel <b>vilo-zoom</b> · <kbd>D</kbd> hide · gear = gallery</span>
+  </div>
+  <div class="scenes" id="sceneRow"></div>
+  <div class="prows" id="dockRows"></div>
+  <div id="dockFoot"></div>
+</div>
+<div id="hintTag">press D · director controls</div>
+
+<!-- ==================== PAIRING MODAL ==================== -->
+<div id="pair">
+  <div class="pcard">
+    <h2 id="pairTitle">Pair a director device</h2>
+    <div class="ps" id="pairSub">Scan on the phone that will drive the meeting. No internet server — it connects directly to this machine.</div>
+    <div id="qrbox"></div>
+    <div class="codebox" id="roomCode">– – – –</div>
+    <div class="status wait" id="pairStatus">Waiting for the director device…</div>
+    <div>
+      <button class="b ghost" id="pairCancel">Close</button>
+      <button class="b" id="manualToggle">Manual pairing</button>
+    </div>
+    <div class="manual" id="manualBox" style="display:none">
+      <div class="ps" style="margin-bottom:8px">If the QR won't scan: copy this from Stage, paste on the phone, then paste the phone's reply back here.</div>
+      <textarea id="offerOut" readonly placeholder="offer…"></textarea>
+      <textarea id="answerIn" placeholder="paste the phone's answer here"></textarea>
+      <button class="b primary" id="applyAnswer" style="width:100%;margin-top:6px">Connect</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+/* =========================================================
+   ROLE — Stage (records) vs Director (controls).
+   ?role=director  → controller-only. Otherwise Stage.
+   ========================================================= */
+const QS = new URLSearchParams(location.search);
+const ROLE = QS.get('role')==='director' ? 'director' : 'stage';
+
+/* =========================================================
+   CAST + SCENES (Scene 6)
+   ========================================================= */
+const PARTICIPANTS = [
+  {id:'nat',   name:'Natalie',      role:'live camera', host:true,  live:true,  initials:'N', color:'#c0392b'},
+  {id:'chris', name:'Chris',        role:'AI',          host:false, live:false, initials:'C', color:'#2d6cdf'},
+  {id:'sam',   name:'Samantha',     role:'AI',          host:false, live:false, initials:'S', color:'#8e44ad'},
+  {id:'ernie', name:'Ernie',        role:'AI',          host:false, live:false, initials:'E', color:'#16a085'},
+  {id:'phil',  name:'Phil Danvers', role:'AI · review', host:false, live:false, initials:'P', color:'#34495e'},
+  {id:'devon', name:'Devon',        role:'AI · filler', host:false, live:false, initials:'D', color:'#d35400'},
+];
+const P = Object.fromEntries(PARTICIPANTS.map(p=>[p.id,p]));
+
+const SCENES = {
+  team_normal:  {title:'Team Sync',view:'Gallery View',nvp:1,desc:'Onboarding discussion',tiles:['nat','chris','sam','ernie'],cols:2,rows:2,speak:'chris',toast:false},
+  team_spinning:{title:'Team Sync',view:'Gallery View',nvp:1,desc:'Nat spinning · confused',tiles:['nat','chris','sam','ernie'],cols:2,rows:2,speak:'sam',toast:false},
+  team_glitch:  {title:'Team Sync',view:'Gallery View',nvp:1,desc:'Nat fades out',tiles:['nat','chris','sam','ernie'],cols:2,rows:2,speak:null,glitch:'nat',toast:false},
+  incoming:     {title:'Team Sync',view:'Gallery View',nvp:1,desc:'"Meeting NOW" toast',tiles:['nat','chris','sam','ernie'],cols:2,rows:2,speak:null,toast:true},
+  phil_solo:    {title:'Performance Review',view:'Speaker View',nvp:0,desc:'Phil 1:1',tiles:['phil','nat'],cols:2,rows:1,speak:'phil',toast:false},
+  phil_monster: {title:'Performance Review',view:'Speaker View',nvp:0,desc:'Phil · Monster on Roomba',tiles:['phil','nat'],cols:2,rows:1,speak:'phil',toast:false},
+};
+const SCENE_ORDER = Object.keys(SCENES);
+
+const MIC_ON='<svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21H8v2h8v-2h-3v-2.08A7 7 0 0 0 19 12z"/></svg>';
+const MIC_OFF='<svg viewBox="0 0 24 24"><path d="M19 11h-1.7c0 .74-.16 1.43-.43 2.05l1.23 1.23c.56-.98.9-2.09.9-3.28zM4.27 3L3 4.27l6 6V12a3 3 0 0 0 3 3c.22 0 .44-.03.65-.08l1.66 1.66A5.98 5.98 0 0 1 12 17a5 5 0 0 1-5-5H5a7 7 0 0 0 6 6.92V21h2v-2.08c.85-.12 1.65-.4 2.36-.81L19.73 21 21 19.73 4.27 3z"/></svg>';
+const HAND_I='<svg viewBox="0 0 24 24"><path d="M13 1.07V9h7c0-4.08-3.05-7.44-7-7.93zM4 15c0 4.42 3.58 8 8 8s8-3.58 8-8v-4H4v4zm7-13.93C7.05 1.56 4 4.92 4 9h7V1.07z"/></svg>';
+
+/* =========================================================
+   STATE
+   clips[]  : { id, name, note, src(url or blob), thumb }
+   assign{} : pid -> [clipId,...]
+   videos{} : pid -> { clipId -> videoEl }   (Stage only)
+   ========================================================= */
+let clips=[]; let assign={}; let videos={}; let clipCounter=0;
+let liveStream=null; let currentScene=null;
+PARTICIPANTS.forEach(p=>{assign[p.id]=[];videos[p.id]={};});
+
+const grid=document.getElementById('grid');
+const tiles={};
+
+/* ---------- Stage: build tiles ---------- */
+function buildTiles(){
+  PARTICIPANTS.forEach(p=>{
+    const t=document.createElement('div');
+    t.className='tile';t.id='t-'+p.id;t.style.display='none';
+    t.innerHTML=`<div class="ph"><div class="av" style="background:${p.color}">${p.initials}</div><div class="hn">${p.name}</div></div>
+      <div class="hand">${HAND_I}</div><div class="glitch"></div>
+      <div class="name"><span class="mic">${MIC_ON}</span><span>${p.name}</span>${p.host?'<span class="host">Host</span>':''}</div>`;
+    grid.appendChild(t);tiles[p.id]=t;
+  });
+}
+
+/* ---------- clip gallery data ---------- */
+function addClipFromFile(file){
+  const src=URL.createObjectURL(file);
+  const id='clip'+(++clipCounter);
+  const clip={id,name:file.name.replace(/\.[^.]+$/,''),note:'',src,thumb:null};
+  clips.push(clip);
+  makeThumb(src).then(t=>{clip.thumb=t;renderGallery();});
+  renderGallery(); updateClipCount();
+}
+function addClipFromUrl(url,name){
+  const id='clip'+(++clipCounter);
+  const clip={id,name:name||('Clip '+clipCounter),note:'url',src:url,thumb:null};
+  clips.push(clip);
+  makeThumb(url).then(t=>{clip.thumb=t;renderGallery();}).catch(()=>{});
+  renderGallery(); updateClipCount();
+}
+function makeThumb(src){
+  return new Promise((res,rej)=>{
+    const v=document.createElement('video');v.muted=true;v.src=src;v.crossOrigin='anonymous';
+    v.onloadeddata=()=>{v.currentTime=Math.min(0.5,(v.duration||1)/3);};
+    v.onseeked=()=>{try{const c=document.createElement('canvas');c.width=160;c.height=90;c.getContext('2d').drawImage(v,0,0,160,90);res(c.toDataURL('image/jpeg',.6));}catch(e){rej(e);}};
+    v.onerror=rej;
+  });
+}
+function getClip(id){return clips.find(c=>c.id===id);}
+
+function updateClipCount(){
+  const n=clips.length;
+  const el=document.getElementById('clipCount'); if(el) el.textContent=n+' loaded';
+}
+
+/* ---------- render gallery ---------- */
+function renderGallery(){
+  const g=document.getElementById('galGrid'); if(!g)return; g.innerHTML='';
+  clips.forEach(c=>{
+    const card=document.createElement('div');
+    card.className='clipcard';card.draggable=true;card.dataset.id=c.id;
+    card.innerHTML=`${c.thumb?`<img class="thumb" src="${c.thumb}">`:`<div class="thumb"></div>`}
+      <div class="meta"><div class="cn">${c.name}</div><div class="cd">${c.note||'clip'}</div></div>
+      <div class="cbtns"><button data-act="preview">Preview</button><button data-act="rename">Rename</button><button data-act="del">Remove</button></div>`;
+    card.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/clip',c.id);card.classList.add('dragging');});
+    card.addEventListener('dragend',()=>card.classList.remove('dragging'));
+    card.querySelector('[data-act="del"]').onclick=()=>{clips=clips.filter(x=>x.id!==c.id);Object.keys(assign).forEach(pid=>assign[pid]=assign[pid].filter(id=>id!==c.id));renderGallery();renderPeople();renderDock();updateClipCount();};
+    card.querySelector('[data-act="rename"]').onclick=()=>{const n=prompt('Clip name',c.name);if(n){c.name=n;renderGallery();renderPeople();renderDock();}};
+    card.querySelector('[data-act="preview"]').onclick=()=>previewClip(c);
+    // tap-to-assign fallback (touch devices can't drag well)
+    card.querySelector('.thumb').onclick=()=>quickAssign(c.id);
+    g.appendChild(card);
+  });
+  const add=document.createElement('label');
+  add.className='addclip';
+  add.innerHTML=`<span style="font-size:22px">+</span><span>Add clips</span><input type="file" accept="video/*" multiple style="display:none">`;
+  add.querySelector('input').onchange=e=>{[...e.target.files].forEach(addClipFromFile);};
+  g.appendChild(add);
+  document.getElementById('galHint').textContent = clips.length? '' : 'drag a card onto a person, or tap a thumbnail to assign';
+}
+let previewEl=null;
+function previewClip(c){
+  if(previewEl)previewEl.remove();
+  previewEl=document.createElement('div');
+  previewEl.style.cssText='position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center';
+  previewEl.innerHTML=`<video src="${c.src}" autoplay loop muted playsinline style="max-width:80vw;max-height:80vh;border-radius:10px"></video>`;
+  previewEl.onclick=()=>{previewEl.remove();previewEl=null;};
+  document.body.appendChild(previewEl);
+}
+function quickAssign(clipId){
+  // ask which person via a tiny menu
+  const names=PARTICIPANTS.filter(p=>!p.live).map(p=>p.name).join(', ');
+  const who=prompt('Assign to which person? ('+names+')');
+  if(!who)return;
+  const p=PARTICIPANTS.find(x=>x.name.toLowerCase().startsWith(who.trim().toLowerCase())&&!x.live);
+  if(p){assignClip(p.id,clipId);}
+}
+
+/* ---------- render people (drop targets) ---------- */
+function renderPeople(){
+  const g=document.getElementById('peopleGrid'); if(!g)return; g.innerHTML='';
+  PARTICIPANTS.filter(p=>!p.live).forEach(p=>{
+    const slot=document.createElement('div');
+    slot.className='pslot';slot.dataset.pid=p.id;
+    let chips = assign[p.id].map(cid=>{
+      const c=getClip(cid); if(!c)return'';
+      return `<div class="achip" data-cid="${cid}">
+        ${c.thumb?`<img class="ac-thumb" src="${c.thumb}">`:`<span class="ac-thumb"></span>`}
+        <span class="ac-name">${c.name}</span>
+        <span class="ac-play" data-cid="${cid}" data-pid="${p.id}">▶</span>
+        <span class="ac-x" data-cid="${cid}" data-pid="${p.id}">×</span>
+      </div>`;
+    }).join('');
+    if(!assign[p.id].length) chips=`<div class="emptyslot">no clips — drop here</div>`;
+    slot.innerHTML=`<div class="ph-row"><div class="dot" style="background:${p.color}">${p.initials}</div><div><div class="pnm">${p.name}</div><div class="prl">${p.role}</div></div></div><div class="assigned">${chips}</div>`;
+    slot.addEventListener('dragover',e=>{e.preventDefault();slot.classList.add('dragover');});
+    slot.addEventListener('dragleave',()=>slot.classList.remove('dragover'));
+    slot.addEventListener('drop',e=>{e.preventDefault();slot.classList.remove('dragover');const cid=e.dataTransfer.getData('text/clip');if(cid)assignClip(p.id,cid);});
+    slot.querySelectorAll('.ac-x').forEach(x=>x.onclick=()=>{unassignClip(x.dataset.pid,x.dataset.cid);});
+    slot.querySelectorAll('.ac-play').forEach(x=>x.onclick=()=>{playClip(x.dataset.pid,x.dataset.cid);send({type:'play',pid:x.dataset.pid,cid:x.dataset.cid});});
+    g.appendChild(slot);
+  });
+}
+function assignClip(pid,cid){
+  if(!assign[pid].includes(cid))assign[pid].push(cid);
+  if(ROLE==='stage')ensureVideo(pid,cid);
+  renderPeople();renderDock();
+  send({type:'assign',assign:serializeAssign(),clips:serializeClips()});
+}
+function unassignClip(pid,cid){
+  assign[pid]=assign[pid].filter(x=>x!==cid);
+  renderPeople();renderDock();
+  send({type:'assign',assign:serializeAssign(),clips:serializeClips()});
+}
+
+/* ---------- Stage: video elements + playback ---------- */
+function ensureVideo(pid,cid){
+  if(videos[pid][cid])return videos[pid][cid];
+  const c=getClip(cid); if(!c)return;
+  const v=document.createElement('video');
+  v.loop=true;v.muted=true;v.playsInline=true;v.preload='auto';v.src=c.src;
+  tiles[pid].insertBefore(v,tiles[pid].querySelector('.ph'));
+  videos[pid][cid]=v;return v;
+}
+function playClip(pid,cid){
+  if(ROLE!=='stage'){ // director just reflects UI + sends
+    document.querySelectorAll(`.clipbtns button[data-pid="${pid}"]`).forEach(b=>b.classList.toggle('playing',b.dataset.cid===cid));
+    document.querySelectorAll(`.pslot[data-pid="${pid}"] .achip`).forEach(ch=>ch.classList.toggle('playing',ch.dataset.cid===cid));
+    return;
+  }
+  ensureVideo(pid,cid);
+  Object.entries(videos[pid]).forEach(([id,v])=>{
+    if(id===cid){v.classList.add('active');v.currentTime=0;v.play().catch(()=>{});tiles[pid].classList.add('hasvideo');}
+    else{v.classList.remove('active');v.pause();}
+  });
+  document.querySelectorAll(`.clipbtns button[data-pid="${pid}"]`).forEach(b=>b.classList.toggle('playing',b.dataset.cid===cid));
+  document.querySelectorAll(`.pslot[data-pid="${pid}"] .achip`).forEach(ch=>ch.classList.toggle('playing',ch.dataset.cid===cid));
+}
+
+/* ---------- serialize for the wire (send labels, not blobs) ---------- */
+function serializeClips(){return clips.map(c=>({id:c.id,name:c.name,note:c.note,thumb:c.thumb}));}
+function serializeAssign(){return JSON.parse(JSON.stringify(assign));}
+
+/* =========================================================
+   LIVE CAMERA (Stage only)
+   ========================================================= */
+async function listCams(){
+  try{const devs=await navigator.mediaDevices.enumerateDevices();const cams=devs.filter(d=>d.kind==='videoinput');const sel=document.getElementById('camSelect');const cur=sel.value;sel.innerHTML='';cams.forEach((c,i)=>{const o=document.createElement('option');o.value=c.deviceId;o.textContent=c.label||('Camera '+(i+1));sel.appendChild(o);});if(cur)sel.value=cur;}catch(e){}
+}
+async function enableCam(id){
+  if(liveStream)liveStream.getTracks().forEach(t=>t.stop());
+  liveStream=await navigator.mediaDevices.getUserMedia({video:id?{deviceId:{exact:id},width:1920,height:1080}:{width:1920,height:1080},audio:false});
+  const t=tiles['nat'];let v=t.querySelector('video.livecam');
+  if(!v){v=document.createElement('video');v.className='livecam active';v.autoplay=true;v.muted=true;v.playsInline=true;t.insertBefore(v,t.querySelector('.ph'));}
+  v.srcObject=liveStream;v.classList.add('active');t.classList.add('hasvideo');
+  t.classList.toggle('mirror',document.getElementById('mirrorChk').checked);
+  document.getElementById('camOk').textContent='● live';await listCams();
+}
+if(ROLE==='stage'){
+  document.getElementById('camBtn').onclick=async()=>{try{await enableCam(document.getElementById('camSelect').value||null);}catch(e){alert('Camera permission needed — check the browser prompt and OS privacy settings.');}};
+  document.getElementById('camSelect').onchange=e=>{if(liveStream)enableCam(e.target.value||null);};
+  document.getElementById('mirrorChk').onchange=()=>tiles['nat'].classList.toggle('mirror',document.getElementById('mirrorChk').checked);
+}
+
+/* =========================================================
+   APPLY SCENE
+   ========================================================= */
+function applyScene(key,fromWire){
+  const s=SCENES[key];if(!s)return;currentScene=key;
+  if(ROLE==='stage'){
+    grid.style.gridTemplateColumns=`repeat(${s.cols},1fr)`;
+    grid.style.gridTemplateRows=`repeat(${s.rows},1fr)`;
+    PARTICIPANTS.forEach(p=>{tiles[p.id].style.display=s.tiles.includes(p.id)?'':'none';tiles[p.id].classList.remove('speaking','glitching');});
+    // auto-play first assigned clip for each visible AI tile
+    s.tiles.forEach(pid=>{if(!P[pid].live && assign[pid].length){playClip(pid,assign[pid][0]);}});
+    if(s.speak)tiles[s.speak]?.classList.add('speaking');
+    if(s.glitch)tiles[s.glitch]?.classList.add('glitching');
+    document.getElementById('viewLabel').textContent=s.view;
+    document.getElementById('nvp').textContent=s.nvp;
+    document.getElementById('toast').classList.toggle('show',!!s.toast);
+  }
+  document.querySelectorAll('#sceneRow button').forEach(b=>b.classList.toggle('active',b.dataset.k===key));
+  if(!fromWire)send({type:'scene',key});
+}
+if(ROLE==='stage'){
+  document.querySelector('#toast .join').onclick=()=>applyScene('phil_solo');
+  document.querySelector('#toast .later').onclick=()=>document.getElementById('toast').classList.remove('show');
+}
+
+/* =========================================================
+   DIRECTOR DOCK
+   ========================================================= */
+function renderDock(){
+  const sr=document.getElementById('sceneRow');sr.innerHTML='';
+  SCENE_ORDER.forEach((k,i)=>{const s=SCENES[k];const b=document.createElement('button');b.dataset.k=k;b.innerHTML=`<span class="sn">${i+1}. ${s.title}</span><span class="sd">${s.desc}</span>`;b.onclick=()=>applyScene(k);sr.appendChild(b);});
+  const dr=document.getElementById('dockRows');dr.innerHTML='';
+  PARTICIPANTS.forEach(p=>{
+    const col=document.createElement('div');col.className='pcol';
+    let cb='';
+    if(p.live){cb=`<span style="font-size:9px;color:#666">live webcam</span>`;}
+    else if(assign[p.id].length){cb=assign[p.id].map(cid=>{const c=getClip(cid);return `<button data-pid="${p.id}" data-cid="${cid}" title="${c?c.name:''}">${c?c.name:cid}</button>`;}).join('');}
+    else{cb=`<span class="none">no clips assigned</span>`;}
+    col.innerHTML=`<div class="pt">${p.name}</div><div class="clipbtns">${cb}</div>
+      <div class="st"><button data-pid="${p.id}" data-a="speak">Speak</button><button data-pid="${p.id}" data-a="mute">Mute</button><button data-pid="${p.id}" data-a="hand">Hand</button><button data-pid="${p.id}" data-a="glitch" class="red">Glitch</button></div>`;
+    dr.appendChild(col);
+  });
+  dr.querySelectorAll('.clipbtns button').forEach(b=>{if(b.dataset.cid){b.onclick=()=>{playClip(b.dataset.pid,b.dataset.cid);send({type:'play',pid:b.dataset.pid,cid:b.dataset.cid});};}});
+  dr.querySelectorAll('.st button').forEach(b=>{b.onclick=()=>{b.classList.toggle('on');applyState(b.dataset.pid,b.dataset.a,b.classList.contains('on'));send({type:'state',pid:b.dataset.pid,act:b.dataset.a,on:b.classList.contains('on')});};});
+  document.getElementById('dockFoot').innerHTML=`<b>Keys:</b> <kbd>1-6</kbd> scenes · <kbd>N</kbd> glitch Nat · <kbd>T</kbd> toast · <kbd>D</kbd> hide dock · gear opens the gallery`;
+}
+function applyState(pid,act,on){
+  if(ROLE!=='stage'){document.querySelectorAll(`.st button[data-pid="${pid}"][data-a="${act}"]`).forEach(b=>b.classList.toggle('on',on));return;}
+  const t=tiles[pid];if(!t)return;
+  if(act==='speak')t.classList.toggle('speaking',on);
+  if(act==='hand')t.classList.toggle('hand',on);
+  if(act==='glitch')t.classList.toggle('glitching',on);
+  if(act==='mute'){const nm=t.querySelector('.name');nm.classList.toggle('muted',on);nm.querySelector('.mic').innerHTML=on?MIC_OFF:MIC_ON;}
+  document.querySelectorAll(`.st button[data-pid="${pid}"][data-a="${act}"]`).forEach(b=>b.classList.toggle('on',on));
+}
+
+/* =========================================================
+   TRANSPORT — redundant:
+   (A) BroadcastChannel  : same browser/profile, zero setup
+   (B) WebRTC DataChannel: cross-device, paired by QR or manual code
+   send() fans out to whichever are open.
+   ========================================================= */
+const bc = ('BroadcastChannel' in window)? new BroadcastChannel('vilo-zoom') : null;
+let dc=null; // rtc data channel
+function send(msg){
+  const s=JSON.stringify(msg);
+  if(bc)bc.postMessage(msg);
+  if(dc&&dc.readyState==='open')dc.send(s);
+}
+function handle(msg){
+  if(msg.type==='scene')applyScene(msg.key,true);
+  else if(msg.type==='play')playClip(msg.pid,msg.cid);
+  else if(msg.type==='state')applyState(msg.pid,msg.act,msg.on);
+  else if(msg.type==='toast'){const t=document.getElementById('toast');t&&t.classList.toggle('show',msg.on);}
+  else if(msg.type==='assign'){ // director receives the current clip list + assignments (labels only)
+    if(msg.clips)clips=msg.clips.map(c=>({...c,src:null}));
+    if(msg.assign)assign=msg.assign;
+    renderGallery();renderPeople();renderDock();
+  }
+  else if(msg.type==='hello' && ROLE==='stage'){ // a director just joined → push current state
+    send({type:'assign',assign:serializeAssign(),clips:serializeClips()});
+    if(currentScene)send({type:'scene',key:currentScene});
+  }
+}
+if(bc)bc.onmessage=e=>handle(e.data);
+
+/* ---------- WebRTC pairing (no signaling server) ----------
+   Stage creates an offer, encodes it into the QR. Director scans,
+   creates an answer, and returns it (auto via BroadcastChannel-of-URL
+   is impossible cross-device, so we use a tiny copy/paste or the URL
+   hash the director loads). To keep it serverless & robust we use
+   manual SDP exchange as the guaranteed path, with QR carrying the
+   offer to save typing. */
+let pc=null;
+function newPC(){
+  pc=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
+  pc.oniceconnectionstatechange=()=>{
+    const st=document.getElementById('pairStatus');
+    if(pc.iceConnectionState==='connected'||pc.iceConnectionState==='completed'){st.className='status ok';st.textContent='Director connected.';setTimeout(()=>document.getElementById('pair').classList.remove('show'),900);}
+    if(pc.iceConnectionState==='failed'){st.className='status err';st.textContent='Connection failed — use manual pairing.';}
+  };
+  return pc;
+}
+function waitIce(){return new Promise(res=>{if(pc.iceGatheringState==='complete')return res();pc.onicegatheringstatechange=()=>{if(pc.iceGatheringState==='complete')res();};setTimeout(res,2500);});}
+
+async function stageStartPair(){
+  document.getElementById('pair').classList.add('show');
+  document.getElementById('pairTitle').textContent='Pair a director device';
+  const code=(''+Math.floor(1000+Math.random()*9000));
+  document.getElementById('roomCode').textContent=code.split('').join(' ');
+  newPC();
+  dc=pc.createDataChannel('ctrl');
+  dc.onopen=()=>{send({type:'assign',assign:serializeAssign(),clips:serializeClips()});if(currentScene)send({type:'scene',key:currentScene});};
+  dc.onmessage=e=>handle(JSON.parse(e.data));
+  const offer=await pc.createOffer();await pc.setLocalDescription(offer);await waitIce();
+  const payload=btoa(JSON.stringify(pc.localDescription));
+  const url=location.origin+location.pathname+'?role=director#'+payload;
+  document.getElementById('offerOut').value=payload;
+  // QR
+  const box=document.getElementById('qrbox');box.innerHTML='';
+  try{new QRCode(box,{text:url.length<1800?url:('OFFER TOO LONG — use manual'),width:200,height:200,correctLevel:QRCode.CorrectLevel.L});}catch(e){box.textContent='QR unavailable';}
+  document.getElementById('pairStatus').className='status wait';
+  document.getElementById('pairStatus').textContent='Scan on the director phone, then paste its answer under Manual pairing.';
+}
+async function stageApplyAnswer(ans){
+  try{const desc=JSON.parse(atob(ans.trim()));await pc.setRemoteDescription(desc);}catch(e){alert('Could not read that answer.');}
+}
+
+async function directorConsumeOffer(payload){
+  document.getElementById('pair').classList.add('show');
+  document.getElementById('pairTitle').textContent='Connecting to Stage…';
+  document.getElementById('qrbox').style.display='none';
+  document.getElementById('roomCode').style.display='none';
+  newPC();
+  pc.ondatachannel=e=>{dc=e.channel;dc.onopen=()=>{send({type:'hello'});};dc.onmessage=ev=>handle(JSON.parse(ev.data));};
+  const offer=JSON.parse(atob(payload));
+  await pc.setRemoteDescription(offer);
+  const answer=await pc.createAnswer();await pc.setLocalDescription(answer);await waitIce();
+  const ans=btoa(JSON.stringify(pc.localDescription));
+  document.getElementById('manualBox').style.display='block';
+  document.getElementById('offerOut').value=ans;
+  document.getElementById('offerOut').placeholder='answer';
+  document.getElementById('answerIn').style.display='none';
+  document.getElementById('applyAnswer').style.display='none';
+  document.getElementById('pairStatus').className='status wait';
+  document.getElementById('pairStatus').textContent='Copy this answer back into Stage → Manual pairing → Connect.';
+}
+
+/* pairing modal wiring */
+document.getElementById('pairCancel').onclick=()=>document.getElementById('pair').classList.remove('show');
+document.getElementById('manualToggle').onclick=()=>{const m=document.getElementById('manualBox');m.style.display=m.style.display==='none'?'block':'none';};
+document.getElementById('applyAnswer').onclick=()=>stageApplyAnswer(document.getElementById('answerIn').value);
+
+/* =========================================================
+   SETTINGS / GALLERY open-close
+   ========================================================= */
+function openSettings(){document.getElementById('settings').classList.add('show');renderGallery();renderPeople();}
+function closeSettings(){document.getElementById('settings').classList.remove('show');}
+document.getElementById('gearBtn')?.addEventListener('click',openSettings);
+document.getElementById('closeSet').onclick=closeSettings;
+document.getElementById('openGalleryBtn')?.addEventListener('click',openSettings);
+document.getElementById('pairFromSet').onclick=()=>{ROLE==='stage'?stageStartPair():null;};
+document.getElementById('pairBtn2')?.addEventListener('click',()=>{ROLE==='stage'&&stageStartPair();});
+
+/* =========================================================
+   ENTER (Stage)
+   ========================================================= */
+document.getElementById('enterBtn')?.addEventListener('click',()=>{
+  document.getElementById('gate').classList.add('hidden');
+  applyScene('team_normal');
+});
+
+/* =========================================================
+   KEYBOARD
+   ========================================================= */
+window.addEventListener('keydown',e=>{
+  const k=e.key.toLowerCase();
+  if(k==='d'){const d=document.getElementById('dock');d.classList.toggle('show');document.getElementById('hintTag').style.display=d.classList.contains('show')?'none':'block';return;}
+  if('123456'.includes(k)){applyScene(SCENE_ORDER[+k-1]);return;}
+  if(k==='n'){applyState('nat','glitch',!tiles['nat']?.classList.contains('glitching'));send({type:'state',pid:'nat',act:'glitch',on:tiles['nat']?.classList.contains('glitching')});return;}
+  if(k==='t'){const t=document.getElementById('toast');const on=!t.classList.contains('show');t.classList.toggle('show',on);send({type:'toast',on});return;}
+});
+
+/* =========================================================
+   INIT — branch by role
+   ========================================================= */
+function initStage(){
+  buildTiles();renderGallery();renderPeople();renderDock();
+  listCams();navigator.mediaDevices?.addEventListener?.('devicechange',listCams);
+}
+function initDirector(){
+  // director: no recorded window, no gate — just gallery + dock, drive Stage
+  document.getElementById('stageWindow').style.display='none';
+  document.getElementById('gate').classList.add('hidden');
+  document.getElementById('dock').classList.add('show');
+  document.getElementById('hintTag').style.display='none';
+  document.body.style.background='#0a0a0c';
+  renderGallery();renderPeople();renderDock();
+  // if launched from a QR offer in the URL hash, connect
+  const payload=location.hash.slice(1);
+  if(payload){directorConsumeOffer(payload);}
+  else{send({type:'hello'});} // same-machine director via BroadcastChannel
+}
+if(ROLE==='stage')initStage(); else initDirector();
+</script>
+</body>
+</html>
