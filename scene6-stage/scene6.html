@@ -141,8 +141,22 @@
   #sdock .grp .gp{font-size:8px;color:var(--dim);align-self:center;margin-right:2px}
   #sdock .grp button{border:1px solid var(--line);border-radius:6px;background:#0e0e12;color:#bbb;font:inherit;font-size:9px;font-weight:700;padding:5px 7px;cursor:pointer}
   #sdock .grp button.on{background:var(--hot);color:#000;border-color:var(--hot)}
-  #shide{position:absolute;top:44px;left:12px;z-index:31;border:1px solid var(--line);border-radius:7px;background:rgba(0,0,0,.5);color:#fff;font:inherit;font-size:10px;font-weight:700;padding:6px 10px;cursor:pointer}
+  #shide{position:absolute;top:44px;left:12px;z-index:31;border:1px solid var(--line);border-radius:7px;background:rgba(0,0,0,.5);color:#fff;font:inherit;font-size:10px;font-weight:700;padding:6px 10px;cursor:pointer;display:none}
   #exitStage{position:absolute;top:44px;right:12px;z-index:31;border:1px solid var(--hot);border-radius:7px;background:rgba(0,0,0,.5);color:var(--hot);font:inherit;font-size:10px;font-weight:700;padding:6px 12px;cursor:pointer}
+  /* DIEGETIC: the director dock + exit fade out when idle so the recorded frame reads as a clean Zoom call */
+  #shide,#exitStage,#sdock,.sbot{transition:opacity .4s}
+  #stage.idle #exitStage,#stage.idle #sdock,#stage.idle .sbot{opacity:0;pointer-events:none}
+  .sbot .sc{cursor:pointer}
+  .sbot .sc.on{color:var(--hot)}.sbot .sc.on span{color:var(--hot)}
+  /* click a tile to hear that person (single voice) — diegetic active-speaker */
+  .stile.hear{outline:3px solid var(--accent);outline-offset:-3px;z-index:2}
+  .shear{position:absolute;top:7px;right:7px;z-index:5;width:26px;height:26px;border-radius:50%;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:opacity .2s}
+  .stile:hover .shear,.stile.hear .shear{opacity:1}
+  .shear svg{width:14px;height:14px;fill:#fff}
+  .stile.hear .shear{background:var(--accent);border-color:var(--accent)}
+  .sx{position:absolute;top:7px;left:7px;z-index:5;width:22px;height:22px;border-radius:6px;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.2);color:#fff;font-size:12px;line-height:1;display:none;align-items:center;justify-content:center;cursor:pointer}
+  .stile:hover .sx{display:flex}
+  #stage.idle .shear,#stage.idle .sx{opacity:0;pointer-events:none}
 
   input[type=file]{display:none}
   .toast{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:210;background:#141418;border:1px solid var(--hot);border-radius:8px;padding:8px 14px;font-size:11px;color:var(--hot);display:none;box-shadow:0 8px 30px rgba(0,0,0,.6)}
@@ -195,8 +209,8 @@
     <div class="sc"><svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21H8v2h8v-2h-3v-2.08A7 7 0 0 0 19 12z"/></svg><span>Mute</span></div>
     <div class="sc"><svg viewBox="0 0 24 24"><path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11z"/></svg><span>Video</span></div>
     <div class="sc"><svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 3-1.34 3-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5C15 14.17 10.33 13 8 13z"/></svg><span>Participants</span></div>
-    <div class="sc"><svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg><span>Chat</span></div>
-    <div class="sc leave"><span class="lp">Leave</span></div>
+    <div class="sc" id="sChat" title="show / hide the MONTE director controls"><svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg><span>Chat</span></div>
+    <div class="sc leave" id="sLeave"><span class="lp">Leave</span></div>
   </div>
 </div>
 
@@ -268,6 +282,7 @@ const SORDER=Object.keys(SCENES);
 /* ============ STATE ============ */
 const ST={live:{},aud:{},scene:null,master:true,inStage:false,
   flags:{}, // pid -> {spk,mut,gl}
+  onstage:new Set(), // who is in the current mosaic (free — not locked to a scene)
 };
 PEOPLE.forEach(p=>{ST.aud[p.id]={on:false,vol:1,solo:false,vo:null};ST.flags[p.id]={spk:false,mut:false,gl:false};});
 
@@ -415,8 +430,10 @@ function ensureStageVideo(pid,cid){
 }
 function goLive(pid,cid){
   ST.live[pid]=cid;
+  ST.onstage.add(pid); // casting a clip puts that person in the mosaic — build any combination freely
   document.querySelectorAll('#clips-'+pid+' .clip').forEach(el=>el.classList.toggle('playing',el.dataset.cid===cid));
   document.getElementById('ch-'+pid)?.classList.add('live');
+  if(ST.inStage){const t=document.getElementById('stile-'+pid);if(t)t.style.display='';refreshStageLayout();}
   // stage tile: swap active video
   const bank=stageVids[pid]||{};
   ensureStageVideo(pid,cid);
@@ -442,6 +459,31 @@ function applyAudio(){
   });
 }
 
+/* ============ DIEGETIC STAGE: click-to-hear + free mosaic ============ */
+// click a tile → that person is the ONLY audio + the active speaker (single voice)
+function stageHear(pid){
+  const already = ST.aud[pid] && ST.aud[pid].on && ST.aud[pid].solo;
+  AI.forEach(p=>{ST.aud[p.id].on=false;ST.aud[p.id].solo=false;ST.flags[p.id].spk=false;});
+  if(!already){ ST.aud[pid].on=true; ST.aud[pid].solo=true; ST.flags[pid].spk=true; }
+  ST.master=true;
+  applyAudio(); refreshHear();
+  PEOPLE.forEach(p=>{const t=document.getElementById('stile-'+p.id);if(t)t.classList.toggle('spk',ST.flags[p.id].spk);});
+  refreshFlags(); refreshDock();
+}
+function refreshHear(){PEOPLE.forEach(p=>{const t=document.getElementById('stile-'+p.id);
+  if(t)t.classList.toggle('hear', !!(ST.aud[p.id]&&ST.aud[p.id].on&&ST.aud[p.id].solo));});}
+function showTile(pid){ST.onstage.add(pid);const t=document.getElementById('stile-'+pid);if(t)t.style.display='';refreshStageLayout();}
+function removeFromStage(pid){ST.onstage.delete(pid);const t=document.getElementById('stile-'+pid);if(t)t.style.display='none';
+  if(ST.aud[pid]){ST.aud[pid].on=false;ST.aud[pid].solo=false;applyAudio();refreshHear();}refreshStageLayout();}
+// any set of people, auto-arranged — no fixed beats required
+function refreshStageLayout(){
+  const on=PEOPLE.filter(p=>ST.onstage.has(p.id));
+  const n=Math.max(1,on.length), cols=Math.ceil(Math.sqrt(n));
+  const sgrid=document.getElementById('sgrid');if(sgrid)sgrid.style.gridTemplateColumns=`repeat(${cols},1fr)`;
+  PEOPLE.forEach(p=>{const t=document.getElementById('stile-'+p.id);if(t)t.style.display=ST.onstage.has(p.id)?'':'none';});
+  document.getElementById('snvp').textContent=Math.max(0,AI.length-on.filter(p=>!p.live).length);
+}
+
 /* ============ SCENES ============ */
 function buildScenes(){const sc=document.getElementById('scenes');sc.innerHTML='';
   SORDER.forEach((k,i)=>{const s=SCENES[k];const b=document.createElement('button');b.dataset.k=k;
@@ -450,10 +492,9 @@ function applyScene(key){
   const s=SCENES[key];if(!s)return;ST.scene=key;
   document.querySelectorAll('#scenes button,#sdock .sc-scene').forEach(b=>b.classList.toggle('on',b.dataset.k===key));
   AI.forEach(p=>document.getElementById('ch-'+p.id)?.classList.toggle('off',!s.stiles.includes(p.id)));
-  // stage layout
-  const sgrid=document.getElementById('sgrid');
-  sgrid.style.gridTemplateColumns=`repeat(${s.cols},1fr)`;
-  PEOPLE.forEach(p=>{const t=document.getElementById('stile-'+p.id);if(t)t.style.display=s.stiles.includes(p.id)?'':'none';});
+  // a scene is just a preset mosaic — it seeds who's on stage, then you're free to add/remove
+  ST.onstage=new Set(s.stiles);
+  refreshStageLayout();
   // pick clips
   Object.entries(s.pick||{}).forEach(([pid,label])=>{const cid=LANES[pid].find(id=>CLIP[id].label===label)||LANES[pid][0];if(cid)goLive(pid,cid);});
   // flags: reset spk/gl then set scene's
@@ -483,7 +524,14 @@ function buildStage(){
   PEOPLE.forEach(p=>{
     const t=document.createElement('div');t.className='stile';t.id='stile-'+p.id;t.style.display='none';
     t.innerHTML=`<div class="sph"><div class="av" style="background:${hsl(p.hue,55,45)}">${p.initials}</div></div>
-      <div class="sgl"></div><div class="snm">${p.name}${p.host?'<span class="h">Host</span>':''}</div>`;
+      <div class="sgl"></div><div class="snm">${p.name}${p.host?'<span class="h">Host</span>':''}</div>
+      <button class="shear" title="hear ${p.name}"><svg viewBox="0 0 24 24"><path d="M3 10v4h4l5 5V5L7 10H3zm13.5 2A4.5 4.5 0 0 0 14 7.97v8.05A4.5 4.5 0 0 0 16.5 12zM14 3.23v2.06a7 7 0 0 1 0 13.42v2.06a9 9 0 0 0 0-17.54z"/></svg></button>
+      <button class="sx" title="remove from the call">✕</button>`;
+    if(p.id!=='nat'){
+      t.querySelector('.shear').onclick=e=>{e.stopPropagation();stageHear(p.id);};
+      t.addEventListener('click',e=>{ if(e.target.closest('.sx'))return; stageHear(p.id); });
+    } else { t.querySelector('.shear').remove(); }
+    t.querySelector('.sx').onclick=e=>{e.stopPropagation();removeFromStage(p.id);};
     sgrid.appendChild(t);
   });
   buildDock();
@@ -508,17 +556,37 @@ function refreshDock(){document.querySelectorAll('#sdock .grp button').forEach(b
 /* enter / exit stage */
 function enterStage(){
   ST.inStage=true;
-  document.getElementById('stage').classList.add('on');
-  // make sure current scene is applied to the stage
-  applyScene(ST.scene||'team');
-  const el=document.getElementById('stage');if(el.requestFullscreen)el.requestFullscreen().catch(()=>{});
-  toast('STAGE LIVE — press H to hide controls, then record');
+  const el=document.getElementById('stage');
+  el.classList.add('on');
+  document.getElementById('sdock').classList.add('hidden'); // diegetic by default — direct from MONTE / the Chat button
+  // respect a freely-built mosaic; otherwise seed from the current scene
+  if(ST.onstage.size) refreshStageLayout(); else applyScene(ST.scene||'team');
+  // make each on-stage person's live clip actually show
+  PEOPLE.forEach(p=>{const cid=ST.live[p.id];if(cid&&ST.onstage.has(p.id))goLive(p.id,cid);});
+  stageIdleArm();
+  if(el.requestFullscreen)el.requestFullscreen().catch(()=>{});
+  toast('LIVE — click a face to hear them · Chat = director controls');
+}
+// fade the exit + Zoom bar + director dock after a moment of no mouse movement
+let stageIdleT=null;
+function stageIdleArm(){
+  const el=document.getElementById('stage');
+  const wake=()=>{el.classList.remove('idle');clearTimeout(stageIdleT);stageIdleT=setTimeout(()=>{if(ST.inStage)el.classList.add('idle');},2800);};
+  el.onmousemove=wake; el.ontouchstart=wake; wake();
 }
 function exitStage(){ST.inStage=false;document.getElementById('stage').classList.remove('on');
   if(document.fullscreenElement&&document.exitFullscreen)document.exitFullscreen().catch(()=>{});}
 document.getElementById('golive').onclick=enterStage;
 document.getElementById('exitStage').onclick=exitStage;
 document.getElementById('shide').onclick=toggleDock;
+// the diegetic Chat button reveals / hides the MONTE director dock — controls stay out of frame
+document.getElementById('sChat').onclick=()=>{toggleDock();const d=document.getElementById('sdock');
+  document.getElementById('sChat').classList.toggle('on',!d.classList.contains('hidden'));};
+// diegetic Mute button in the Zoom bar = silence the room (master audio)
+document.getElementById('stage').querySelector('.sbot .sc').onclick=()=>{
+  ST.master=!ST.master; applyAudio();
+  document.getElementById('stage').querySelector('.sbot .sc').classList.toggle('on',!ST.master);};
+document.getElementById('sLeave').onclick=exitStage;
 function toggleDock(){const d=document.getElementById('sdock');d.classList.toggle('hidden');
   document.getElementById('shide').textContent=d.classList.contains('hidden')?'SHOW CONTROLS (H)':'HIDE CONTROLS (H)';}
 
