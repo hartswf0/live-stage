@@ -102,6 +102,10 @@
   .clipline .libbtn:hover{border-color:var(--accent);color:#fff}
   #soundBtn.on svg{fill:var(--accent)}
   #soundBtn.on span{color:var(--accent)}
+  .tile-sound{position:absolute;top:8px;right:8px;z-index:5;width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s,border-color .15s}
+  .tile-sound svg{width:15px;height:15px;fill:#fff}
+  .tile-sound.on{background:var(--accent);border-color:var(--accent)}
+  .tile-sound.disabled{display:none}
   #enterBtn{width:100%;margin-top:6px;font-size:14px;padding:13px;border:none;border-radius:9px;background:var(--accent);color:#fff;cursor:pointer;font-weight:600}
   #enterBtn:disabled{opacity:.4;cursor:not-allowed}
 
@@ -300,6 +304,7 @@ let liveStream=null;
 let currentScene=null;
 let soundOn=false;     // global: play the coworkers' own recorded audio, or keep them silent
 let natFallback=null;  // Natalie's fallback loop video, materialized on Join (see ensureNatFallback)
+const tileMuted={};    // pid -> true/false once the tile's own speaker icon has been clicked (overrides the global toggle for that one person)
 
 PARTICIPANTS.forEach(p=>{clipSrc[p.id]={};});
 
@@ -313,8 +318,31 @@ function buildTiles(){
       <div class="hand">${HAND_I}</div>
       <div class="glitch"></div>
       <div class="name"><span class="mic">${MIC_ON}</span><span>${p.name}</span>${p.host?'<span class="host">Host</span>':''}</div>`;
+    const snd=document.createElement('button');
+    snd.type='button'; snd.className='tile-sound'; snd.title=`${p.name} — click to play or mute their audio`;
+    snd.onclick=e=>{e.stopPropagation(); toggleTileSound(p.id);};
+    t.appendChild(snd);
     grid.appendChild(t); tiles[p.id]=t;
   });
+}
+
+/* ---------- per-tile speaker icon: the easy one-click way to hear a single synth ---------- */
+function refreshTileSoundIcon(pid){
+  const btn=tiles[pid]?.querySelector('.tile-sound'); if(!btn) return;
+  const p=PARTICIPANTS.find(x=>x.id===pid);
+  if(p?.live && liveStream){ btn.classList.add('disabled'); return; }
+  btn.classList.remove('disabled');
+  const v = videoEl[pid] || (pid==='nat'?natFallback:null);
+  const on = v ? !v.muted : soundOn;
+  btn.classList.toggle('on',on);
+  btn.innerHTML = on ? LIVE_STAGE.speakerOnIcon : LIVE_STAGE.speakerOffIcon;
+}
+function toggleTileSound(pid){
+  const v = pid==='nat' ? ensureNatFallback() : ensureVideoEl(pid);
+  if(!v) return;
+  v.muted=!v.muted;
+  tileMuted[pid]=v.muted; // remember this person's choice independently of the global toggle
+  refreshTileSoundIcon(pid);
 }
 
 /* ---------- one lazily-created <video> per tile; src swaps per slot ----------
@@ -353,15 +381,17 @@ function playClip(pid,slot){
   if(v.dataset.slot!==slot){
     v.pause(); v.src=src; v.dataset.slot=slot; v.load();
   }
-  v.muted=!soundOn;
+  v.muted = pid in tileMuted ? tileMuted[pid] : !soundOn;
   v.classList.add('active'); v.play().catch(()=>{}); tiles[pid].classList.add('hasvideo');
+  refreshTileSoundIcon(pid);
   // update dock highlight
   document.querySelectorAll(`.clipbtns button.slotbtn[data-p="${pid}"]`).forEach(b=>b.classList.toggle('playing',b.dataset.s===slot));
 }
 
-/* ---------- sound: global toggle unmutes/mutes every tile's own audio ---------- */
+/* ---------- sound: global toggle unmutes/mutes every tile's own audio (and clears per-tile overrides) ---------- */
 function setSound(on){
   soundOn=on;
+  Object.keys(tileMuted).forEach(k=>delete tileMuted[k]);
   Object.values(videoEl).forEach(v=>v.muted=!on);
   if(natFallback) natFallback.muted=!on;
   const icon=document.getElementById('soundIcon'), lbl=document.getElementById('soundLbl');
@@ -369,6 +399,7 @@ function setSound(on){
   if(lbl) lbl.textContent = on ? 'Sound on' : 'Sound off';
   document.getElementById('soundBtn')?.classList.toggle('on',on);
   document.querySelectorAll('.st button[data-a="sound"]').forEach(b=>b.classList.toggle('on',on));
+  PARTICIPANTS.forEach(p=>refreshTileSoundIcon(p.id));
 }
 document.getElementById('soundBtn')?.addEventListener('click',()=>setSound(!soundOn));
 setSound(false);
@@ -394,6 +425,7 @@ async function enableCam(id){
   if(natFallback){ natFallback.classList.remove('active'); natFallback.pause(); }
   t.classList.toggle('mirror',document.getElementById('mirrorChk').checked);
   document.getElementById('camOk').textContent='● live';
+  refreshTileSoundIcon('nat');
   await listCams(); checkReady();
 }
 document.getElementById('camBtn').onclick=async()=>{try{await enableCam(document.getElementById('camSelect').value||null);}catch(e){alert('Camera permission needed — check the browser prompt and OS privacy settings.');}};
@@ -443,6 +475,7 @@ function ensureNatFallback(){
 document.getElementById('enterBtn').onclick=()=>{
   document.getElementById('gate').style.display='none';
   if(!liveStream){ const v=ensureNatFallback(); if(v){ v.classList.add('active'); v.play().catch(()=>{}); tiles['nat'].classList.add('hasvideo'); } }
+  refreshTileSoundIcon('nat');
   applyScene('team_normal');
 };
 
@@ -551,7 +584,7 @@ function applyState(pid,act,on){
   if(act==='hand') t.classList.toggle('hand',on);
   if(act==='glitch')t.classList.toggle('glitching',on);
   if(act==='mute'){const nm=t.querySelector('.name');nm.classList.toggle('muted',on);nm.querySelector('.mic').innerHTML=on?MIC_OFF:MIC_ON;}
-  if(act==='sound'){ const v=videoEl[pid]; if(v) v.muted=!on; }
+  if(act==='sound'){ const v=videoEl[pid]; if(v){ v.muted=!on; tileMuted[pid]=v.muted; } refreshTileSoundIcon(pid); }
   document.querySelectorAll(`.st button[data-p="${pid}"][data-a="${act}"]`).forEach(b=>b.classList.toggle('on',on));
 }
 

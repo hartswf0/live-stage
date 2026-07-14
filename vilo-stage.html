@@ -92,6 +92,9 @@
   .mic-dot{font-size:10px;color:#f06767}
   .live-badge{position:absolute;top:8px;left:8px;z-index:10;background:#d94747;border-radius:4px;padding:4px 6px;font-size:10px;font-weight:700;letter-spacing:.04em;display:none}
   .tile[data-id="nat"] .live-badge{display:block}
+  .tile-sound{position:absolute;top:8px;right:8px;z-index:10;width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s,border-color .15s}
+  .tile-sound svg{width:15px;height:15px;fill:#fff}
+  .tile-sound.on{background:var(--blue,#2d8cff);border-color:var(--blue,#2d8cff)}
 
   /* Nat feed overlays */
   .nat-office{position:absolute;inset:0;pointer-events:none;opacity:.23;background:linear-gradient(90deg,transparent 0 72%,rgba(215,225,236,.34) 72% 100%)}
@@ -455,11 +458,42 @@
     tile.append(media);
     const live = document.createElement('div'); live.className='live-badge'; live.textContent='LIVE'; tile.append(live);
     const plate = document.createElement('div'); plate.className='nameplate'; plate.innerHTML=`<span class="mic-dot">●</span><span>${p.name}</span>`; tile.append(plate);
+    if(p.id!=='nat'){
+      const snd=document.createElement('button');
+      snd.type='button'; snd.className='tile-sound'; snd.title=`${p.name} — click to play or mute their audio`;
+      snd.onclick=e=>{e.stopPropagation(); toggleTileSound(p.id);};
+      tile.append(snd);
+    }
     tile.addEventListener('dblclick',()=>{state.focus=p.id; setPreset(p.id==='nat'?'nat1':p.id==='phil'?'phil1':'customFocus');});
     tileMap.set(p.id,tile);
     return tile;
   }
   participants.forEach(createTile);
+
+  /* ---------- per-tile speaker icon: finds whichever synth-audio video is
+     currently visible in this tile (uploaded media takes priority, else the
+     active talk/listen/react face loop) and toggles just that person's audio. ---------- */
+  function activeSynthVideo(id){
+    const tile=tileMap.get(id); if(!tile) return null;
+    const custom=tile.querySelector('.media-layer > video.custom-media:not(.face)');
+    if(custom) return custom;
+    const face=[...tile.querySelectorAll('.media-layer video.face')].find(v=>v.style.opacity==='1');
+    return face||null;
+  }
+  function refreshTileSoundIcon(id){
+    const tile=tileMap.get(id); const btn=tile?.querySelector('.tile-sound'); if(!btn) return;
+    const v=activeSynthVideo(id);
+    const on = v ? !v.muted : state.coworkerSound;
+    btn.classList.toggle('on',on);
+    btn.innerHTML = on ? LIVE_STAGE.speakerOnIcon : LIVE_STAGE.speakerOffIcon;
+  }
+  function toggleTileSound(id){
+    const v=activeSynthVideo(id); if(!v) return;
+    v.muted=!v.muted;
+    // keep every loop belonging to this person in sync so switching talk/listen/react later doesn't silently revert
+    tileMap.get(id)?.querySelectorAll('video.synth-audio').forEach(o=>o.muted=v.muted);
+    refreshTileSoundIcon(id);
+  }
 
   function clearTransient(){
     tileMap.forEach(tile=>{tile.classList.remove('speaking','focused','glitch','react-confused','react-laugh','react-nod','react-shake')});
@@ -688,6 +722,7 @@
     let el;
     if(isVideo){el=document.createElement('video');el.autoplay=true;el.loop=true;el.muted=!state.coworkerSound;el.playsInline=true;el.play().catch(()=>{})}else{el=document.createElement('img')}
     el.className=isVideo?'custom-media synth-audio':'custom-media';el.dataset.url=url; if(isFile) el.dataset.blob='1'; el.src=url;media.append(el);toast(`${byId[id].name} media loaded`)
+    refreshTileSoundIcon(id);
   }
   function setCoworkerSound(on){
     state.coworkerSound=on;
@@ -695,6 +730,7 @@
     const btn=$('#soundBtn');
     if(btn){ btn.classList.toggle('active',on); btn.querySelector('.ico').textContent=on?'🔊':'🔇'; btn.querySelector('span:last-child').textContent=on?'Sound on':'Sound off'; }
     const sb=$('#soundToggle'); if(sb) sb.checked=on;
+    participants.forEach(p=>{ if(p.id!=='nat') refreshTileSoundIcon(p.id); });
   }
 
   function toast(msg){const el=$('#toast');el.textContent=msg;el.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.remove('show'),2800)}
@@ -770,8 +806,11 @@
       let bank = faceCache.get(id); if(!bank){ bank = {}; faceCache.set(id, bank); }
       if(bank[slot]) return bank[slot];
       const media = tileMap.get(id)?.querySelector('.media-layer'); if(!media) return null;
+      // inherit this tile's current audio choice (if any loop for this person already exists)
+      // rather than always resetting to the global default when a new slot is first created.
+      const existing = media.querySelector('video.synth-audio');
       const v = document.createElement('video');
-      v.className='custom-media face synth-audio'; v.muted=!state.coworkerSound; v.loop=true; v.playsInline=true; v.preload='auto';
+      v.className='custom-media face synth-audio'; v.muted = existing ? existing.muted : !state.coworkerSound; v.loop=true; v.playsInline=true; v.preload='auto';
       v.src = urls[slot]; v.style.opacity='0'; v.style.transition='opacity .25s ease';
       media.appendChild(v); bank[slot]=v; return v;
     }
@@ -780,6 +819,7 @@
       const bank = faceCache.get(id);
       if(bank) Object.values(bank).forEach(o=>{ if(o!==v){ o.style.opacity='0'; o.pause(); } });
       v.style.opacity='1'; v.play().catch(()=>{});
+      refreshTileSoundIcon(id);
     }
     // seed every non-Nat tile with its idle/listen loop
     participants.forEach(p=>{ if(p.id!=='nat' && LIVE_STAGE.castUrls(p.id)) setFace(p.id,'listen'); });

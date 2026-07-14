@@ -62,6 +62,10 @@
   .ctrl{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:52px;color:var(--txt)}
   #soundBtn.on svg{fill:var(--accent)}
   #soundBtn.on span{color:var(--accent)}
+  .tile-sound{position:absolute;top:8px;right:8px;z-index:5;width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s,border-color .15s}
+  .tile-sound svg{width:15px;height:15px;fill:#fff}
+  .tile-sound.on{background:var(--accent);border-color:var(--accent)}
+  .tile-sound.disabled{display:none}
   .ctrl svg{width:22px;height:22px;fill:currentColor}.ctrl span{font-size:10px;color:var(--dim)}
   .ctrl.settings{cursor:pointer}.ctrl.settings:hover{color:var(--accent)}
   .ctrl.leave{position:absolute;right:18px}.ctrl.leave .lp{background:#e8402f;color:#fff;padding:7px 15px;border-radius:6px;font-size:12.5px;font-weight:600}
@@ -335,8 +339,32 @@ function buildTiles(){
     t.innerHTML=`<div class="ph"><div class="av" style="background:${p.color}">${p.initials}</div><div class="hn">${p.name}</div></div>
       <div class="hand">${HAND_I}</div><div class="glitch"></div>
       <div class="name"><span class="mic">${MIC_ON}</span><span>${p.name}</span>${p.host?'<span class="host">Host</span>':''}</div>`;
+    const snd=document.createElement('button');
+    snd.type='button'; snd.className='tile-sound'; snd.title=`${p.name} — click to play or mute their audio`;
+    snd.onclick=e=>{e.stopPropagation(); toggleTileSound(p.id);};
+    t.appendChild(snd);
     grid.appendChild(t);tiles[p.id]=t;
   });
+}
+
+/* ---------- per-tile speaker icon ---------- */
+const tileMuted={}; // pid -> true/false override, set once the tile's own icon is clicked
+function activeVideoFor(pid){ return Object.values(videos[pid]||{}).find(v=>v.classList.contains('active')); }
+function refreshTileSoundIcon(pid){
+  const btn=tiles[pid]?.querySelector('.tile-sound'); if(!btn) return;
+  const p=PARTICIPANTS.find(x=>x.id===pid);
+  if(p?.live){ btn.classList.add('disabled'); return; }
+  btn.classList.remove('disabled');
+  const v=activeVideoFor(pid);
+  const on = v ? !v.muted : soundOn;
+  btn.classList.toggle('on',on);
+  btn.innerHTML = on ? LIVE_STAGE.speakerOnIcon : LIVE_STAGE.speakerOffIcon;
+}
+function toggleTileSound(pid){
+  const v=activeVideoFor(pid); if(!v) return;
+  v.muted=!v.muted;
+  tileMuted[pid]=v.muted;
+  refreshTileSoundIcon(pid);
 }
 
 /* ---------- clip gallery data ---------- */
@@ -474,9 +502,10 @@ function playClip(pid,cid){
   }
   ensureVideo(pid,cid);
   Object.entries(videos[pid]).forEach(([id,v])=>{
-    if(id===cid){v.muted=!soundOn;v.classList.add('active');v.currentTime=0;v.play().catch(()=>{});tiles[pid].classList.add('hasvideo');}
+    if(id===cid){v.muted = pid in tileMuted ? tileMuted[pid] : !soundOn;v.classList.add('active');v.currentTime=0;v.play().catch(()=>{});tiles[pid].classList.add('hasvideo');}
     else{v.classList.remove('active');v.pause();}
   });
+  refreshTileSoundIcon(pid);
   document.querySelectorAll(`.clipbtns button[data-pid="${pid}"]`).forEach(b=>b.classList.toggle('playing',b.dataset.cid===cid));
   document.querySelectorAll(`.pslot[data-pid="${pid}"] .achip`).forEach(ch=>ch.classList.toggle('playing',ch.dataset.cid===cid));
 }
@@ -564,20 +593,22 @@ function applyState(pid,act,on){
   if(act==='hand')t.classList.toggle('hand',on);
   if(act==='glitch')t.classList.toggle('glitching',on);
   if(act==='mute'){const nm=t.querySelector('.name');nm.classList.toggle('muted',on);nm.querySelector('.mic').innerHTML=on?MIC_OFF:MIC_ON;}
-  if(act==='sound'){Object.values(videos[pid]||{}).forEach(v=>v.muted=!on);}
+  if(act==='sound'){Object.values(videos[pid]||{}).forEach(v=>v.muted=!on); tileMuted[pid]=!on; refreshTileSoundIcon(pid);}
   document.querySelectorAll(`.st button[data-pid="${pid}"][data-a="${act}"]`).forEach(b=>b.classList.toggle('on',on));
 }
 
-/* ---------- sound: global toggle for every participant's own recorded audio ---------- */
+/* ---------- sound: global toggle for every participant's own recorded audio (clears per-tile overrides) ---------- */
 let soundOn=false;
 function setSound(on){
   soundOn=on;
+  Object.keys(tileMuted).forEach(k=>delete tileMuted[k]);
   Object.values(videos).forEach(bank=>Object.values(bank).forEach(v=>v.muted=!on));
   const icon=document.getElementById('soundIcon'), lbl=document.getElementById('soundLbl');
   if(icon) icon.innerHTML = on ? LIVE_STAGE.speakerOnIcon : LIVE_STAGE.speakerOffIcon;
   if(lbl) lbl.textContent = on ? 'Sound on' : 'Sound off';
   document.getElementById('soundBtn')?.classList.toggle('on',on);
   document.querySelectorAll('.st button[data-a="sound"]').forEach(b=>b.classList.toggle('on',on));
+  if(ROLE==='stage') PARTICIPANTS.forEach(p=>refreshTileSoundIcon(p.id));
 }
 document.getElementById('soundBtn')?.addEventListener('click',()=>setSound(!soundOn));
 if(ROLE==='stage') setSound(false);
