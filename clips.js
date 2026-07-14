@@ -101,6 +101,58 @@
   var SPEAKER_OFF = '<svg viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.42.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06a8.99 8.99 0 0 0 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>';
 
   // ---------------------------------------------------------------------
+  // SHARED CAST STORE — the connective tissue between MONTE and every stage.
+  // One source of truth, persisted to localStorage and synced live across
+  // tabs/windows via BroadcastChannel + the storage event. Organize/grade in
+  // MONTE and every open stage reflects it; each stage reads it on load.
+  //   cast:   { pid -> clipSlug }      what each character is cast to play
+  //   audio:  pid | null               the single character you hear (one voice)
+  //   grades: { clipSlug -> 1..5 }     director's grade per clip
+  //   marks:  { clipSlug -> hex }      a color flag per clip
+  // ---------------------------------------------------------------------
+  var STORE_KEY = 'liveStageCast';
+  var STORE = { cast: {}, audio: null, grades: {}, marks: {}, ts: 0 };
+  try { var raw = localStorage.getItem(STORE_KEY); if (raw) STORE = Object.assign(STORE, JSON.parse(raw)); } catch (e) {}
+  var storeSubs = [];
+  var storeChan = ('BroadcastChannel' in window) ? new BroadcastChannel('live-stage-cast') : null;
+  function storePersist(reason) {
+    STORE.ts = Date.now();
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(STORE)); } catch (e) {}
+    if (storeChan) storeChan.postMessage({ reason: reason, ts: STORE.ts });
+  }
+  function storeEmit(reason, external) {
+    storeSubs.forEach(function (cb) { try { cb(reason, external); } catch (e) {} });
+  }
+  function storeReload(external) {
+    try { var raw = localStorage.getItem(STORE_KEY); if (raw) STORE = Object.assign({ cast: {}, audio: null, grades: {}, marks: {} }, JSON.parse(raw)); } catch (e) {}
+    storeEmit('sync', external);
+  }
+  if (storeChan) storeChan.onmessage = function () { storeReload(true); };
+  window.addEventListener('storage', function (e) { if (e.key === STORE_KEY) storeReload(true); });
+  var store = {
+    all: function () { return STORE; },
+    getCast: function (pid) { return STORE.cast[pid] || null; },
+    setCast: function (pid, slug) {
+      if (slug) STORE.cast[pid] = slug; else delete STORE.cast[pid];
+      storePersist('cast'); storeEmit('cast', false);
+    },
+    getAudible: function () { return STORE.audio || null; },
+    setAudible: function (pid) { STORE.audio = pid || null; storePersist('audio'); storeEmit('audio', false); },
+    getGrade: function (slug) { return STORE.grades[slug] || 0; },
+    setGrade: function (slug, g) {
+      if (g) STORE.grades[slug] = g; else delete STORE.grades[slug];
+      storePersist('grade'); storeEmit('grade', false);
+    },
+    getMark: function (slug) { return STORE.marks[slug] || null; },
+    setMark: function (slug, hex) {
+      if (hex) STORE.marks[slug] = hex; else delete STORE.marks[slug];
+      storePersist('mark'); storeEmit('mark', false);
+    },
+    clearCast: function () { STORE.cast = {}; STORE.audio = null; storePersist('cast'); storeEmit('cast', false); },
+    subscribe: function (cb) { storeSubs.push(cb); return function () { storeSubs = storeSubs.filter(function (x) { return x !== cb; }); }; }
+  };
+
+  // ---------------------------------------------------------------------
   // Shared clip-library picker — a self-contained modal any stage can open
   // to browse all 27 loops and assign one, without duplicating markup.
   // ---------------------------------------------------------------------
@@ -165,6 +217,7 @@
     clipsForWho: clipsForWho,
     charClips: charClips,
     url: url,
+    store: store,
     speakerOnIcon: SPEAKER_ON,
     speakerOffIcon: SPEAKER_OFF,
     openPicker: openPicker,

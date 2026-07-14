@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+CjxyZWN0IHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgcng9IjciIGZpbGw9IiMwYjBjMGYiLz4KPHJlY3QgeD0iNCIgeT0iMTQiIHdpZHRoPSIyNCIgaGVpZ2h0PSIxMyIgcng9IjIiIGZpbGw9IiNlZGVmZjIiLz4KPHBhdGggZD0iTTQgMTQgTDI4IDEwIEwyOCAxNCBaIiBmaWxsPSIjMGIwYzBmIi8+CjxyZWN0IHg9IjYuNSIgeT0iMTcuNSIgd2lkdGg9IjE5IiBoZWlnaHQ9IjEuNCIgcng9Ii43IiBmaWxsPSIjYzljY2QyIi8+CjxwYXRoIGQ9Ik02IDEzLjQgTDkuNSA4IEwxMyA3LjQgTDkuNSAxMi44IFoiIGZpbGw9IiMzYTg2ZmYiLz4KPHBhdGggZD0iTTE0IDEyLjUgTDE3LjUgNy4xIEwyMSA2LjUgTDE3LjUgMTEuOSBaIiBmaWxsPSIjM2E4NmZmIi8+CjxwYXRoIGQ9Ik0yMiAxMS42IEwyNS41IDYuMiBMMjggNS44IEwyOCAxMCBMMjQuNSAxMC43IFoiIGZpbGw9IiMzYTg2ZmYiLz4KPC9zdmc+Cg==">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Zoom Meeting</title>
@@ -158,6 +159,7 @@
       <span class="pill"><svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 3-1.34 3-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5C15 14.17 10.33 13 8 13zm8 0c-.29 0-.62.02-.97.05C16.16 13.9 17 15.02 17 16.5V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>Total non-video participants: <span id="nvp">1</span></span>
     </div>
     <div class="grp">
+      <span class="pill" id="monteTag" style="color:#8fb4ff;border:1px solid #2d4a7a;background:#141c2b"></span>
       <span class="btn"><svg viewBox="0 0 24 24"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/></svg><span id="viewLabel">Speaker View</span></span>
       <span class="btn"><svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7zm-2-4h2V7h3V5H5zm12 7h-3v2h5v-5h-2zM14 5v2h3v3h2V5z"/></svg>Exit Full Screen</span>
     </div>
@@ -500,7 +502,8 @@ function applyScene(key){
   Object.entries(s.clips||{}).forEach(([pid,slot])=>{ if(clipSrc[pid] && clipSrc[pid][slot]) playClip(pid,slot); });
   s.tiles.forEach(pid=>{
     const p=PARTICIPANTS.find(x=>x.id===pid); if(!p||p.live) return;
-    const want = (pid===s.speak) ? 'talk' : 'listen';
+    // a clip cast in MONTE (shared store) wins over the scripted talk/listen default
+    let want = monteClip[pid] ? 'monte' : ((pid===s.speak) ? 'talk' : 'listen');
     const slot = (clipSrc[pid]&&clipSrc[pid][want]) ? want : Object.keys(clipSrc[pid]||{})[0];
     if(slot) playClip(pid,slot);
   });
@@ -659,6 +662,32 @@ document.getElementById('remoteUrl').textContent = location.pathname.split('/').
   const enter=document.getElementById('enterBtn');
   if(enter) enter.disabled=false;
 })();
+
+/* =========================================================
+   SHARED CAST — pull in whatever was cast in MONTE / another
+   stage, and follow live updates. Store keys use vilo ids
+   (samantha), this stage uses 'sam' — map between them.
+   ========================================================= */
+const monteClip={};   // pid -> slug cast in MONTE (played as the 'monte' slot)
+const STORE_ALIAS={ sam:'samantha' };
+function storeKey(pid){ return STORE_ALIAS[pid]||pid; }
+function applyMonteCast(){
+  if(!window.LIVE_STAGE || !LIVE_STAGE.store) return;
+  PARTICIPANTS.forEach(p=>{
+    if(p.live) return;
+    const slug = LIVE_STAGE.store.getCast(storeKey(p.id));
+    if(slug){ monteClip[p.id]=slug; registerClip(p.id,'monte',LIVE_STAGE.url(slug)); }
+    else { delete monteClip[p.id]; if(clipSrc[p.id]) delete clipSrc[p.id].monte; }
+  });
+  if(currentScene) applyScene(currentScene); // re-show with the new casting
+  const tag=document.getElementById('monteTag');
+  const n=Object.keys(monteClip).length;
+  if(tag) tag.textContent = n? ('◆ '+n+' from MONTE') : '';
+}
+if(window.LIVE_STAGE && LIVE_STAGE.store){
+  LIVE_STAGE.store.subscribe((reason,external)=>{ if(reason==='cast'||reason==='sync') applyMonteCast(); });
+  applyMonteCast();
+}
 // keep Join enabled even before a camera is granted (fallback loop covers Nat)
 checkReady = function(){ const e=document.getElementById('enterBtn'); if(e) e.disabled=false; };
 checkReady();

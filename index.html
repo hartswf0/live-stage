@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+CjxyZWN0IHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgcng9IjciIGZpbGw9IiMwYjBjMGYiLz4KPHJlY3QgeD0iNCIgeT0iMTQiIHdpZHRoPSIyNCIgaGVpZ2h0PSIxMyIgcng9IjIiIGZpbGw9IiNlZGVmZjIiLz4KPHBhdGggZD0iTTQgMTQgTDI4IDEwIEwyOCAxNCBaIiBmaWxsPSIjMGIwYzBmIi8+CjxyZWN0IHg9IjYuNSIgeT0iMTcuNSIgd2lkdGg9IjE5IiBoZWlnaHQ9IjEuNCIgcng9Ii43IiBmaWxsPSIjYzljY2QyIi8+CjxwYXRoIGQ9Ik02IDEzLjQgTDkuNSA4IEwxMyA3LjQgTDkuNSAxMi44IFoiIGZpbGw9IiMzYTg2ZmYiLz4KPHBhdGggZD0iTTE0IDEyLjUgTDE3LjUgNy4xIEwyMSA2LjUgTDE3LjUgMTEuOSBaIiBmaWxsPSIjM2E4NmZmIi8+CjxwYXRoIGQ9Ik0yMiAxMS42IEwyNS41IDYuMiBMMjggNS44IEwyOCAxMCBMMjQuNSAxMC43IFoiIGZpbGw9IiMzYTg2ZmYiLz4KPC9zdmc+Cg==">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Live Room Stage</title>
@@ -138,6 +139,20 @@
   footer code{font-family:var(--mono);font-size:11.5px;background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:1px 6px;color:var(--dim)}
   footer a{color:var(--dim);border-bottom:1px solid var(--line2)}
   footer a:hover{color:var(--txt)}
+
+  /* ---- how it connects ---- */
+  kbd,.klite{font-family:var(--mono);font-size:11px;background:var(--panel2);border:1px solid var(--line2);border-bottom-width:2px;border-radius:5px;padding:1px 6px;color:var(--dim)}
+  .connect-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  @media(max-width:720px){.connect-row{grid-template-columns:1fr}}
+  .cstep{background:linear-gradient(180deg,var(--panel),var(--bg2));border:1px solid var(--line);border-radius:var(--radius);padding:16px 17px}
+  .cstep b{display:block;font-size:13px;font-weight:650;color:var(--accent);margin-bottom:6px}
+  .cstep span{font-size:12.5px;color:var(--dim);line-height:1.55}
+
+  /* ---- production-kit badge strip ---- */
+  .kitbar{display:flex;flex-wrap:wrap;gap:10px 26px;padding:20px 0 4px;border-top:1px solid var(--line);margin-top:8px}
+  .kititem{display:flex;align-items:center;gap:9px;font-size:12px;color:var(--dim)}
+  .kititem svg{width:16px;height:16px;stroke:var(--faint);fill:none;stroke-width:1.7;flex:0 0 auto}
+  .kititem b{color:var(--txt);font-weight:600}
 </style>
 </head>
 <body>
@@ -176,6 +191,16 @@
     <div class="builds" id="builds-list"></div>
   </section>
 
+  <section id="connect">
+    <div class="shead"><h2>One casting, every stage</h2><span class="cnt">MONTE hub</span></div>
+    <p class="sub">Open <b>Channels</b> (press <kbd class="klite">K</kbd>) in the Full Scripted Stage: organize your 27 clips by character, preview any one with sound, grade it, and cast it. That casting is shared — every stage you open reads it, so a clip you pick in MONTE shows up in the Director Stage, the Collision stage, and the meeting itself. Audio stays one clean voice everywhere.</p>
+    <div class="connect-row">
+      <div class="cstep"><b>1 · Organize</b><span>Right-click a clip to preview with audio, grade ★1–5, or cast it to a character.</span></div>
+      <div class="cstep"><b>2 · It's shared</b><span>Casting + grades persist and sync live across every open stage and tab.</span></div>
+      <div class="cstep"><b>3 · It shows everywhere</b><span>Each stage plays exactly what you cast — a ◆ marks clips pulled from MONTE.</span></div>
+    </div>
+  </section>
+
   <section id="cast">
     <div class="shead"><h2>The cast</h2><span class="cnt" id="castTotal">27</span></div>
     <p class="sub">Twenty-seven looping coworker plates — the shared library every build draws from. Filter by what they're doing.</p>
@@ -201,9 +226,17 @@
     </div>
   </section>
 
+  <div class="wrap"><div class="kitbar">
+    <span class="kititem"><svg viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></svg><b>No installs.</b> Open and go.</span>
+    <span class="kititem"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 8h18"/></svg><b>Runs in browser.</b> Chrome recommended.</span>
+    <span class="kititem"><svg viewBox="0 0 24 24"><path d="M5 13a10 10 0 0 1 14 0M8.5 16.5a5 5 0 0 1 7 0M12 20h.01"/></svg><b>Works offline.</b> Keep rolling.</span>
+    <span class="kititem"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="3"/></svg><b>Host tile</b> = actress camera.</span>
+    <span class="kititem"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><b>Private by default.</b> You control access.</span>
+  </div></div>
+
   <footer>
     Media lives in <code>media/</code>, declared once in <code>clips.js</code>; each build auto-wires from it — no manual uploads.
-    Inside any stage, press <kbd>D</kbd> for director controls and <kbd>H</kbd> to hide chrome for a clean take.<br>
+    Casting and grades are shared through <code>clips.js</code> so <b style="color:var(--dim)">MONTE joins every stage</b>. Inside any stage, press <kbd>D</kbd> for director controls, <kbd>K</kbd> for the casting board, and <kbd>H</kbd> to hide chrome for a clean take.<br>
     <a href="https://github.com/hartswf0/live-stage" target="_blank" rel="noopener">github.com/hartswf0/live-stage</a>
   </footer>
 

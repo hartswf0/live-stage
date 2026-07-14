@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+CjxyZWN0IHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgcng9IjciIGZpbGw9IiMwYjBjMGYiLz4KPHJlY3QgeD0iNCIgeT0iMTQiIHdpZHRoPSIyNCIgaGVpZ2h0PSIxMyIgcng9IjIiIGZpbGw9IiNlZGVmZjIiLz4KPHBhdGggZD0iTTQgMTQgTDI4IDEwIEwyOCAxNCBaIiBmaWxsPSIjMGIwYzBmIi8+CjxyZWN0IHg9IjYuNSIgeT0iMTcuNSIgd2lkdGg9IjE5IiBoZWlnaHQ9IjEuNCIgcng9Ii43IiBmaWxsPSIjYzljY2QyIi8+CjxwYXRoIGQ9Ik02IDEzLjQgTDkuNSA4IEwxMyA3LjQgTDkuNSAxMi44IFoiIGZpbGw9IiMzYTg2ZmYiLz4KPHBhdGggZD0iTTE0IDEyLjUgTDE3LjUgNy4xIEwyMSA2LjUgTDE3LjUgMTEuOSBaIiBmaWxsPSIjM2E4NmZmIi8+CjxwYXRoIGQ9Ik0yMiAxMS42IEwyNS41IDYuMiBMMjggNS44IEwyOCAxMCBMMjQuNSAxMC43IFoiIGZpbGw9IiMzYTg2ZmYiLz4KPC9zdmc+Cg==">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Zoom Meeting</title>
@@ -544,9 +545,11 @@ function applyScene(key,fromWire){
     grid.style.gridTemplateColumns=`repeat(${s.cols},1fr)`;
     grid.style.gridTemplateRows=`repeat(${s.rows},1fr)`;
     PARTICIPANTS.forEach(p=>{tiles[p.id].style.display=s.tiles.includes(p.id)?'':'none';tiles[p.id].classList.remove('speaking','glitching');});
-    // auto-play a sensible clip per visible AI tile: speaker talks, others idle/listen
+    // auto-play a sensible clip per visible AI tile: MONTE casting wins, else speaker talks, others idle/listen
     s.tiles.forEach(pid=>{
       if(P[pid].live || !assign[pid].length) return;
+      const monteCid = monteClip[pid] ? assign[pid].find(cid=>{const c=getClip(cid);return c&&c.note==='monte';}) : null;
+      if(monteCid){ playClip(pid, monteCid); return; }
       const want = (pid===s.speak) ? 'talk' : 'listen';
       const byNote = assign[pid].find(cid=>{const c=getClip(cid);return c&&c.note===want;});
       playClip(pid, byNote || assign[pid][0]);
@@ -779,9 +782,35 @@ function seedManifest(){
 /* =========================================================
    INIT — branch by role
    ========================================================= */
+/* ---------- SHARED CAST — clips cast in MONTE / another stage show here too ---------- */
+const monteClip={};
+const STORE_ALIAS={ sam:'samantha' };
+function applyMonteCast(){
+  if(!window.LIVE_STAGE || !LIVE_STAGE.store || ROLE!=='stage') return;
+  PARTICIPANTS.forEach(p=>{
+    if(p.live) return;
+    const slug = LIVE_STAGE.store.getCast(STORE_ALIAS[p.id]||p.id);
+    // drop any previous MONTE clip for this person
+    (assign[p.id]||[]).slice().forEach(cid=>{const c=getClip(cid); if(c&&c.note==='monte'){unassignClip(p.id,cid); clips=clips.filter(x=>x.id!==cid);}});
+    if(slug){
+      monteClip[p.id]=slug;
+      const url=LIVE_STAGE.url(slug), id='clip'+(++clipCounter);
+      const meta=LIVE_STAGE.clipMeta(slug);
+      const clip={id,name:'MONTE · '+(meta.act||slug),note:'monte',src:url,thumb:null};
+      clips.push(clip); assign[p.id].unshift(id);
+      makeThumb(url).then(t=>{clip.thumb=t;renderGallery();renderPeople();}).catch(()=>{});
+    } else delete monteClip[p.id];
+  });
+  renderGallery();renderPeople();renderDock();
+  if(currentScene) applyScene(currentScene);
+}
 function initStage(){
   buildTiles();seedManifest();renderGallery();renderPeople();renderDock();
   listCams();navigator.mediaDevices?.addEventListener?.('devicechange',listCams);
+  if(window.LIVE_STAGE && LIVE_STAGE.store){
+    LIVE_STAGE.store.subscribe((reason)=>{ if(reason==='cast'||reason==='sync') applyMonteCast(); });
+    applyMonteCast();
+  }
 }
 function initDirector(){
   // director: no recorded window, no gate — just gallery + dock, drive Stage

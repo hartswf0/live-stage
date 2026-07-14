@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+CjxyZWN0IHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgcng9IjciIGZpbGw9IiMwYjBjMGYiLz4KPHJlY3QgeD0iNCIgeT0iMTQiIHdpZHRoPSIyNCIgaGVpZ2h0PSIxMyIgcng9IjIiIGZpbGw9IiNlZGVmZjIiLz4KPHBhdGggZD0iTTQgMTQgTDI4IDEwIEwyOCAxNCBaIiBmaWxsPSIjMGIwYzBmIi8+CjxyZWN0IHg9IjYuNSIgeT0iMTcuNSIgd2lkdGg9IjE5IiBoZWlnaHQ9IjEuNCIgcng9Ii43IiBmaWxsPSIjYzljY2QyIi8+CjxwYXRoIGQ9Ik02IDEzLjQgTDkuNSA4IEwxMyA3LjQgTDkuNSAxMi44IFoiIGZpbGw9IiMzYTg2ZmYiLz4KPHBhdGggZD0iTTE0IDEyLjUgTDE3LjUgNy4xIEwyMSA2LjUgTDE3LjUgMTEuOSBaIiBmaWxsPSIjM2E4NmZmIi8+CjxwYXRoIGQ9Ik0yMiAxMS42IEwyNS41IDYuMiBMMjggNS44IEwyOCAxMCBMMjQuNSAxMC43IFoiIGZpbGw9IiMzYTg2ZmYiLz4KPC9zdmc+Cg==">
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
 <title>Vilo Live Meeting Stage — Scene 06</title>
@@ -272,7 +273,27 @@
     font-size:8px;color:#dfe2e7;line-height:1.2;pointer-events:none}
   .chan-clip .own{position:absolute;top:3px;left:3px;font-size:7px;font-weight:700;letter-spacing:.04em;
     padding:1px 4px;border-radius:4px;background:rgba(45,140,255,.85);color:#fff;pointer-events:none}
+  .chan-clip .grade{position:absolute;top:2px;right:4px;font-size:8px;letter-spacing:-1.5px;color:#f2b544;text-shadow:0 1px 2px #000;pointer-events:none}
   .chan-sep{flex:0 0 auto;align-self:stretch;width:1px;background:#2a2c34;margin:4px 2px}
+  /* MONTE clip actions — right-click menu + preview-with-audio + grading */
+  .clip-ctx{position:fixed;z-index:130;background:#14161b;border:1px solid #2c2f38;border-radius:10px;padding:6px;min-width:196px;box-shadow:0 16px 44px rgba(0,0,0,.6);font-family:Inter,system-ui,-apple-system,sans-serif}
+  .clip-ctx .cx-hd{font-size:10px;color:#8d9096;padding:5px 8px 7px;border-bottom:1px solid #22242b;margin-bottom:4px}
+  .clip-ctx button{display:block;width:100%;text-align:left;background:transparent;border:0;color:#eef0f3;font:inherit;font-size:12px;padding:8px;border-radius:6px;cursor:pointer}
+  .clip-ctx button:hover{background:#20232a}
+  .clip-ctx .cx-grade{display:flex;align-items:center;gap:4px;font-size:10px;color:#8d9096;padding:6px 8px}
+  .clip-ctx .cx-grade span{font-size:15px;color:#3a3d44;cursor:pointer}
+  .clip-ctx .cx-grade span.on{color:#f2b544}
+  .clip-preview{position:fixed;inset:0;z-index:140;background:rgba(6,7,9,.9);backdrop-filter:blur(6px);display:grid;place-items:center;padding:24px}
+  .cp-card{width:min(520px,92vw);background:#111318;border:1px solid #2c2f38;border-radius:14px;overflow:hidden;box-shadow:0 30px 90px rgba(0,0,0,.7)}
+  .cp-card video{width:100%;aspect-ratio:16/10;object-fit:cover;display:block;background:#000}
+  .cp-info{display:flex;align-items:baseline;gap:8px;padding:12px 14px 4px}
+  .cp-info b{font-size:15px}.cp-info span{color:#8d9096;font-size:12px}
+  .cp-grade{display:flex;align-items:center;gap:6px;padding:6px 14px;font-size:10px;letter-spacing:.12em;color:#8d9096}
+  .cp-grade span{font-size:22px;color:#3a3d44;cursor:pointer;line-height:1}
+  .cp-grade span.on{color:#f2b544}
+  .cp-btns{display:flex;gap:8px;padding:10px 14px 14px}
+  .cp-btns button{flex:1;border:1px solid #2c2f38;background:#191b20;color:#eef0f3;font:inherit;font-size:12px;font-weight:650;padding:10px;border-radius:8px;cursor:pointer}
+  .cp-btns button[data-a=assign]{background:var(--blue);border-color:var(--blue)}
   .chan-sep-lbl{flex:0 0 auto;align-self:center;font-size:8px;color:#5b606b;letter-spacing:.08em;padding:0 3px;writing-mode:vertical-rl}
 
   /* Clean/presentation states */
@@ -984,11 +1005,32 @@
 
   // called by loadParticipantMedia / clearParticipantMedia so the board tracks
   // whatever is live, whether it was set here or from the director panel
+  let applyingStore=false;  // guard so re-applying the store doesn't loop back into it
   function onChannelAssigned(id, source){
     if(source==null) delete channelPick[id];
     else if(typeof source==='string'){ const m=String(source).match(/([^/]+?)\.mp4/i); channelPick[id]=m?m[1]:source; }
     else channelPick[id]='(upload)';
+    // publish to the shared store so MONTE and every other open stage see this casting
+    if(!applyingStore && LS.store){
+      const slug = channelPick[id];
+      LS.store.setCast(id, (slug && slug!=='(upload)') ? slug : null);
+    }
     if($('#channels').classList.contains('on')) refreshChannelRow(id);
+  }
+  // Apply the shared store to the live tiles (called on load and on any external change).
+  function applySharedCast(){
+    if(!LS.store) return;
+    applyingStore=true;
+    LS.characters.forEach(ch=>{
+      const pid = ch.id==='sam' ? 'samantha' : ch.id;
+      if(!tileMap.get(pid)) return;
+      const slug = LS.store.getCast(pid);
+      const have = channelPick[pid] && channelPick[pid]!=='(upload)' ? channelPick[pid] : null;
+      if(slug && slug!==have) loadParticipantMedia(pid, LS.url(slug));
+      else if(!slug && have) clearParticipantMedia(pid);
+    });
+    applyingStore=false;
+    if($('#channels').classList.contains('on')) buildChannels();
   }
   function currentFile(pid){
     if(channelPick[pid] && channelPick[pid]!=='(upload)') return channelPick[pid];
@@ -1010,19 +1052,82 @@
       : meta ? (meta.who+' · '+meta.act) : 'auto (talk / listen / react)';
     refreshTileSoundIcon(pid);
   }
+  function gradeBadge(file){
+    const g=LS.store?LS.store.getGrade(file):0;
+    return g?`<span class="grade">${'★'.repeat(g)}</span>`:'';
+  }
   function clipCard(pid, file, own){
     const meta=LS.clipMeta(file);
     const el=document.createElement('button');
     el.className='chan-clip'+(channelPick[pid]===file?' now':'');
     el.dataset.file=file;
-    el.innerHTML=(own?'<span class="own">OWN</span>':'')
+    el.innerHTML=(own?'<span class="own">OWN</span>':'')+gradeBadge(file)
       +`<video src="${LS.url(file)}#t=0.5" muted loop playsinline preload="metadata"></video>`
       +`<div class="cap">${esc(meta.act)}</div>`;
     const v=el.querySelector('video');
     el.addEventListener('mouseenter',()=>v.play().catch(()=>{}));
     el.addEventListener('mouseleave',()=>{v.pause();});
     el.onclick=()=>{ loadParticipantMedia(pid, LS.url(file)); toast(byId[pid].name+' → '+meta.act); };
+    // right-click (desktop) / long-press (touch) → preview, grade, judge
+    el.oncontextmenu=(e)=>{ e.preventDefault(); clipMenu(e.clientX,e.clientY,pid,file); };
+    let lpT=null;
+    el.addEventListener('touchstart',(e)=>{ const t=e.touches[0]; lpT=setTimeout(()=>{lpT=null; clipMenu(t.clientX,t.clientY,pid,file);},450); },{passive:true});
+    el.addEventListener('touchend',()=>{ if(lpT){clearTimeout(lpT);lpT=null;} });
+    el.addEventListener('touchmove',()=>{ if(lpT){clearTimeout(lpT);lpT=null;} });
     return el;
+  }
+  // ---- MONTE clip actions: preview-with-audio, grade, mark, assign ----
+  function clipMenu(x,y,pid,file){
+    const meta=LS.clipMeta(file), g=LS.store.getGrade(file);
+    const menu=document.createElement('div'); menu.className='clip-ctx';
+    menu.innerHTML=
+      `<div class="cx-hd">${esc(meta.who)} · ${esc(meta.act)}</div>`
+      +`<button data-a="preview">▶ Preview with sound</button>`
+      +`<button data-a="assign">Cast to ${esc(byId[pid].name)}</button>`
+      +`<div class="cx-grade">Grade ${[1,2,3,4,5].map(n=>`<span data-g="${n}" class="${n<=g?'on':''}">★</span>`).join('')}</div>`
+      +`<button data-a="cleargrade">Clear grade</button>`;
+    document.body.appendChild(menu);
+    const w=menu.offsetWidth||210, h=menu.offsetHeight||180;
+    menu.style.left=Math.min(x,innerWidth-w-8)+'px';
+    menu.style.top=Math.min(y,innerHeight-h-8)+'px';
+    const close=()=>{ menu.remove(); document.removeEventListener('pointerdown',onOut,true); };
+    const onOut=(e)=>{ if(!menu.contains(e.target)) close(); };
+    setTimeout(()=>document.addEventListener('pointerdown',onOut,true),0);
+    menu.querySelector('[data-a=preview]').onclick=()=>{ close(); previewClip(file,pid); };
+    menu.querySelector('[data-a=assign]').onclick=()=>{ close(); loadParticipantMedia(pid, LS.url(file)); toast(byId[pid].name+' → '+meta.act); };
+    menu.querySelector('[data-a=cleargrade]').onclick=()=>{ LS.store.setGrade(file,0); close(); if($('#channels').classList.contains('on')) refreshGradeBadges(); };
+    menu.querySelectorAll('.cx-grade span').forEach(s=>s.onclick=()=>{ LS.store.setGrade(file,+s.dataset.g); close(); if($('#channels').classList.contains('on')) refreshGradeBadges(); toast(meta.act+' → '+s.dataset.g+'★'); });
+  }
+  function refreshGradeBadges(){
+    document.querySelectorAll('#chGrid .chan-clip').forEach(c=>{
+      const f=c.dataset.file; c.querySelector('.grade')?.remove();
+      const g=LS.store.getGrade(f);
+      if(g){ const s=document.createElement('span'); s.className='grade'; s.textContent='★'.repeat(g); c.appendChild(s); }
+    });
+  }
+  // preview a clip full-size WITH its own audio (single voice — pauses the live tiles' sound)
+  function previewClip(file,pid){
+    const meta=LS.clipMeta(file), g0=LS.store.getGrade(file);
+    const ov=document.createElement('div'); ov.className='clip-preview'; ov.id='clipPreview';
+    ov.innerHTML=
+      `<div class="cp-card">
+         <video src="${LS.url(file)}" autoplay loop playsinline></video>
+         <div class="cp-info"><b>${esc(meta.who)}</b><span>${esc(meta.act)}</span></div>
+         <div class="cp-grade">GRADE ${[1,2,3,4,5].map(n=>`<span data-g="${n}" class="${n<=g0?'on':''}">★</span>`).join('')}</div>
+         <div class="cp-btns">
+           <button data-a="assign">Cast to ${esc(byId[pid].name)}</button>
+           <button data-a="close">Close</button>
+         </div>
+       </div>`;
+    document.body.appendChild(ov);
+    const v=ov.querySelector('video'); v.muted=false; v.volume=1; v.play().catch(()=>{});
+    const close=()=>{ v.pause(); ov.remove(); };
+    ov.addEventListener('click',e=>{ if(e.target===ov) close(); });
+    ov.querySelector('[data-a=close]').onclick=close;
+    ov.querySelector('[data-a=assign]').onclick=()=>{ loadParticipantMedia(pid, LS.url(file)); toast(byId[pid].name+' → '+meta.act); close(); };
+    ov.querySelectorAll('.cp-grade span').forEach(s=>s.onclick=()=>{ LS.store.setGrade(file,+s.dataset.g);
+      ov.querySelectorAll('.cp-grade span').forEach(x=>x.classList.toggle('on',+x.dataset.g<=+s.dataset.g));
+      if($('#channels').classList.contains('on')) refreshGradeBadges(); });
   }
   function buildChannels(){
     buildBeats();
@@ -1084,8 +1189,18 @@
   $('#channelsX').onclick=closeChannels;
   $('#chSoundAll').onclick=()=>{ setCoworkerSound(!state.coworkerSound); chChars().forEach(p=>refreshChannelRow(p.id)); };
 
+  // SHARED STORE — reflect casting/grades set in MONTE or any other open stage
+  if(LS.store){
+    LS.store.subscribe((reason, external)=>{
+      if(external && (reason==='cast'||reason==='sync')) applySharedCast();
+      if(reason==='grade'||reason==='sync'){ if($('#channels').classList.contains('on')) refreshGradeBadges(); }
+    });
+  }
+
   // Initialize
   setPreset('team4');applyCue(0);tickTime();wakeChrome();enumerateCameras();
+  // pull in any casting persisted from a previous session / another stage
+  setTimeout(applySharedCast, 60);
   window.addEventListener('beforeunload',()=>{state.cameraStream?.getTracks().forEach(t=>t.stop());state.displayStream?.getTracks().forEach(t=>t.stop())});
 })();
 </script>
