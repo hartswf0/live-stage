@@ -154,7 +154,8 @@
   #exitStage{opacity:0;pointer-events:none}
   #stage.peek #exitStage{opacity:1;pointer-events:auto}
   #stage.idle #sdock,#stage.idle .sbot{opacity:0;pointer-events:none}
-  .sbot .sc{cursor:default}
+  .sbot .sc{cursor:pointer}
+  .sbot .sc.on svg{fill:var(--hot)}.sbot .sc.on span{color:var(--hot)}
   /* the audible person gets the real active-speaker ring */
   .stile.hear{outline:3px solid var(--accent);outline-offset:-3px;z-index:2}
   /* in-meeting per-participant controls — Zoom-style, appear on hover, fade when idle */
@@ -209,17 +210,16 @@
 <div id="stage">
   <div class="stop">
     <span class="srec"><span class="dot"></span>Recording…</span>
-    <span class="spill">Total non-video participants: <span id="snvp">1</span></span>
     <span id="sview">Gallery View</span>
   </div>
-  <button id="shide">HIDE CONTROLS (H)</button>
-  <button id="exitStage">EXIT STAGE</button>
+  <button id="shide" style="display:none"></button>
+  <button id="exitStage" style="display:none"></button>
   <div id="sgrid"></div>
   <div id="stoast"><div class="a">Important meeting starting NOW</div><div class="b">Performance Review · Phil</div></div>
   <div id="sdock"></div>
   <div class="sbot">
-    <div class="sc"><svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21H8v2h8v-2h-3v-2.08A7 7 0 0 0 19 12z"/></svg><span>Mute</span></div>
-    <div class="sc"><svg viewBox="0 0 24 24"><path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11z"/></svg><span>Video</span></div>
+    <div class="sc" id="sMute"><svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21H8v2h8v-2h-3v-2.08A7 7 0 0 0 19 12z"/></svg><span>Mute</span></div>
+    <div class="sc" id="sVideo"><svg viewBox="0 0 24 24"><path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11z"/></svg><span>Start Video</span></div>
     <div class="sc"><svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 3-1.34 3-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5C15 14.17 10.33 13 8 13z"/></svg><span>Participants</span></div>
     <div class="sc" id="sChat" title="show / hide the MONTE director controls"><svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg><span>Chat</span></div>
     <div class="sc leave" id="sLeave"><span class="lp">Leave</span></div>
@@ -548,7 +548,6 @@ function refreshStageLayout(){
   const n=Math.max(1,on.length), cols=Math.ceil(Math.sqrt(n));
   const sgrid=document.getElementById('sgrid');if(sgrid)sgrid.style.gridTemplateColumns=`repeat(${cols},1fr)`;
   PEOPLE.forEach(p=>{const t=document.getElementById('stile-'+p.id);if(t)t.style.display=ST.onstage.has(p.id)?'':'none';});
-  document.getElementById('snvp').textContent=Math.max(0,AI.length-on.filter(p=>!p.live).length);
 }
 
 /* ============ SCENES ============ */
@@ -570,7 +569,6 @@ function applyScene(key){
   if(s.gl)setFlag(s.gl,'gl',true);
   // chrome
   document.getElementById('sview').textContent=s.view;
-  document.getElementById('snvp').textContent=s.nvp;
   document.getElementById('stoast').classList.toggle('on',!!s.toast);
   applyAudio();if(!ST.inStage)toast('Scene: '+s.name);
 }
@@ -601,6 +599,9 @@ function buildStage(){
       t.appendChild(ctl);
       ctl.querySelector('.tmute').onclick=e=>{e.stopPropagation();tileToggleAudio(p.id);};
       ctl.querySelector('.tnext').onclick=e=>{e.stopPropagation();tileNextClip(p.id);};
+      // click the tile itself = advance to their next clip (dead simple)
+      t.addEventListener('click',e=>{ if(e.target.closest('.tctl'))return; tileNextClip(p.id); });
+      t.style.cursor='pointer';
     }
     sgrid.appendChild(t);
   });
@@ -665,14 +666,32 @@ document.getElementById('sLeave').onclick=exitStage; // the diegetic "Leave" ret
 function toggleDock(){const d=document.getElementById('sdock');d.classList.toggle('hidden');
   document.getElementById('shide').textContent=d.classList.contains('hidden')?'SHOW CONTROLS (H)':'HIDE CONTROLS (H)';}
 
-/* camera */
-document.getElementById('camBtn').onclick=async()=>{
-  try{liveStream=await navigator.mediaDevices.getUserMedia({video:{width:1920,height:1080,facingMode:'user'},audio:false});
-    const t=document.getElementById('stile-nat');
+/* camera — the diegetic Video button (and MONTE's CAMERA button) really turn it on/off */
+let camOn=false;
+async function toggleCamera(){
+  const t=document.getElementById('stile-nat');
+  if(camOn){
+    liveStream&&liveStream.getTracks().forEach(x=>x.stop());liveStream=null;camOn=false;
+    const v=t.querySelector('video.live');if(v){v.srcObject=null;v.remove();}
+    t.classList.remove('has','mir');reflectCamBtn();toast('camera off');return;
+  }
+  try{liveStream=await navigator.mediaDevices.getUserMedia({video:{width:1920,height:1080,facingMode:'user'},audio:true});
+    ST.onstage.add('nat');if(ST.inStage)refreshStageLayout();
     let v=t.querySelector('video.live');if(!v){v=document.createElement('video');v.className='live on';v.autoplay=true;v.muted=true;v.playsInline=true;t.insertBefore(v,t.querySelector('.sph'));}
-    v.srcObject=liveStream;t.classList.add('has','mir');toast('camera on — Natalie is live');
+    v.srcObject=liveStream;t.classList.add('has','mir');camOn=true;reflectCamBtn();toast('camera on');
   }catch(e){toast('no camera access');}
-};
+}
+function reflectCamBtn(){
+  const b=document.getElementById('sVideo');if(b){b.querySelector('span').textContent=camOn?'Stop Video':'Start Video';b.classList.toggle('on',camOn);}
+}
+document.getElementById('camBtn').onclick=toggleCamera;
+document.getElementById('sVideo').onclick=toggleCamera;
+// diegetic Mute = silence / restore the whole room (master audio)
+document.getElementById('sMute').onclick=()=>{ST.master=!ST.master;applyAudio();
+  const b=document.getElementById('sMute');b.querySelector('span').textContent=ST.master?'Mute':'Unmute';b.classList.toggle('on',!ST.master);};
+// diegetic Chat quietly reveals / hides the director dock (H also toggles it)
+document.getElementById('sChat').onclick=()=>{const d=document.getElementById('sdock');d.classList.toggle('hidden');
+  document.getElementById('sChat').classList.toggle('on',!d.classList.contains('hidden'));};
 
 /* ============ THEATRE ============ */
 const TH={on:false,queue:[],i:0};const thv=document.getElementById('thv');
