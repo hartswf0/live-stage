@@ -3267,6 +3267,7 @@ document.getElementById('dirBtn').onclick=()=>{
    REMOTE button = create/join room + show the QR. ?remote=CODE = the controller panel. */
 const RELAY='https://thunder-rigs-relay.hartswf0.workers.dev/trig/';
 const IS_REMOTE=(new URLSearchParams(location.search).get('remote')||'').toUpperCase()||null;
+const ROOM_OVERRIDE=(new URLSearchParams(location.search).get('room')||'').toUpperCase().replace(/[^A-Z0-9-]/g,'')||null;
 const relay={room:null,peer:null,after:0,on:false,timer:null,lastState:0};
 async function relayJoin(code,name){
   relay.room=String(code).toUpperCase().replace(/[^A-Z0-9-]/g,'').slice(0,16);
@@ -3281,14 +3282,20 @@ async function relayJoin(code,name){
 async function relayPoll(){
   if(!relay.on)return;
   try{
-    const r=await fetch(RELAY+encodeURIComponent(relay.room)+'/poll?peerId='+relay.peer+'&after='+relay.after);
+    /* no-store is load-bearing: the relay sends no Cache-Control, so a repeated
+       same-URL GET (quiet room -> same 'after') gets served from HTTP cache forever
+       and the poll loop wedges on a stale empty response */
+    const r=await fetch(RELAY+encodeURIComponent(relay.room)+'/poll?peerId='+relay.peer+'&after='+relay.after,{cache:'no-store'});
     const d=await r.json();
+    if(typeof d.seq==='number'&&d.seq<relay.after)relay.after=d.seq;   // DO evicted & seq rewound
     (d.messages||[]).forEach(m=>{
       if(m.seq>relay.after)relay.after=m.seq;
       if(m.from!==relay.peer&&m.msg&&m.msg.t){IS_REMOTE?remoteState(m.msg):handleCue(m.msg);}
     });
   }catch(e){}
 }
+document.addEventListener('visibilitychange',()=>{   // a re-surfaced window catches up instantly
+  if(document.visibilityState==='visible'&&relay.on)relayPoll();});
 function relaySend(m){
   if(!relay.on)return;
   if(m.t==='state'){const now=performance.now();if(now-relay.lastState<1200)return;relay.lastState=now;}
@@ -3297,9 +3304,16 @@ function relaySend(m){
 /* every cue the page sends also rides the relay once a room is joined */
 const __send0=sendCue;sendCue=function(m){__send0(m);relaySend(m);};
 function myRoom(){
-  const k=CHAN+'-room';let r=localStorage.getItem(k);
-  if(!r){r=(CHAN.replace(/[^a-z]/gi,'').slice(0,2)+Math.random().toString(36).slice(2,6)).toUpperCase();localStorage.setItem(k,r);}
-  return r;
+  /* the whole hartswf0.github.io origin shares ONE ~5MB localStorage (thunder-rigs,
+     decks, scenes...) — it can be FULL. Never let storage kill the room: memory first,
+     storage only as a best-effort convenience. */
+  if(ROOM_OVERRIDE)return ROOM_OVERRIDE;
+  if(myRoom._m)return myRoom._m;
+  const k=CHAN+'-room';let r=null;
+  try{r=localStorage.getItem(k);}catch(e){}
+  if(!r){r=(CHAN.replace(/[^a-z]/gi,'').slice(0,2)+Math.random().toString(36).slice(2,6)).toUpperCase();
+    try{localStorage.setItem(k,r);}catch(e){}}
+  myRoom._m=r;return r;
 }
 function showQR(){
   let ov=document.getElementById('qrov');
@@ -3309,13 +3323,15 @@ function showQR(){
     ov.onclick=()=>ov.remove();
     document.body.appendChild(ov);
   }
-  const url=location.origin+location.pathname+'?remote='+relay.room;
+  const base=location.origin+location.pathname;
+  const cu=base+'?remote='+relay.room, du=base+'?director=1&room='+relay.room;
   let svg='';
-  try{const q=qrcode(0,'M');q.addData(url);q.make();svg=q.createSvgTag({cellSize:6,margin:2,scalable:true});}catch(e){}
+  try{const q=qrcode(0,'M');q.addData(cu);q.make();svg=q.createSvgTag({cellSize:6,margin:2,scalable:true});}catch(e){}
   ov.innerHTML='<div style="background:#fff;padding:14px;border-radius:12px;width:min(64vw,300px)">'+svg+'</div>'
     +'<div style="font:800 26px ui-monospace,monospace;letter-spacing:.2em;color:#fff">'+relay.room+'</div>'
-    +'<div style="font:11px ui-monospace,monospace;color:#9a9aa2;max-width:80vw;text-align:center;word-break:break-all">'+url+'</div>'
-    +'<div style="font:10px ui-monospace,monospace;color:#6a6a72">scan with a phone — it becomes the cue controller · tap to close</div>';
+    +'<div style="font:11px ui-monospace,monospace;color:#9fe7ff;max-width:86vw;text-align:center;word-break:break-all">PHONE controller — scan the QR, or open<br>'+cu+'</div>'
+    +'<div style="font:11px ui-monospace,monospace;color:#f1c40f;max-width:86vw;text-align:center;word-break:break-all">full DIRECTOR on another computer — open<br>'+du+'</div>'
+    +'<div style="font:10px ui-monospace,monospace;color:#6a6a72">cues travel via the relay — any device, any network · tap to close</div>';
 }
 (function remoteWire(){
   const db=document.getElementById('dirBtn');if(!db)return;
@@ -3332,6 +3348,19 @@ function showQR(){
     showQR();
   };
 })();
+/* ?room=CODE links THIS window (stage or full director) into an existing room —
+   the cross-device path: the stage shows the QR; another computer opens
+   ?director=1&room=CODE and its cues ride the relay. */
+if(ROOM_OVERRIDE&&!IS_REMOTE){
+  relayJoin(ROOM_OVERRIDE,IS_DIR?'director':'stage').then(ok=>{
+    const rb=document.getElementById('remoteBtn');
+    if(ok){if(rb){rb.classList.add('on');rb.textContent='REMOTE '+relay.room;}toast('linked · room '+relay.room);}
+    else toast('relay unreachable');
+  });
+}
+/* director mode: casting a clip must CUE the stage, not just this hidden copy */
+if(IS_DIR){const __gl0=goLive;goLive=function(pid,cid){__gl0(pid,cid);
+  const c=CLIP[cid];if(c&&c.file)sendCue({t:'clip',pid,file:c.file});};}
 /* ---- the controller panel itself (?remote=CODE) — phone-sized, relay-only ---- */
 function remoteState(m){
   if(!IS_REMOTE||m.t!=='state')return;
