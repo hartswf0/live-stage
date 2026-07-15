@@ -457,6 +457,7 @@ function applyAudio(){
     if(!el){el=new Audio();el.loop=true;audioEls[p.id]=el;}
     if(el.src!==wantSrc)el.src=wantSrc;el.volume=a.vol;el.play().catch(()=>{});
   });
+  if(typeof refreshHear==='function') refreshHear(); // keep the live tile highlight bound to the audio state
 }
 
 /* ============ DIEGETIC STAGE: click-to-hear + free mosaic ============ */
@@ -468,7 +469,7 @@ function stageHear(pid){
   ST.master=true;
   applyAudio(); refreshHear();
   PEOPLE.forEach(p=>{const t=document.getElementById('stile-'+p.id);if(t)t.classList.toggle('spk',ST.flags[p.id].spk);});
-  refreshFlags(); refreshDock();
+  refreshFlags(); refreshDock(); refreshAud(); // reflect the live audio choice back onto MONTE's lane pills
 }
 function refreshHear(){PEOPLE.forEach(p=>{const t=document.getElementById('stile-'+p.id);
   if(t)t.classList.toggle('hear', !!(ST.aud[p.id]&&ST.aud[p.id].on&&ST.aud[p.id].solo));});}
@@ -559,13 +560,19 @@ function enterStage(){
   const el=document.getElementById('stage');
   el.classList.add('on');
   document.getElementById('sdock').classList.add('hidden'); // diegetic by default — direct from MONTE / the Chat button
-  // respect a freely-built mosaic; otherwise seed from the current scene
-  if(ST.onstage.size) refreshStageLayout(); else applyScene(ST.scene||'team');
-  // make each on-stage person's live clip actually show
-  PEOPLE.forEach(p=>{const cid=ST.live[p.id];if(cid&&ST.onstage.has(p.id))goLive(p.id,cid);});
+  // MONTE IS THE SOURCE OF TRUTH — no scene rails. The call is exactly what you set:
+  // whoever has a clip cast to them (plus the host), playing that clip, with your audio.
+  const cast = PEOPLE.filter(p=>ST.live[p.id] && !p.host).map(p=>p.id);
+  if(!cast.length){ // nothing cast yet → gently populate with each person's first clip; fully editable, no rails
+    AI.forEach(p=>{ if(LANES[p.id] && LANES[p.id][0]) ST.live[p.id]=LANES[p.id][0]; });
+  }
+  ST.onstage = new Set(PEOPLE.filter(p=>ST.live[p.id] || p.host).map(p=>p.id));
+  refreshStageLayout();
+  PEOPLE.forEach(p=>{const cid=ST.live[p.id]; if(cid) goLive(p.id,cid);});
+  applyAudio(); refreshHear();
   stageIdleArm();
   if(el.requestFullscreen)el.requestFullscreen().catch(()=>{});
-  toast('LIVE — click a face to hear them · Chat = director controls');
+  toast('LIVE — this is exactly what you set in MONTE · click a face to hear them · Chat = controls');
 }
 // fade the exit + Zoom bar + director dock after a moment of no mouse movement
 let stageIdleT=null;
