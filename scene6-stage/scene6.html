@@ -166,6 +166,8 @@
     <button id="camBtn" title="add the actress camera">CAMERA</button>
     <button id="theatreAll" title="play the whole table in sequence">THEATRE</button>
     <button id="masterAud" class="on">AUDIO ON</button>
+    <button id="addLane" title="add & name a new participant lane — build any grid">+ LANE</button>
+    <button id="recBtn" title="record this call to a file for redoing takes">REC</button>
     <button id="exportBtn">EXPORT</button>
     <button id="importBtn">IMPORT</button>
     <input type="file" id="importFile" accept=".json">
@@ -642,6 +644,46 @@ document.getElementById('importFile').onchange=async e=>{const f=e.target.files[
 
 /* master audio */
 document.getElementById('masterAud').onclick=()=>{ST.master=!ST.master;const b=document.getElementById('masterAud');b.classList.toggle('on',ST.master);b.textContent=ST.master?'AUDIO ON':'AUDIO OFF';applyAudio();};
+
+/* ============ GENERALIZABLE: add & name arbitrary participant lanes ============ */
+let laneHue=200;
+document.getElementById('addLane').onclick=()=>{
+  const name=(prompt('Name this participant','Guest '+PEOPLE.length)||'').trim();
+  if(!name)return;
+  const id='p'+Date.now().toString(36);
+  laneHue=(laneHue+53)%360;
+  const p={id,name,hue:laneHue,initials:name.slice(0,1).toUpperCase()};
+  PEOPLE.push(p); P[id]=p; AI.push(p);
+  ST.aud[id]={on:false,vol:1,solo:false,vo:null}; ST.flags[id]={spk:false,mut:false,gl:false};
+  LANES[id]=[];
+  buildTable(); buildStage();
+  if(ST.inStage)refreshStageLayout();
+  toast('added lane: '+name+' — drop clips or a camera in');
+};
+
+/* ============ RECORD A TAKE — capture the call to a file (redo takes) ============ */
+let mediaRec=null, recChunks=[];
+document.getElementById('recBtn').onclick=async()=>{
+  const btn=document.getElementById('recBtn');
+  if(mediaRec&&mediaRec.state==='recording'){mediaRec.stop();return;}
+  try{
+    const disp=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:30},audio:true});
+    const tracks=[...disp.getVideoTracks(),...disp.getAudioTracks(),...(liveStream?liveStream.getAudioTracks():[])];
+    const out=new MediaStream(tracks);
+    const mime=['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'].find(m=>MediaRecorder.isTypeSupported(m))||'';
+    recChunks=[]; mediaRec=new MediaRecorder(out,mime?{mimeType:mime,videoBitsPerSecond:12e6}:undefined);
+    mediaRec.ondataavailable=e=>{if(e.data.size)recChunks.push(e.data);};
+    mediaRec.onstop=()=>{disp.getTracks().forEach(t=>t.stop());
+      const blob=new Blob(recChunks,{type:mediaRec.mimeType||'video/webm'});
+      const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+      a.download='scene06_take_'+new Date().toISOString().replace(/[:.]/g,'-')+'.webm';a.click();
+      setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+      btn.textContent='REC';btn.classList.remove('on');toast('take saved');};
+    disp.getVideoTracks()[0].onended=()=>{if(mediaRec&&mediaRec.state==='recording')mediaRec.stop();};
+    mediaRec.start(1000); btn.textContent='● STOP';btn.classList.add('on');
+    toast('recording — pick this tab/window, then GO LIVE');
+  }catch(e){toast('recording cancelled');}
+};
 
 /* keyboard */
 window.addEventListener('keydown',e=>{
