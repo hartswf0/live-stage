@@ -111,7 +111,7 @@
   .spill{background:#2a2a30;border-radius:5px;padding:3px 9px;font-size:11px;color:#d8d8dc}
   #sgrid{flex:1 1 auto;display:grid;gap:4px;padding:5px;grid-template-columns:1fr 1fr;grid-auto-rows:1fr;background:#0b0b0d}
   .stile{position:relative;background:var(--tile);overflow:hidden;outline:0 solid var(--accent);transition:outline-width .1s}
-  .stile.spk{outline-width:4px;z-index:2}
+  .stile.spk{z-index:2}
   .stile video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#0e0e11;opacity:0;transition:opacity .1s}
   .stile video.on{opacity:1}
   .stile.mir video.live{transform:scaleX(-1)}
@@ -143,20 +143,15 @@
   #sdock .grp button.on{background:var(--hot);color:#000;border-color:var(--hot)}
   #shide{position:absolute;top:44px;left:12px;z-index:31;border:1px solid var(--line);border-radius:7px;background:rgba(0,0,0,.5);color:#fff;font:inherit;font-size:10px;font-weight:700;padding:6px 10px;cursor:pointer;display:none}
   #exitStage{position:absolute;top:44px;right:12px;z-index:31;border:1px solid var(--hot);border-radius:7px;background:rgba(0,0,0,.5);color:var(--hot);font:inherit;font-size:10px;font-weight:700;padding:6px 12px;cursor:pointer}
-  /* DIEGETIC: the director dock + exit fade out when idle so the recorded frame reads as a clean Zoom call */
-  #shide,#exitStage,#sdock,.sbot{transition:opacity .4s}
-  #stage.idle #exitStage,#stage.idle #sdock,#stage.idle .sbot{opacity:0;pointer-events:none}
-  .sbot .sc{cursor:pointer}
-  .sbot .sc.on{color:var(--hot)}.sbot .sc.on span{color:var(--hot)}
-  /* click a tile to hear that person (single voice) — diegetic active-speaker */
+  /* DIEGETIC: nothing directs from inside the frame. Exit only appears when the
+     mouse touches the top edge; the Zoom bar fades when idle. Everything else is MONTE. */
+  #shide,#exitStage,#sdock,.sbot{transition:opacity .3s}
+  #exitStage{opacity:0;pointer-events:none}
+  #stage.peek #exitStage{opacity:1;pointer-events:auto}
+  #stage.idle #sdock,#stage.idle .sbot{opacity:0;pointer-events:none}
+  .sbot .sc{cursor:default}
+  /* the audible person (soloed in MONTE) gets the real active-speaker ring */
   .stile.hear{outline:3px solid var(--accent);outline-offset:-3px;z-index:2}
-  .shear{position:absolute;top:7px;right:7px;z-index:5;width:26px;height:26px;border-radius:50%;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:opacity .2s}
-  .stile:hover .shear,.stile.hear .shear{opacity:1}
-  .shear svg{width:14px;height:14px;fill:#fff}
-  .stile.hear .shear{background:var(--accent);border-color:var(--accent)}
-  .sx{position:absolute;top:7px;left:7px;z-index:5;width:22px;height:22px;border-radius:6px;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.2);color:#fff;font-size:12px;line-height:1;display:none;align-items:center;justify-content:center;cursor:pointer}
-  .stile:hover .sx{display:flex}
-  #stage.idle .shear,#stage.idle .sx{opacity:0;pointer-events:none}
 
   input[type=file]{display:none}
   .toast{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:210;background:#141418;border:1px solid var(--hot);border-radius:8px;padding:8px 14px;font-size:11px;color:var(--hot);display:none;box-shadow:0 8px 30px rgba(0,0,0,.6)}
@@ -370,7 +365,8 @@ function wireClips(pid){
       const r=el.getBoundingClientRect();const frac=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));
       if(v.readyState>=1&&v.duration){try{v.currentTime=frac*v.duration;}catch(_){}el.querySelector('.scrub').style.width=(frac*100)+'%';}});
     el.querySelector('.x').onclick=e=>{e.stopPropagation();removeClip(pid,cid);};
-    el.addEventListener('click',()=>{if(el._moved){el._moved=false;return;}goLive(pid,cid);});
+    el.addEventListener('click',()=>{if(el._moved){el._moved=false;return;}
+      if(ST.live[pid]===cid) unLive(pid); else goLive(pid,cid);}); // click the live clip again to take them off the call
     el.addEventListener('dblclick',()=>openLoupe(pid,cid));
     el.addEventListener('pointerdown',e=>startDrag(e,pid,cid,el));
   });
@@ -476,6 +472,16 @@ function refreshHear(){PEOPLE.forEach(p=>{const t=document.getElementById('stile
 function showTile(pid){ST.onstage.add(pid);const t=document.getElementById('stile-'+pid);if(t)t.style.display='';refreshStageLayout();}
 function removeFromStage(pid){ST.onstage.delete(pid);const t=document.getElementById('stile-'+pid);if(t)t.style.display='none';
   if(ST.aud[pid]){ST.aud[pid].on=false;ST.aud[pid].solo=false;applyAudio();refreshHear();}refreshStageLayout();}
+// un-cast from MONTE: clear this person's live clip and take them off the call
+function unLive(pid){
+  delete ST.live[pid];
+  document.querySelectorAll('#clips-'+pid+' .clip').forEach(el=>el.classList.remove('playing'));
+  document.getElementById('ch-'+pid)?.classList.remove('live');
+  Object.values(stageVids[pid]||{}).forEach(v=>{v.classList.remove('on');v.pause();});
+  document.getElementById('stile-'+pid)?.classList.remove('has');
+  removeFromStage(pid);
+  if(!ST.inStage)toast(P[pid].name+' off');
+}
 // any set of people, auto-arranged — no fixed beats required
 function refreshStageLayout(){
   const on=PEOPLE.filter(p=>ST.onstage.has(p.id));
@@ -523,16 +529,11 @@ function setFlag(pid,f,on,exclusiveSpk){
 function buildStage(){
   const sgrid=document.getElementById('sgrid');sgrid.innerHTML='';stageVids&&Object.keys(stageVids).forEach(k=>delete stageVids[k]);
   PEOPLE.forEach(p=>{
+    // pure diegetic tile — no on-stage controls. Everything is set in MONTE; the
+    // stage just shows the consequence (clip + audio + who's on) live.
     const t=document.createElement('div');t.className='stile';t.id='stile-'+p.id;t.style.display='none';
     t.innerHTML=`<div class="sph"><div class="av" style="background:${hsl(p.hue,55,45)}">${p.initials}</div></div>
-      <div class="sgl"></div><div class="snm">${p.name}${p.host?'<span class="h">Host</span>':''}</div>
-      <button class="shear" title="hear ${p.name}"><svg viewBox="0 0 24 24"><path d="M3 10v4h4l5 5V5L7 10H3zm13.5 2A4.5 4.5 0 0 0 14 7.97v8.05A4.5 4.5 0 0 0 16.5 12zM14 3.23v2.06a7 7 0 0 1 0 13.42v2.06a9 9 0 0 0 0-17.54z"/></svg></button>
-      <button class="sx" title="remove from the call">✕</button>`;
-    if(p.id!=='nat'){
-      t.querySelector('.shear').onclick=e=>{e.stopPropagation();stageHear(p.id);};
-      t.addEventListener('click',e=>{ if(e.target.closest('.sx'))return; stageHear(p.id); });
-    } else { t.querySelector('.shear').remove(); }
-    t.querySelector('.sx').onclick=e=>{e.stopPropagation();removeFromStage(p.id);};
+      <div class="sgl"></div><div class="snm">${p.name}${p.host?'<span class="h">Host</span>':''}</div>`;
     sgrid.appendChild(t);
   });
   buildDock();
@@ -572,28 +573,27 @@ function enterStage(){
   applyAudio(); refreshHear();
   stageIdleArm();
   if(el.requestFullscreen)el.requestFullscreen().catch(()=>{});
-  toast('LIVE — this is exactly what you set in MONTE · click a face to hear them · Chat = controls');
 }
-// fade the exit + Zoom bar + director dock after a moment of no mouse movement
+// The frame stays clean: the Zoom bar fades when idle, and EXIT only appears when
+// the mouse reaches the top edge. Esc always exits back to MONTE.
 let stageIdleT=null;
 function stageIdleArm(){
   const el=document.getElementById('stage');
-  const wake=()=>{el.classList.remove('idle');clearTimeout(stageIdleT);stageIdleT=setTimeout(()=>{if(ST.inStage)el.classList.add('idle');},2800);};
-  el.onmousemove=wake; el.ontouchstart=wake; wake();
+  const onMove=(e)=>{el.classList.remove('idle');clearTimeout(stageIdleT);
+    stageIdleT=setTimeout(()=>{if(ST.inStage)el.classList.add('idle');},2800);
+    el.classList.toggle('peek', !!(e && e.clientY!=null && e.clientY<70));};
+  el.onmousemove=onMove;
+  el.ontouchstart=e=>{el.classList.add('peek');onMove();setTimeout(()=>el.classList.remove('peek'),2600);};
+  onMove();
 }
 function exitStage(){ST.inStage=false;document.getElementById('stage').classList.remove('on');
   if(document.fullscreenElement&&document.exitFullscreen)document.exitFullscreen().catch(()=>{});}
 document.getElementById('golive').onclick=enterStage;
 document.getElementById('exitStage').onclick=exitStage;
 document.getElementById('shide').onclick=toggleDock;
-// the diegetic Chat button reveals / hides the MONTE director dock — controls stay out of frame
-document.getElementById('sChat').onclick=()=>{toggleDock();const d=document.getElementById('sdock');
-  document.getElementById('sChat').classList.toggle('on',!d.classList.contains('hidden'));};
-// diegetic Mute button in the Zoom bar = silence the room (master audio)
-document.getElementById('stage').querySelector('.sbot .sc').onclick=()=>{
-  ST.master=!ST.master; applyAudio();
-  document.getElementById('stage').querySelector('.sbot .sc').classList.toggle('on',!ST.master);};
-document.getElementById('sLeave').onclick=exitStage;
+document.getElementById('sLeave').onclick=exitStage; // the diegetic "Leave" returns to MONTE
+// The Zoom bottom bar is pure diegetic decoration — all directing (clips, sound,
+// who's on) happens in MONTE and the stage shows the consequence. Esc returns to MONTE.
 function toggleDock(){const d=document.getElementById('sdock');d.classList.toggle('hidden');
   document.getElementById('shide').textContent=d.classList.contains('hidden')?'SHOW CONTROLS (H)':'HIDE CONTROLS (H)';}
 
