@@ -62,6 +62,11 @@
   .clip .num{position:absolute;left:4px;top:3px;font-size:8px;color:#000;background:var(--hot);padding:0 4px;border-radius:3px;font-weight:800;z-index:2;pointer-events:none}
   .clip .x{position:absolute;top:2px;right:2px;z-index:3;border:none;border-radius:4px;background:rgba(180,0,0,.85);color:#fff;font-size:9px;font-weight:800;padding:1px 5px;cursor:pointer;display:none}
   .clip:hover .x{display:block}
+  /* per-clip audio right in the gallery — click to hear that clip */
+  .clip .csnd{position:absolute;top:2px;left:2px;z-index:3;width:20px;height:20px;border-radius:5px;border:1px solid rgba(255,255,255,.25);background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
+  .clip .csnd svg{width:12px;height:12px;fill:#fff}
+  .clip .csnd.on{background:var(--hot);border-color:var(--hot)}.clip .csnd.on svg{fill:#000}
+  .clip.hearing{border-color:var(--hot);box-shadow:0 0 10px rgba(159,231,255,.5)}
   .clip.playing{border-color:var(--green);box-shadow:0 0 10px rgba(67,196,99,.4)}
   .clip.playing .lb::after{content:' ● LIVE';color:var(--green)}
   .clip.lifting{opacity:.35;outline:2px dashed var(--hot)}
@@ -329,7 +334,7 @@ function renderLane(pid){
   LANES[pid].forEach((cid,i)=>{const c=CLIP[cid];if(!c)return;
     const el=document.createElement('div');el.className='clip'+(ST.live[pid]===cid?' playing':'');
     el.id='clip-'+cid;el.dataset.cid=cid;el.dataset.pid=pid;
-    el.innerHTML=`<video muted preload="metadata" src="${c.src}#t=0.5"></video><div class="num">${i+1}</div><div class="lb">${c.label}</div><div class="scrub"></div><button class="x">✕</button>`;
+    el.innerHTML=`<video muted preload="metadata" src="${c.src}#t=0.5"></video><button class="csnd" title="hear this clip"><svg viewBox="0 0 24 24"><path d="M3 10v4h4l5 5V5L7 10H3zm13.5 2A4.5 4.5 0 0 0 14 7.97v8.05A4.5 4.5 0 0 0 16.5 12zM14 3.23v2.06a7 7 0 0 1 0 13.42v2.06a9 9 0 0 0 0-17.54z"/></svg></button><div class="num">${i+1}</div><div class="lb">${c.label}</div><div class="scrub"></div><button class="x">✕</button>`;
     list.appendChild(el);});
   const add=document.createElement('div');add.className='addclip';add.dataset.p=pid;add.innerHTML='<span style="font-size:14px">+</span> add clips';
   const fin=document.createElement('input');fin.type='file';fin.accept='video/*';fin.multiple=true;fin.className='clipin';
@@ -366,17 +371,28 @@ const ghost=document.getElementById('ghost'),dropline=document.getElementById('d
 function wireClips(pid){
   document.querySelectorAll('#clips-'+pid+' .clip').forEach(el=>{
     const cid=el.dataset.cid;
-    el.addEventListener('pointermove',e=>{if(drag)return;const v=el.querySelector('video');if(!v)return;
+    el.addEventListener('pointermove',e=>{if(drag||el.classList.contains('hearing'))return;const v=el.querySelector('video');if(!v)return;
       const r=el.getBoundingClientRect();const frac=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));
       if(v.readyState>=1&&v.duration){try{v.currentTime=frac*v.duration;}catch(_){}el.querySelector('.scrub').style.width=(frac*100)+'%';}});
     el.querySelector('.x').onclick=e=>{e.stopPropagation();removeClip(pid,cid);};
+    el.querySelector('.csnd').onclick=e=>{e.stopPropagation();previewClipSound(el);}; // hear this clip right here
     el.addEventListener('click',()=>{if(el._moved){el._moved=false;return;}
       if(ST.live[pid]===cid) unLive(pid); else goLive(pid,cid);}); // click the live clip again to take them off the call
     el.addEventListener('dblclick',()=>openLoupe(pid,cid));
     el.addEventListener('pointerdown',e=>startDrag(e,pid,cid,el));
   });
 }
-function startDrag(e,pid,cid,el){if(e.target.classList.contains('x'))return;drag={pid,cid,el,x:e.clientX,y:e.clientY,active:false};}
+function startDrag(e,pid,cid,el){if(e.target.classList.contains('x')||e.target.closest('.csnd'))return;drag={pid,cid,el,x:e.clientX,y:e.clientY,active:false};}
+// hear any clip right in the gallery — plays that clip's own audio, one at a time
+let hearingEl=null;
+function previewClipSound(el){
+  const v=el.querySelector('video'); if(!v)return;
+  if(hearingEl && hearingEl!==el){const ov=hearingEl.querySelector('video');if(ov){ov.muted=true;ov.pause();}
+    hearingEl.classList.remove('hearing');hearingEl.querySelector('.csnd')?.classList.remove('on');}
+  if(el.classList.contains('hearing')){v.muted=true;v.pause();el.classList.remove('hearing');el.querySelector('.csnd').classList.remove('on');hearingEl=null;return;}
+  v.muted=false;v.loop=true;try{v.currentTime=0;}catch(_){}v.play().catch(()=>{});
+  el.classList.add('hearing');el.querySelector('.csnd').classList.add('on');hearingEl=el;
+}
 document.addEventListener('pointermove',e=>{
   if(!drag)return;
   if(!drag.active){if(Math.hypot(e.clientX-drag.x,e.clientY-drag.y)<6)return;drag.active=true;drag.el.classList.add('lifting');drag.el._moved=true;ghost.querySelector('img').src='';ghost.style.display='block';}
