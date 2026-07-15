@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+CjxyZWN0IHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgcng9IjciIGZpbGw9IiMwYjBjMGYiLz4KPHJlY3QgeD0iNCIgeT0iMTQiIHdpZHRoPSIyNCIgaGVpZ2h0PSIxMyIgcng9IjIiIGZpbGw9IiNlZGVmZjIiLz4KPHBhdGggZD0iTTQgMTQgTDI4IDEwIEwyOCAxNCBaIiBmaWxsPSIjMGIwYzBmIi8+CjxyZWN0IHg9IjYuNSIgeT0iMTcuNSIgd2lkdGg9IjE5IiBoZWlnaHQ9IjEuNCIgcng9Ii43IiBmaWxsPSIjYzljY2QyIi8+CjxwYXRoIGQ9Ik02IDEzLjQgTDkuNSA4IEwxMyA3LjQgTDkuNSAxMi44IFoiIGZpbGw9IiMzYTg2ZmYiLz4KPHBhdGggZD0iTTE0IDEyLjUgTDE3LjUgNy4xIEwyMSA2LjUgTDE3LjUgMTEuOSBaIiBmaWxsPSIjM2E4NmZmIi8+CjxwYXRoIGQ9Ik0yMiAxMS42IEwyNS41IDYuMiBMMjggNS44IEwyOCAxMCBMMjQuNSAxMC43IFoiIGZpbGw9IiMzYTg2ZmYiLz4KPC9zdmc+Cg==">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Scene 06 — MONTE Stage</title>
@@ -62,11 +61,6 @@
   .clip .num{position:absolute;left:4px;top:3px;font-size:8px;color:#000;background:var(--hot);padding:0 4px;border-radius:3px;font-weight:800;z-index:2;pointer-events:none}
   .clip .x{position:absolute;top:2px;right:2px;z-index:3;border:none;border-radius:4px;background:rgba(180,0,0,.85);color:#fff;font-size:9px;font-weight:800;padding:1px 5px;cursor:pointer;display:none}
   .clip:hover .x{display:block}
-  /* per-clip audio right in the gallery — click to hear that clip */
-  .clip .csnd{position:absolute;top:2px;left:2px;z-index:3;width:20px;height:20px;border-radius:5px;border:1px solid rgba(255,255,255,.25);background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
-  .clip .csnd svg{width:12px;height:12px;fill:#fff}
-  .clip .csnd.on{background:var(--hot);border-color:var(--hot)}.clip .csnd.on svg{fill:#000}
-  .clip.hearing{border-color:var(--hot);box-shadow:0 0 10px rgba(159,231,255,.5)}
   .clip.playing{border-color:var(--green);box-shadow:0 0 10px rgba(67,196,99,.4)}
   .clip.playing .lb::after{content:' ● LIVE';color:var(--green)}
   .clip.lifting{opacity:.35;outline:2px dashed var(--hot)}
@@ -116,7 +110,7 @@
   .spill{background:#2a2a30;border-radius:5px;padding:3px 9px;font-size:11px;color:#d8d8dc}
   #sgrid{flex:1 1 auto;display:grid;gap:4px;padding:5px;grid-template-columns:1fr 1fr;grid-auto-rows:1fr;background:#0b0b0d}
   .stile{position:relative;background:var(--tile);overflow:hidden;outline:0 solid var(--accent);transition:outline-width .1s}
-  .stile.spk{z-index:2}
+  .stile.spk{outline-width:4px;z-index:2}
   .stile video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#0e0e11;opacity:0;transition:opacity .1s}
   .stile video.on{opacity:1}
   .stile.mir video.live{transform:scaleX(-1)}
@@ -146,32 +140,2313 @@
   #sdock .grp .gp{font-size:8px;color:var(--dim);align-self:center;margin-right:2px}
   #sdock .grp button{border:1px solid var(--line);border-radius:6px;background:#0e0e12;color:#bbb;font:inherit;font-size:9px;font-weight:700;padding:5px 7px;cursor:pointer}
   #sdock .grp button.on{background:var(--hot);color:#000;border-color:var(--hot)}
-  #shide{position:absolute;top:44px;left:12px;z-index:31;border:1px solid var(--line);border-radius:7px;background:rgba(0,0,0,.5);color:#fff;font:inherit;font-size:10px;font-weight:700;padding:6px 10px;cursor:pointer;display:none}
+  #shide{position:absolute;top:44px;left:12px;z-index:31;border:1px solid var(--line);border-radius:7px;background:rgba(0,0,0,.5);color:#fff;font:inherit;font-size:10px;font-weight:700;padding:6px 10px;cursor:pointer}
   #exitStage{position:absolute;top:44px;right:12px;z-index:31;border:1px solid var(--hot);border-radius:7px;background:rgba(0,0,0,.5);color:var(--hot);font:inherit;font-size:10px;font-weight:700;padding:6px 12px;cursor:pointer}
-  /* DIEGETIC: nothing directs from inside the frame. Exit only appears when the
-     mouse touches the top edge; the Zoom bar fades when idle. Everything else is MONTE. */
-  #shide,#exitStage,#sdock,.sbot{transition:opacity .3s}
-  #exitStage{opacity:0;pointer-events:none}
-  #stage.peek #exitStage{opacity:1;pointer-events:auto}
-  #stage.idle #sdock,#stage.idle .sbot{opacity:0;pointer-events:none}
-  .sbot .sc{cursor:pointer}
-  .sbot .sc.on svg{fill:var(--hot)}.sbot .sc.on span{color:var(--hot)}
-  /* the audible person gets the real active-speaker ring */
-  .stile.hear{outline:3px solid var(--accent);outline-offset:-3px;z-index:2}
-  /* in-meeting per-participant controls — Zoom-style, appear on hover, fade when idle */
-  .tctl{position:absolute;bottom:8px;right:8px;z-index:6;display:flex;gap:6px;opacity:0;transition:opacity .18s}
-  .stile:hover .tctl{opacity:1}
-  #stage.idle .tctl{opacity:0!important;pointer-events:none}
-  .tctl button{width:32px;height:32px;border-radius:50%;background:rgba(0,0,0,.62);border:1px solid rgba(255,255,255,.24);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;line-height:1}
-  .tctl button:hover{background:rgba(0,0,0,.85)}
-  .tctl button svg{width:15px;height:15px;fill:#fff}
-  .tctl .tmute.on{background:var(--hot);border-color:var(--hot)}.tctl .tmute.on svg{fill:#000}
-  .tctl .tmute.off svg{fill:#ff6a5d}
 
   input[type=file]{display:none}
   .toast{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:210;background:#141418;border:1px solid var(--hot);border-radius:8px;padding:8px 14px;font-size:11px;color:var(--hot);display:none;box-shadow:0 8px 30px rgba(0,0,0,.6)}
   .toast.on{display:block}
 </style>
+<script>/* qrcode-generator 1.4.4 (MIT, Kazuhiko Arase) — vendored for the REMOTE QR */
+//---------------------------------------------------------------------
+//
+// QR Code Generator for JavaScript
+//
+// Copyright (c) 2009 Kazuhiko Arase
+//
+// URL: http://www.d-project.com/
+//
+// Licensed under the MIT license:
+//  http://www.opensource.org/licenses/mit-license.php
+//
+// The word 'QR Code' is registered trademark of
+// DENSO WAVE INCORPORATED
+//  http://www.denso-wave.com/qrcode/faqpatent-e.html
+//
+//---------------------------------------------------------------------
+
+var qrcode = function() {
+
+  //---------------------------------------------------------------------
+  // qrcode
+  //---------------------------------------------------------------------
+
+  /**
+   * qrcode
+   * @param typeNumber 1 to 40
+   * @param errorCorrectionLevel 'L','M','Q','H'
+   */
+  var qrcode = function(typeNumber, errorCorrectionLevel) {
+
+    var PAD0 = 0xEC;
+    var PAD1 = 0x11;
+
+    var _typeNumber = typeNumber;
+    var _errorCorrectionLevel = QRErrorCorrectionLevel[errorCorrectionLevel];
+    var _modules = null;
+    var _moduleCount = 0;
+    var _dataCache = null;
+    var _dataList = [];
+
+    var _this = {};
+
+    var makeImpl = function(test, maskPattern) {
+
+      _moduleCount = _typeNumber * 4 + 17;
+      _modules = function(moduleCount) {
+        var modules = new Array(moduleCount);
+        for (var row = 0; row < moduleCount; row += 1) {
+          modules[row] = new Array(moduleCount);
+          for (var col = 0; col < moduleCount; col += 1) {
+            modules[row][col] = null;
+          }
+        }
+        return modules;
+      }(_moduleCount);
+
+      setupPositionProbePattern(0, 0);
+      setupPositionProbePattern(_moduleCount - 7, 0);
+      setupPositionProbePattern(0, _moduleCount - 7);
+      setupPositionAdjustPattern();
+      setupTimingPattern();
+      setupTypeInfo(test, maskPattern);
+
+      if (_typeNumber >= 7) {
+        setupTypeNumber(test);
+      }
+
+      if (_dataCache == null) {
+        _dataCache = createData(_typeNumber, _errorCorrectionLevel, _dataList);
+      }
+
+      mapData(_dataCache, maskPattern);
+    };
+
+    var setupPositionProbePattern = function(row, col) {
+
+      for (var r = -1; r <= 7; r += 1) {
+
+        if (row + r <= -1 || _moduleCount <= row + r) continue;
+
+        for (var c = -1; c <= 7; c += 1) {
+
+          if (col + c <= -1 || _moduleCount <= col + c) continue;
+
+          if ( (0 <= r && r <= 6 && (c == 0 || c == 6) )
+              || (0 <= c && c <= 6 && (r == 0 || r == 6) )
+              || (2 <= r && r <= 4 && 2 <= c && c <= 4) ) {
+            _modules[row + r][col + c] = true;
+          } else {
+            _modules[row + r][col + c] = false;
+          }
+        }
+      }
+    };
+
+    var getBestMaskPattern = function() {
+
+      var minLostPoint = 0;
+      var pattern = 0;
+
+      for (var i = 0; i < 8; i += 1) {
+
+        makeImpl(true, i);
+
+        var lostPoint = QRUtil.getLostPoint(_this);
+
+        if (i == 0 || minLostPoint > lostPoint) {
+          minLostPoint = lostPoint;
+          pattern = i;
+        }
+      }
+
+      return pattern;
+    };
+
+    var setupTimingPattern = function() {
+
+      for (var r = 8; r < _moduleCount - 8; r += 1) {
+        if (_modules[r][6] != null) {
+          continue;
+        }
+        _modules[r][6] = (r % 2 == 0);
+      }
+
+      for (var c = 8; c < _moduleCount - 8; c += 1) {
+        if (_modules[6][c] != null) {
+          continue;
+        }
+        _modules[6][c] = (c % 2 == 0);
+      }
+    };
+
+    var setupPositionAdjustPattern = function() {
+
+      var pos = QRUtil.getPatternPosition(_typeNumber);
+
+      for (var i = 0; i < pos.length; i += 1) {
+
+        for (var j = 0; j < pos.length; j += 1) {
+
+          var row = pos[i];
+          var col = pos[j];
+
+          if (_modules[row][col] != null) {
+            continue;
+          }
+
+          for (var r = -2; r <= 2; r += 1) {
+
+            for (var c = -2; c <= 2; c += 1) {
+
+              if (r == -2 || r == 2 || c == -2 || c == 2
+                  || (r == 0 && c == 0) ) {
+                _modules[row + r][col + c] = true;
+              } else {
+                _modules[row + r][col + c] = false;
+              }
+            }
+          }
+        }
+      }
+    };
+
+    var setupTypeNumber = function(test) {
+
+      var bits = QRUtil.getBCHTypeNumber(_typeNumber);
+
+      for (var i = 0; i < 18; i += 1) {
+        var mod = (!test && ( (bits >> i) & 1) == 1);
+        _modules[Math.floor(i / 3)][i % 3 + _moduleCount - 8 - 3] = mod;
+      }
+
+      for (var i = 0; i < 18; i += 1) {
+        var mod = (!test && ( (bits >> i) & 1) == 1);
+        _modules[i % 3 + _moduleCount - 8 - 3][Math.floor(i / 3)] = mod;
+      }
+    };
+
+    var setupTypeInfo = function(test, maskPattern) {
+
+      var data = (_errorCorrectionLevel << 3) | maskPattern;
+      var bits = QRUtil.getBCHTypeInfo(data);
+
+      // vertical
+      for (var i = 0; i < 15; i += 1) {
+
+        var mod = (!test && ( (bits >> i) & 1) == 1);
+
+        if (i < 6) {
+          _modules[i][8] = mod;
+        } else if (i < 8) {
+          _modules[i + 1][8] = mod;
+        } else {
+          _modules[_moduleCount - 15 + i][8] = mod;
+        }
+      }
+
+      // horizontal
+      for (var i = 0; i < 15; i += 1) {
+
+        var mod = (!test && ( (bits >> i) & 1) == 1);
+
+        if (i < 8) {
+          _modules[8][_moduleCount - i - 1] = mod;
+        } else if (i < 9) {
+          _modules[8][15 - i - 1 + 1] = mod;
+        } else {
+          _modules[8][15 - i - 1] = mod;
+        }
+      }
+
+      // fixed module
+      _modules[_moduleCount - 8][8] = (!test);
+    };
+
+    var mapData = function(data, maskPattern) {
+
+      var inc = -1;
+      var row = _moduleCount - 1;
+      var bitIndex = 7;
+      var byteIndex = 0;
+      var maskFunc = QRUtil.getMaskFunction(maskPattern);
+
+      for (var col = _moduleCount - 1; col > 0; col -= 2) {
+
+        if (col == 6) col -= 1;
+
+        while (true) {
+
+          for (var c = 0; c < 2; c += 1) {
+
+            if (_modules[row][col - c] == null) {
+
+              var dark = false;
+
+              if (byteIndex < data.length) {
+                dark = ( ( (data[byteIndex] >>> bitIndex) & 1) == 1);
+              }
+
+              var mask = maskFunc(row, col - c);
+
+              if (mask) {
+                dark = !dark;
+              }
+
+              _modules[row][col - c] = dark;
+              bitIndex -= 1;
+
+              if (bitIndex == -1) {
+                byteIndex += 1;
+                bitIndex = 7;
+              }
+            }
+          }
+
+          row += inc;
+
+          if (row < 0 || _moduleCount <= row) {
+            row -= inc;
+            inc = -inc;
+            break;
+          }
+        }
+      }
+    };
+
+    var createBytes = function(buffer, rsBlocks) {
+
+      var offset = 0;
+
+      var maxDcCount = 0;
+      var maxEcCount = 0;
+
+      var dcdata = new Array(rsBlocks.length);
+      var ecdata = new Array(rsBlocks.length);
+
+      for (var r = 0; r < rsBlocks.length; r += 1) {
+
+        var dcCount = rsBlocks[r].dataCount;
+        var ecCount = rsBlocks[r].totalCount - dcCount;
+
+        maxDcCount = Math.max(maxDcCount, dcCount);
+        maxEcCount = Math.max(maxEcCount, ecCount);
+
+        dcdata[r] = new Array(dcCount);
+
+        for (var i = 0; i < dcdata[r].length; i += 1) {
+          dcdata[r][i] = 0xff & buffer.getBuffer()[i + offset];
+        }
+        offset += dcCount;
+
+        var rsPoly = QRUtil.getErrorCorrectPolynomial(ecCount);
+        var rawPoly = qrPolynomial(dcdata[r], rsPoly.getLength() - 1);
+
+        var modPoly = rawPoly.mod(rsPoly);
+        ecdata[r] = new Array(rsPoly.getLength() - 1);
+        for (var i = 0; i < ecdata[r].length; i += 1) {
+          var modIndex = i + modPoly.getLength() - ecdata[r].length;
+          ecdata[r][i] = (modIndex >= 0)? modPoly.getAt(modIndex) : 0;
+        }
+      }
+
+      var totalCodeCount = 0;
+      for (var i = 0; i < rsBlocks.length; i += 1) {
+        totalCodeCount += rsBlocks[i].totalCount;
+      }
+
+      var data = new Array(totalCodeCount);
+      var index = 0;
+
+      for (var i = 0; i < maxDcCount; i += 1) {
+        for (var r = 0; r < rsBlocks.length; r += 1) {
+          if (i < dcdata[r].length) {
+            data[index] = dcdata[r][i];
+            index += 1;
+          }
+        }
+      }
+
+      for (var i = 0; i < maxEcCount; i += 1) {
+        for (var r = 0; r < rsBlocks.length; r += 1) {
+          if (i < ecdata[r].length) {
+            data[index] = ecdata[r][i];
+            index += 1;
+          }
+        }
+      }
+
+      return data;
+    };
+
+    var createData = function(typeNumber, errorCorrectionLevel, dataList) {
+
+      var rsBlocks = QRRSBlock.getRSBlocks(typeNumber, errorCorrectionLevel);
+
+      var buffer = qrBitBuffer();
+
+      for (var i = 0; i < dataList.length; i += 1) {
+        var data = dataList[i];
+        buffer.put(data.getMode(), 4);
+        buffer.put(data.getLength(), QRUtil.getLengthInBits(data.getMode(), typeNumber) );
+        data.write(buffer);
+      }
+
+      // calc num max data.
+      var totalDataCount = 0;
+      for (var i = 0; i < rsBlocks.length; i += 1) {
+        totalDataCount += rsBlocks[i].dataCount;
+      }
+
+      if (buffer.getLengthInBits() > totalDataCount * 8) {
+        throw 'code length overflow. ('
+          + buffer.getLengthInBits()
+          + '>'
+          + totalDataCount * 8
+          + ')';
+      }
+
+      // end code
+      if (buffer.getLengthInBits() + 4 <= totalDataCount * 8) {
+        buffer.put(0, 4);
+      }
+
+      // padding
+      while (buffer.getLengthInBits() % 8 != 0) {
+        buffer.putBit(false);
+      }
+
+      // padding
+      while (true) {
+
+        if (buffer.getLengthInBits() >= totalDataCount * 8) {
+          break;
+        }
+        buffer.put(PAD0, 8);
+
+        if (buffer.getLengthInBits() >= totalDataCount * 8) {
+          break;
+        }
+        buffer.put(PAD1, 8);
+      }
+
+      return createBytes(buffer, rsBlocks);
+    };
+
+    _this.addData = function(data, mode) {
+
+      mode = mode || 'Byte';
+
+      var newData = null;
+
+      switch(mode) {
+      case 'Numeric' :
+        newData = qrNumber(data);
+        break;
+      case 'Alphanumeric' :
+        newData = qrAlphaNum(data);
+        break;
+      case 'Byte' :
+        newData = qr8BitByte(data);
+        break;
+      case 'Kanji' :
+        newData = qrKanji(data);
+        break;
+      default :
+        throw 'mode:' + mode;
+      }
+
+      _dataList.push(newData);
+      _dataCache = null;
+    };
+
+    _this.isDark = function(row, col) {
+      if (row < 0 || _moduleCount <= row || col < 0 || _moduleCount <= col) {
+        throw row + ',' + col;
+      }
+      return _modules[row][col];
+    };
+
+    _this.getModuleCount = function() {
+      return _moduleCount;
+    };
+
+    _this.make = function() {
+      if (_typeNumber < 1) {
+        var typeNumber = 1;
+
+        for (; typeNumber < 40; typeNumber++) {
+          var rsBlocks = QRRSBlock.getRSBlocks(typeNumber, _errorCorrectionLevel);
+          var buffer = qrBitBuffer();
+
+          for (var i = 0; i < _dataList.length; i++) {
+            var data = _dataList[i];
+            buffer.put(data.getMode(), 4);
+            buffer.put(data.getLength(), QRUtil.getLengthInBits(data.getMode(), typeNumber) );
+            data.write(buffer);
+          }
+
+          var totalDataCount = 0;
+          for (var i = 0; i < rsBlocks.length; i++) {
+            totalDataCount += rsBlocks[i].dataCount;
+          }
+
+          if (buffer.getLengthInBits() <= totalDataCount * 8) {
+            break;
+          }
+        }
+
+        _typeNumber = typeNumber;
+      }
+
+      makeImpl(false, getBestMaskPattern() );
+    };
+
+    _this.createTableTag = function(cellSize, margin) {
+
+      cellSize = cellSize || 2;
+      margin = (typeof margin == 'undefined')? cellSize * 4 : margin;
+
+      var qrHtml = '';
+
+      qrHtml += '<table style="';
+      qrHtml += ' border-width: 0px; border-style: none;';
+      qrHtml += ' border-collapse: collapse;';
+      qrHtml += ' padding: 0px; margin: ' + margin + 'px;';
+      qrHtml += '">';
+      qrHtml += '<tbody>';
+
+      for (var r = 0; r < _this.getModuleCount(); r += 1) {
+
+        qrHtml += '<tr>';
+
+        for (var c = 0; c < _this.getModuleCount(); c += 1) {
+          qrHtml += '<td style="';
+          qrHtml += ' border-width: 0px; border-style: none;';
+          qrHtml += ' border-collapse: collapse;';
+          qrHtml += ' padding: 0px; margin: 0px;';
+          qrHtml += ' width: ' + cellSize + 'px;';
+          qrHtml += ' height: ' + cellSize + 'px;';
+          qrHtml += ' background-color: ';
+          qrHtml += _this.isDark(r, c)? '#000000' : '#ffffff';
+          qrHtml += ';';
+          qrHtml += '"/>';
+        }
+
+        qrHtml += '</tr>';
+      }
+
+      qrHtml += '</tbody>';
+      qrHtml += '</table>';
+
+      return qrHtml;
+    };
+
+    _this.createSvgTag = function(cellSize, margin, alt, title) {
+
+      var opts = {};
+      if (typeof arguments[0] == 'object') {
+        // Called by options.
+        opts = arguments[0];
+        // overwrite cellSize and margin.
+        cellSize = opts.cellSize;
+        margin = opts.margin;
+        alt = opts.alt;
+        title = opts.title;
+      }
+
+      cellSize = cellSize || 2;
+      margin = (typeof margin == 'undefined')? cellSize * 4 : margin;
+
+      // Compose alt property surrogate
+      alt = (typeof alt === 'string') ? {text: alt} : alt || {};
+      alt.text = alt.text || null;
+      alt.id = (alt.text) ? alt.id || 'qrcode-description' : null;
+
+      // Compose title property surrogate
+      title = (typeof title === 'string') ? {text: title} : title || {};
+      title.text = title.text || null;
+      title.id = (title.text) ? title.id || 'qrcode-title' : null;
+
+      var size = _this.getModuleCount() * cellSize + margin * 2;
+      var c, mc, r, mr, qrSvg='', rect;
+
+      rect = 'l' + cellSize + ',0 0,' + cellSize +
+        ' -' + cellSize + ',0 0,-' + cellSize + 'z ';
+
+      qrSvg += '<svg version="1.1" xmlns="http://www.w3.org/2000/svg"';
+      qrSvg += !opts.scalable ? ' width="' + size + 'px" height="' + size + 'px"' : '';
+      qrSvg += ' viewBox="0 0 ' + size + ' ' + size + '" ';
+      qrSvg += ' preserveAspectRatio="xMinYMin meet"';
+      qrSvg += (title.text || alt.text) ? ' role="img" aria-labelledby="' +
+          escapeXml([title.id, alt.id].join(' ').trim() ) + '"' : '';
+      qrSvg += '>';
+      qrSvg += (title.text) ? '<title id="' + escapeXml(title.id) + '">' +
+          escapeXml(title.text) + '</title>' : '';
+      qrSvg += (alt.text) ? '<description id="' + escapeXml(alt.id) + '">' +
+          escapeXml(alt.text) + '</description>' : '';
+      qrSvg += '<rect width="100%" height="100%" fill="white" cx="0" cy="0"/>';
+      qrSvg += '<path d="';
+
+      for (r = 0; r < _this.getModuleCount(); r += 1) {
+        mr = r * cellSize + margin;
+        for (c = 0; c < _this.getModuleCount(); c += 1) {
+          if (_this.isDark(r, c) ) {
+            mc = c*cellSize+margin;
+            qrSvg += 'M' + mc + ',' + mr + rect;
+          }
+        }
+      }
+
+      qrSvg += '" stroke="transparent" fill="black"/>';
+      qrSvg += '</svg>';
+
+      return qrSvg;
+    };
+
+    _this.createDataURL = function(cellSize, margin) {
+
+      cellSize = cellSize || 2;
+      margin = (typeof margin == 'undefined')? cellSize * 4 : margin;
+
+      var size = _this.getModuleCount() * cellSize + margin * 2;
+      var min = margin;
+      var max = size - margin;
+
+      return createDataURL(size, size, function(x, y) {
+        if (min <= x && x < max && min <= y && y < max) {
+          var c = Math.floor( (x - min) / cellSize);
+          var r = Math.floor( (y - min) / cellSize);
+          return _this.isDark(r, c)? 0 : 1;
+        } else {
+          return 1;
+        }
+      } );
+    };
+
+    _this.createImgTag = function(cellSize, margin, alt) {
+
+      cellSize = cellSize || 2;
+      margin = (typeof margin == 'undefined')? cellSize * 4 : margin;
+
+      var size = _this.getModuleCount() * cellSize + margin * 2;
+
+      var img = '';
+      img += '<img';
+      img += '\u0020src="';
+      img += _this.createDataURL(cellSize, margin);
+      img += '"';
+      img += '\u0020width="';
+      img += size;
+      img += '"';
+      img += '\u0020height="';
+      img += size;
+      img += '"';
+      if (alt) {
+        img += '\u0020alt="';
+        img += escapeXml(alt);
+        img += '"';
+      }
+      img += '/>';
+
+      return img;
+    };
+
+    var escapeXml = function(s) {
+      var escaped = '';
+      for (var i = 0; i < s.length; i += 1) {
+        var c = s.charAt(i);
+        switch(c) {
+        case '<': escaped += '&lt;'; break;
+        case '>': escaped += '&gt;'; break;
+        case '&': escaped += '&amp;'; break;
+        case '"': escaped += '&quot;'; break;
+        default : escaped += c; break;
+        }
+      }
+      return escaped;
+    };
+
+    var _createHalfASCII = function(margin) {
+      var cellSize = 1;
+      margin = (typeof margin == 'undefined')? cellSize * 2 : margin;
+
+      var size = _this.getModuleCount() * cellSize + margin * 2;
+      var min = margin;
+      var max = size - margin;
+
+      var y, x, r1, r2, p;
+
+      var blocks = {
+        '██': '█',
+        '█ ': '▀',
+        ' █': '▄',
+        '  ': ' '
+      };
+
+      var blocksLastLineNoMargin = {
+        '██': '▀',
+        '█ ': '▀',
+        ' █': ' ',
+        '  ': ' '
+      };
+
+      var ascii = '';
+      for (y = 0; y < size; y += 2) {
+        r1 = Math.floor((y - min) / cellSize);
+        r2 = Math.floor((y + 1 - min) / cellSize);
+        for (x = 0; x < size; x += 1) {
+          p = '█';
+
+          if (min <= x && x < max && min <= y && y < max && _this.isDark(r1, Math.floor((x - min) / cellSize))) {
+            p = ' ';
+          }
+
+          if (min <= x && x < max && min <= y+1 && y+1 < max && _this.isDark(r2, Math.floor((x - min) / cellSize))) {
+            p += ' ';
+          }
+          else {
+            p += '█';
+          }
+
+          // Output 2 characters per pixel, to create full square. 1 character per pixels gives only half width of square.
+          ascii += (margin < 1 && y+1 >= max) ? blocksLastLineNoMargin[p] : blocks[p];
+        }
+
+        ascii += '\n';
+      }
+
+      if (size % 2 && margin > 0) {
+        return ascii.substring(0, ascii.length - size - 1) + Array(size+1).join('▀');
+      }
+
+      return ascii.substring(0, ascii.length-1);
+    };
+
+    _this.createASCII = function(cellSize, margin) {
+      cellSize = cellSize || 1;
+
+      if (cellSize < 2) {
+        return _createHalfASCII(margin);
+      }
+
+      cellSize -= 1;
+      margin = (typeof margin == 'undefined')? cellSize * 2 : margin;
+
+      var size = _this.getModuleCount() * cellSize + margin * 2;
+      var min = margin;
+      var max = size - margin;
+
+      var y, x, r, p;
+
+      var white = Array(cellSize+1).join('██');
+      var black = Array(cellSize+1).join('  ');
+
+      var ascii = '';
+      var line = '';
+      for (y = 0; y < size; y += 1) {
+        r = Math.floor( (y - min) / cellSize);
+        line = '';
+        for (x = 0; x < size; x += 1) {
+          p = 1;
+
+          if (min <= x && x < max && min <= y && y < max && _this.isDark(r, Math.floor((x - min) / cellSize))) {
+            p = 0;
+          }
+
+          // Output 2 characters per pixel, to create full square. 1 character per pixels gives only half width of square.
+          line += p ? white : black;
+        }
+
+        for (r = 0; r < cellSize; r += 1) {
+          ascii += line + '\n';
+        }
+      }
+
+      return ascii.substring(0, ascii.length-1);
+    };
+
+    _this.renderTo2dContext = function(context, cellSize) {
+      cellSize = cellSize || 2;
+      var length = _this.getModuleCount();
+      for (var row = 0; row < length; row++) {
+        for (var col = 0; col < length; col++) {
+          context.fillStyle = _this.isDark(row, col) ? 'black' : 'white';
+          context.fillRect(row * cellSize, col * cellSize, cellSize, cellSize);
+        }
+      }
+    }
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // qrcode.stringToBytes
+  //---------------------------------------------------------------------
+
+  qrcode.stringToBytesFuncs = {
+    'default' : function(s) {
+      var bytes = [];
+      for (var i = 0; i < s.length; i += 1) {
+        var c = s.charCodeAt(i);
+        bytes.push(c & 0xff);
+      }
+      return bytes;
+    }
+  };
+
+  qrcode.stringToBytes = qrcode.stringToBytesFuncs['default'];
+
+  //---------------------------------------------------------------------
+  // qrcode.createStringToBytes
+  //---------------------------------------------------------------------
+
+  /**
+   * @param unicodeData base64 string of byte array.
+   * [16bit Unicode],[16bit Bytes], ...
+   * @param numChars
+   */
+  qrcode.createStringToBytes = function(unicodeData, numChars) {
+
+    // create conversion map.
+
+    var unicodeMap = function() {
+
+      var bin = base64DecodeInputStream(unicodeData);
+      var read = function() {
+        var b = bin.read();
+        if (b == -1) throw 'eof';
+        return b;
+      };
+
+      var count = 0;
+      var unicodeMap = {};
+      while (true) {
+        var b0 = bin.read();
+        if (b0 == -1) break;
+        var b1 = read();
+        var b2 = read();
+        var b3 = read();
+        var k = String.fromCharCode( (b0 << 8) | b1);
+        var v = (b2 << 8) | b3;
+        unicodeMap[k] = v;
+        count += 1;
+      }
+      if (count != numChars) {
+        throw count + ' != ' + numChars;
+      }
+
+      return unicodeMap;
+    }();
+
+    var unknownChar = '?'.charCodeAt(0);
+
+    return function(s) {
+      var bytes = [];
+      for (var i = 0; i < s.length; i += 1) {
+        var c = s.charCodeAt(i);
+        if (c < 128) {
+          bytes.push(c);
+        } else {
+          var b = unicodeMap[s.charAt(i)];
+          if (typeof b == 'number') {
+            if ( (b & 0xff) == b) {
+              // 1byte
+              bytes.push(b);
+            } else {
+              // 2bytes
+              bytes.push(b >>> 8);
+              bytes.push(b & 0xff);
+            }
+          } else {
+            bytes.push(unknownChar);
+          }
+        }
+      }
+      return bytes;
+    };
+  };
+
+  //---------------------------------------------------------------------
+  // QRMode
+  //---------------------------------------------------------------------
+
+  var QRMode = {
+    MODE_NUMBER :    1 << 0,
+    MODE_ALPHA_NUM : 1 << 1,
+    MODE_8BIT_BYTE : 1 << 2,
+    MODE_KANJI :     1 << 3
+  };
+
+  //---------------------------------------------------------------------
+  // QRErrorCorrectionLevel
+  //---------------------------------------------------------------------
+
+  var QRErrorCorrectionLevel = {
+    L : 1,
+    M : 0,
+    Q : 3,
+    H : 2
+  };
+
+  //---------------------------------------------------------------------
+  // QRMaskPattern
+  //---------------------------------------------------------------------
+
+  var QRMaskPattern = {
+    PATTERN000 : 0,
+    PATTERN001 : 1,
+    PATTERN010 : 2,
+    PATTERN011 : 3,
+    PATTERN100 : 4,
+    PATTERN101 : 5,
+    PATTERN110 : 6,
+    PATTERN111 : 7
+  };
+
+  //---------------------------------------------------------------------
+  // QRUtil
+  //---------------------------------------------------------------------
+
+  var QRUtil = function() {
+
+    var PATTERN_POSITION_TABLE = [
+      [],
+      [6, 18],
+      [6, 22],
+      [6, 26],
+      [6, 30],
+      [6, 34],
+      [6, 22, 38],
+      [6, 24, 42],
+      [6, 26, 46],
+      [6, 28, 50],
+      [6, 30, 54],
+      [6, 32, 58],
+      [6, 34, 62],
+      [6, 26, 46, 66],
+      [6, 26, 48, 70],
+      [6, 26, 50, 74],
+      [6, 30, 54, 78],
+      [6, 30, 56, 82],
+      [6, 30, 58, 86],
+      [6, 34, 62, 90],
+      [6, 28, 50, 72, 94],
+      [6, 26, 50, 74, 98],
+      [6, 30, 54, 78, 102],
+      [6, 28, 54, 80, 106],
+      [6, 32, 58, 84, 110],
+      [6, 30, 58, 86, 114],
+      [6, 34, 62, 90, 118],
+      [6, 26, 50, 74, 98, 122],
+      [6, 30, 54, 78, 102, 126],
+      [6, 26, 52, 78, 104, 130],
+      [6, 30, 56, 82, 108, 134],
+      [6, 34, 60, 86, 112, 138],
+      [6, 30, 58, 86, 114, 142],
+      [6, 34, 62, 90, 118, 146],
+      [6, 30, 54, 78, 102, 126, 150],
+      [6, 24, 50, 76, 102, 128, 154],
+      [6, 28, 54, 80, 106, 132, 158],
+      [6, 32, 58, 84, 110, 136, 162],
+      [6, 26, 54, 82, 110, 138, 166],
+      [6, 30, 58, 86, 114, 142, 170]
+    ];
+    var G15 = (1 << 10) | (1 << 8) | (1 << 5) | (1 << 4) | (1 << 2) | (1 << 1) | (1 << 0);
+    var G18 = (1 << 12) | (1 << 11) | (1 << 10) | (1 << 9) | (1 << 8) | (1 << 5) | (1 << 2) | (1 << 0);
+    var G15_MASK = (1 << 14) | (1 << 12) | (1 << 10) | (1 << 4) | (1 << 1);
+
+    var _this = {};
+
+    var getBCHDigit = function(data) {
+      var digit = 0;
+      while (data != 0) {
+        digit += 1;
+        data >>>= 1;
+      }
+      return digit;
+    };
+
+    _this.getBCHTypeInfo = function(data) {
+      var d = data << 10;
+      while (getBCHDigit(d) - getBCHDigit(G15) >= 0) {
+        d ^= (G15 << (getBCHDigit(d) - getBCHDigit(G15) ) );
+      }
+      return ( (data << 10) | d) ^ G15_MASK;
+    };
+
+    _this.getBCHTypeNumber = function(data) {
+      var d = data << 12;
+      while (getBCHDigit(d) - getBCHDigit(G18) >= 0) {
+        d ^= (G18 << (getBCHDigit(d) - getBCHDigit(G18) ) );
+      }
+      return (data << 12) | d;
+    };
+
+    _this.getPatternPosition = function(typeNumber) {
+      return PATTERN_POSITION_TABLE[typeNumber - 1];
+    };
+
+    _this.getMaskFunction = function(maskPattern) {
+
+      switch (maskPattern) {
+
+      case QRMaskPattern.PATTERN000 :
+        return function(i, j) { return (i + j) % 2 == 0; };
+      case QRMaskPattern.PATTERN001 :
+        return function(i, j) { return i % 2 == 0; };
+      case QRMaskPattern.PATTERN010 :
+        return function(i, j) { return j % 3 == 0; };
+      case QRMaskPattern.PATTERN011 :
+        return function(i, j) { return (i + j) % 3 == 0; };
+      case QRMaskPattern.PATTERN100 :
+        return function(i, j) { return (Math.floor(i / 2) + Math.floor(j / 3) ) % 2 == 0; };
+      case QRMaskPattern.PATTERN101 :
+        return function(i, j) { return (i * j) % 2 + (i * j) % 3 == 0; };
+      case QRMaskPattern.PATTERN110 :
+        return function(i, j) { return ( (i * j) % 2 + (i * j) % 3) % 2 == 0; };
+      case QRMaskPattern.PATTERN111 :
+        return function(i, j) { return ( (i * j) % 3 + (i + j) % 2) % 2 == 0; };
+
+      default :
+        throw 'bad maskPattern:' + maskPattern;
+      }
+    };
+
+    _this.getErrorCorrectPolynomial = function(errorCorrectLength) {
+      var a = qrPolynomial([1], 0);
+      for (var i = 0; i < errorCorrectLength; i += 1) {
+        a = a.multiply(qrPolynomial([1, QRMath.gexp(i)], 0) );
+      }
+      return a;
+    };
+
+    _this.getLengthInBits = function(mode, type) {
+
+      if (1 <= type && type < 10) {
+
+        // 1 - 9
+
+        switch(mode) {
+        case QRMode.MODE_NUMBER    : return 10;
+        case QRMode.MODE_ALPHA_NUM : return 9;
+        case QRMode.MODE_8BIT_BYTE : return 8;
+        case QRMode.MODE_KANJI     : return 8;
+        default :
+          throw 'mode:' + mode;
+        }
+
+      } else if (type < 27) {
+
+        // 10 - 26
+
+        switch(mode) {
+        case QRMode.MODE_NUMBER    : return 12;
+        case QRMode.MODE_ALPHA_NUM : return 11;
+        case QRMode.MODE_8BIT_BYTE : return 16;
+        case QRMode.MODE_KANJI     : return 10;
+        default :
+          throw 'mode:' + mode;
+        }
+
+      } else if (type < 41) {
+
+        // 27 - 40
+
+        switch(mode) {
+        case QRMode.MODE_NUMBER    : return 14;
+        case QRMode.MODE_ALPHA_NUM : return 13;
+        case QRMode.MODE_8BIT_BYTE : return 16;
+        case QRMode.MODE_KANJI     : return 12;
+        default :
+          throw 'mode:' + mode;
+        }
+
+      } else {
+        throw 'type:' + type;
+      }
+    };
+
+    _this.getLostPoint = function(qrcode) {
+
+      var moduleCount = qrcode.getModuleCount();
+
+      var lostPoint = 0;
+
+      // LEVEL1
+
+      for (var row = 0; row < moduleCount; row += 1) {
+        for (var col = 0; col < moduleCount; col += 1) {
+
+          var sameCount = 0;
+          var dark = qrcode.isDark(row, col);
+
+          for (var r = -1; r <= 1; r += 1) {
+
+            if (row + r < 0 || moduleCount <= row + r) {
+              continue;
+            }
+
+            for (var c = -1; c <= 1; c += 1) {
+
+              if (col + c < 0 || moduleCount <= col + c) {
+                continue;
+              }
+
+              if (r == 0 && c == 0) {
+                continue;
+              }
+
+              if (dark == qrcode.isDark(row + r, col + c) ) {
+                sameCount += 1;
+              }
+            }
+          }
+
+          if (sameCount > 5) {
+            lostPoint += (3 + sameCount - 5);
+          }
+        }
+      };
+
+      // LEVEL2
+
+      for (var row = 0; row < moduleCount - 1; row += 1) {
+        for (var col = 0; col < moduleCount - 1; col += 1) {
+          var count = 0;
+          if (qrcode.isDark(row, col) ) count += 1;
+          if (qrcode.isDark(row + 1, col) ) count += 1;
+          if (qrcode.isDark(row, col + 1) ) count += 1;
+          if (qrcode.isDark(row + 1, col + 1) ) count += 1;
+          if (count == 0 || count == 4) {
+            lostPoint += 3;
+          }
+        }
+      }
+
+      // LEVEL3
+
+      for (var row = 0; row < moduleCount; row += 1) {
+        for (var col = 0; col < moduleCount - 6; col += 1) {
+          if (qrcode.isDark(row, col)
+              && !qrcode.isDark(row, col + 1)
+              &&  qrcode.isDark(row, col + 2)
+              &&  qrcode.isDark(row, col + 3)
+              &&  qrcode.isDark(row, col + 4)
+              && !qrcode.isDark(row, col + 5)
+              &&  qrcode.isDark(row, col + 6) ) {
+            lostPoint += 40;
+          }
+        }
+      }
+
+      for (var col = 0; col < moduleCount; col += 1) {
+        for (var row = 0; row < moduleCount - 6; row += 1) {
+          if (qrcode.isDark(row, col)
+              && !qrcode.isDark(row + 1, col)
+              &&  qrcode.isDark(row + 2, col)
+              &&  qrcode.isDark(row + 3, col)
+              &&  qrcode.isDark(row + 4, col)
+              && !qrcode.isDark(row + 5, col)
+              &&  qrcode.isDark(row + 6, col) ) {
+            lostPoint += 40;
+          }
+        }
+      }
+
+      // LEVEL4
+
+      var darkCount = 0;
+
+      for (var col = 0; col < moduleCount; col += 1) {
+        for (var row = 0; row < moduleCount; row += 1) {
+          if (qrcode.isDark(row, col) ) {
+            darkCount += 1;
+          }
+        }
+      }
+
+      var ratio = Math.abs(100 * darkCount / moduleCount / moduleCount - 50) / 5;
+      lostPoint += ratio * 10;
+
+      return lostPoint;
+    };
+
+    return _this;
+  }();
+
+  //---------------------------------------------------------------------
+  // QRMath
+  //---------------------------------------------------------------------
+
+  var QRMath = function() {
+
+    var EXP_TABLE = new Array(256);
+    var LOG_TABLE = new Array(256);
+
+    // initialize tables
+    for (var i = 0; i < 8; i += 1) {
+      EXP_TABLE[i] = 1 << i;
+    }
+    for (var i = 8; i < 256; i += 1) {
+      EXP_TABLE[i] = EXP_TABLE[i - 4]
+        ^ EXP_TABLE[i - 5]
+        ^ EXP_TABLE[i - 6]
+        ^ EXP_TABLE[i - 8];
+    }
+    for (var i = 0; i < 255; i += 1) {
+      LOG_TABLE[EXP_TABLE[i] ] = i;
+    }
+
+    var _this = {};
+
+    _this.glog = function(n) {
+
+      if (n < 1) {
+        throw 'glog(' + n + ')';
+      }
+
+      return LOG_TABLE[n];
+    };
+
+    _this.gexp = function(n) {
+
+      while (n < 0) {
+        n += 255;
+      }
+
+      while (n >= 256) {
+        n -= 255;
+      }
+
+      return EXP_TABLE[n];
+    };
+
+    return _this;
+  }();
+
+  //---------------------------------------------------------------------
+  // qrPolynomial
+  //---------------------------------------------------------------------
+
+  function qrPolynomial(num, shift) {
+
+    if (typeof num.length == 'undefined') {
+      throw num.length + '/' + shift;
+    }
+
+    var _num = function() {
+      var offset = 0;
+      while (offset < num.length && num[offset] == 0) {
+        offset += 1;
+      }
+      var _num = new Array(num.length - offset + shift);
+      for (var i = 0; i < num.length - offset; i += 1) {
+        _num[i] = num[i + offset];
+      }
+      return _num;
+    }();
+
+    var _this = {};
+
+    _this.getAt = function(index) {
+      return _num[index];
+    };
+
+    _this.getLength = function() {
+      return _num.length;
+    };
+
+    _this.multiply = function(e) {
+
+      var num = new Array(_this.getLength() + e.getLength() - 1);
+
+      for (var i = 0; i < _this.getLength(); i += 1) {
+        for (var j = 0; j < e.getLength(); j += 1) {
+          num[i + j] ^= QRMath.gexp(QRMath.glog(_this.getAt(i) ) + QRMath.glog(e.getAt(j) ) );
+        }
+      }
+
+      return qrPolynomial(num, 0);
+    };
+
+    _this.mod = function(e) {
+
+      if (_this.getLength() - e.getLength() < 0) {
+        return _this;
+      }
+
+      var ratio = QRMath.glog(_this.getAt(0) ) - QRMath.glog(e.getAt(0) );
+
+      var num = new Array(_this.getLength() );
+      for (var i = 0; i < _this.getLength(); i += 1) {
+        num[i] = _this.getAt(i);
+      }
+
+      for (var i = 0; i < e.getLength(); i += 1) {
+        num[i] ^= QRMath.gexp(QRMath.glog(e.getAt(i) ) + ratio);
+      }
+
+      // recursive call
+      return qrPolynomial(num, 0).mod(e);
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // QRRSBlock
+  //---------------------------------------------------------------------
+
+  var QRRSBlock = function() {
+
+    var RS_BLOCK_TABLE = [
+
+      // L
+      // M
+      // Q
+      // H
+
+      // 1
+      [1, 26, 19],
+      [1, 26, 16],
+      [1, 26, 13],
+      [1, 26, 9],
+
+      // 2
+      [1, 44, 34],
+      [1, 44, 28],
+      [1, 44, 22],
+      [1, 44, 16],
+
+      // 3
+      [1, 70, 55],
+      [1, 70, 44],
+      [2, 35, 17],
+      [2, 35, 13],
+
+      // 4
+      [1, 100, 80],
+      [2, 50, 32],
+      [2, 50, 24],
+      [4, 25, 9],
+
+      // 5
+      [1, 134, 108],
+      [2, 67, 43],
+      [2, 33, 15, 2, 34, 16],
+      [2, 33, 11, 2, 34, 12],
+
+      // 6
+      [2, 86, 68],
+      [4, 43, 27],
+      [4, 43, 19],
+      [4, 43, 15],
+
+      // 7
+      [2, 98, 78],
+      [4, 49, 31],
+      [2, 32, 14, 4, 33, 15],
+      [4, 39, 13, 1, 40, 14],
+
+      // 8
+      [2, 121, 97],
+      [2, 60, 38, 2, 61, 39],
+      [4, 40, 18, 2, 41, 19],
+      [4, 40, 14, 2, 41, 15],
+
+      // 9
+      [2, 146, 116],
+      [3, 58, 36, 2, 59, 37],
+      [4, 36, 16, 4, 37, 17],
+      [4, 36, 12, 4, 37, 13],
+
+      // 10
+      [2, 86, 68, 2, 87, 69],
+      [4, 69, 43, 1, 70, 44],
+      [6, 43, 19, 2, 44, 20],
+      [6, 43, 15, 2, 44, 16],
+
+      // 11
+      [4, 101, 81],
+      [1, 80, 50, 4, 81, 51],
+      [4, 50, 22, 4, 51, 23],
+      [3, 36, 12, 8, 37, 13],
+
+      // 12
+      [2, 116, 92, 2, 117, 93],
+      [6, 58, 36, 2, 59, 37],
+      [4, 46, 20, 6, 47, 21],
+      [7, 42, 14, 4, 43, 15],
+
+      // 13
+      [4, 133, 107],
+      [8, 59, 37, 1, 60, 38],
+      [8, 44, 20, 4, 45, 21],
+      [12, 33, 11, 4, 34, 12],
+
+      // 14
+      [3, 145, 115, 1, 146, 116],
+      [4, 64, 40, 5, 65, 41],
+      [11, 36, 16, 5, 37, 17],
+      [11, 36, 12, 5, 37, 13],
+
+      // 15
+      [5, 109, 87, 1, 110, 88],
+      [5, 65, 41, 5, 66, 42],
+      [5, 54, 24, 7, 55, 25],
+      [11, 36, 12, 7, 37, 13],
+
+      // 16
+      [5, 122, 98, 1, 123, 99],
+      [7, 73, 45, 3, 74, 46],
+      [15, 43, 19, 2, 44, 20],
+      [3, 45, 15, 13, 46, 16],
+
+      // 17
+      [1, 135, 107, 5, 136, 108],
+      [10, 74, 46, 1, 75, 47],
+      [1, 50, 22, 15, 51, 23],
+      [2, 42, 14, 17, 43, 15],
+
+      // 18
+      [5, 150, 120, 1, 151, 121],
+      [9, 69, 43, 4, 70, 44],
+      [17, 50, 22, 1, 51, 23],
+      [2, 42, 14, 19, 43, 15],
+
+      // 19
+      [3, 141, 113, 4, 142, 114],
+      [3, 70, 44, 11, 71, 45],
+      [17, 47, 21, 4, 48, 22],
+      [9, 39, 13, 16, 40, 14],
+
+      // 20
+      [3, 135, 107, 5, 136, 108],
+      [3, 67, 41, 13, 68, 42],
+      [15, 54, 24, 5, 55, 25],
+      [15, 43, 15, 10, 44, 16],
+
+      // 21
+      [4, 144, 116, 4, 145, 117],
+      [17, 68, 42],
+      [17, 50, 22, 6, 51, 23],
+      [19, 46, 16, 6, 47, 17],
+
+      // 22
+      [2, 139, 111, 7, 140, 112],
+      [17, 74, 46],
+      [7, 54, 24, 16, 55, 25],
+      [34, 37, 13],
+
+      // 23
+      [4, 151, 121, 5, 152, 122],
+      [4, 75, 47, 14, 76, 48],
+      [11, 54, 24, 14, 55, 25],
+      [16, 45, 15, 14, 46, 16],
+
+      // 24
+      [6, 147, 117, 4, 148, 118],
+      [6, 73, 45, 14, 74, 46],
+      [11, 54, 24, 16, 55, 25],
+      [30, 46, 16, 2, 47, 17],
+
+      // 25
+      [8, 132, 106, 4, 133, 107],
+      [8, 75, 47, 13, 76, 48],
+      [7, 54, 24, 22, 55, 25],
+      [22, 45, 15, 13, 46, 16],
+
+      // 26
+      [10, 142, 114, 2, 143, 115],
+      [19, 74, 46, 4, 75, 47],
+      [28, 50, 22, 6, 51, 23],
+      [33, 46, 16, 4, 47, 17],
+
+      // 27
+      [8, 152, 122, 4, 153, 123],
+      [22, 73, 45, 3, 74, 46],
+      [8, 53, 23, 26, 54, 24],
+      [12, 45, 15, 28, 46, 16],
+
+      // 28
+      [3, 147, 117, 10, 148, 118],
+      [3, 73, 45, 23, 74, 46],
+      [4, 54, 24, 31, 55, 25],
+      [11, 45, 15, 31, 46, 16],
+
+      // 29
+      [7, 146, 116, 7, 147, 117],
+      [21, 73, 45, 7, 74, 46],
+      [1, 53, 23, 37, 54, 24],
+      [19, 45, 15, 26, 46, 16],
+
+      // 30
+      [5, 145, 115, 10, 146, 116],
+      [19, 75, 47, 10, 76, 48],
+      [15, 54, 24, 25, 55, 25],
+      [23, 45, 15, 25, 46, 16],
+
+      // 31
+      [13, 145, 115, 3, 146, 116],
+      [2, 74, 46, 29, 75, 47],
+      [42, 54, 24, 1, 55, 25],
+      [23, 45, 15, 28, 46, 16],
+
+      // 32
+      [17, 145, 115],
+      [10, 74, 46, 23, 75, 47],
+      [10, 54, 24, 35, 55, 25],
+      [19, 45, 15, 35, 46, 16],
+
+      // 33
+      [17, 145, 115, 1, 146, 116],
+      [14, 74, 46, 21, 75, 47],
+      [29, 54, 24, 19, 55, 25],
+      [11, 45, 15, 46, 46, 16],
+
+      // 34
+      [13, 145, 115, 6, 146, 116],
+      [14, 74, 46, 23, 75, 47],
+      [44, 54, 24, 7, 55, 25],
+      [59, 46, 16, 1, 47, 17],
+
+      // 35
+      [12, 151, 121, 7, 152, 122],
+      [12, 75, 47, 26, 76, 48],
+      [39, 54, 24, 14, 55, 25],
+      [22, 45, 15, 41, 46, 16],
+
+      // 36
+      [6, 151, 121, 14, 152, 122],
+      [6, 75, 47, 34, 76, 48],
+      [46, 54, 24, 10, 55, 25],
+      [2, 45, 15, 64, 46, 16],
+
+      // 37
+      [17, 152, 122, 4, 153, 123],
+      [29, 74, 46, 14, 75, 47],
+      [49, 54, 24, 10, 55, 25],
+      [24, 45, 15, 46, 46, 16],
+
+      // 38
+      [4, 152, 122, 18, 153, 123],
+      [13, 74, 46, 32, 75, 47],
+      [48, 54, 24, 14, 55, 25],
+      [42, 45, 15, 32, 46, 16],
+
+      // 39
+      [20, 147, 117, 4, 148, 118],
+      [40, 75, 47, 7, 76, 48],
+      [43, 54, 24, 22, 55, 25],
+      [10, 45, 15, 67, 46, 16],
+
+      // 40
+      [19, 148, 118, 6, 149, 119],
+      [18, 75, 47, 31, 76, 48],
+      [34, 54, 24, 34, 55, 25],
+      [20, 45, 15, 61, 46, 16]
+    ];
+
+    var qrRSBlock = function(totalCount, dataCount) {
+      var _this = {};
+      _this.totalCount = totalCount;
+      _this.dataCount = dataCount;
+      return _this;
+    };
+
+    var _this = {};
+
+    var getRsBlockTable = function(typeNumber, errorCorrectionLevel) {
+
+      switch(errorCorrectionLevel) {
+      case QRErrorCorrectionLevel.L :
+        return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 0];
+      case QRErrorCorrectionLevel.M :
+        return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 1];
+      case QRErrorCorrectionLevel.Q :
+        return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 2];
+      case QRErrorCorrectionLevel.H :
+        return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 3];
+      default :
+        return undefined;
+      }
+    };
+
+    _this.getRSBlocks = function(typeNumber, errorCorrectionLevel) {
+
+      var rsBlock = getRsBlockTable(typeNumber, errorCorrectionLevel);
+
+      if (typeof rsBlock == 'undefined') {
+        throw 'bad rs block @ typeNumber:' + typeNumber +
+            '/errorCorrectionLevel:' + errorCorrectionLevel;
+      }
+
+      var length = rsBlock.length / 3;
+
+      var list = [];
+
+      for (var i = 0; i < length; i += 1) {
+
+        var count = rsBlock[i * 3 + 0];
+        var totalCount = rsBlock[i * 3 + 1];
+        var dataCount = rsBlock[i * 3 + 2];
+
+        for (var j = 0; j < count; j += 1) {
+          list.push(qrRSBlock(totalCount, dataCount) );
+        }
+      }
+
+      return list;
+    };
+
+    return _this;
+  }();
+
+  //---------------------------------------------------------------------
+  // qrBitBuffer
+  //---------------------------------------------------------------------
+
+  var qrBitBuffer = function() {
+
+    var _buffer = [];
+    var _length = 0;
+
+    var _this = {};
+
+    _this.getBuffer = function() {
+      return _buffer;
+    };
+
+    _this.getAt = function(index) {
+      var bufIndex = Math.floor(index / 8);
+      return ( (_buffer[bufIndex] >>> (7 - index % 8) ) & 1) == 1;
+    };
+
+    _this.put = function(num, length) {
+      for (var i = 0; i < length; i += 1) {
+        _this.putBit( ( (num >>> (length - i - 1) ) & 1) == 1);
+      }
+    };
+
+    _this.getLengthInBits = function() {
+      return _length;
+    };
+
+    _this.putBit = function(bit) {
+
+      var bufIndex = Math.floor(_length / 8);
+      if (_buffer.length <= bufIndex) {
+        _buffer.push(0);
+      }
+
+      if (bit) {
+        _buffer[bufIndex] |= (0x80 >>> (_length % 8) );
+      }
+
+      _length += 1;
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // qrNumber
+  //---------------------------------------------------------------------
+
+  var qrNumber = function(data) {
+
+    var _mode = QRMode.MODE_NUMBER;
+    var _data = data;
+
+    var _this = {};
+
+    _this.getMode = function() {
+      return _mode;
+    };
+
+    _this.getLength = function(buffer) {
+      return _data.length;
+    };
+
+    _this.write = function(buffer) {
+
+      var data = _data;
+
+      var i = 0;
+
+      while (i + 2 < data.length) {
+        buffer.put(strToNum(data.substring(i, i + 3) ), 10);
+        i += 3;
+      }
+
+      if (i < data.length) {
+        if (data.length - i == 1) {
+          buffer.put(strToNum(data.substring(i, i + 1) ), 4);
+        } else if (data.length - i == 2) {
+          buffer.put(strToNum(data.substring(i, i + 2) ), 7);
+        }
+      }
+    };
+
+    var strToNum = function(s) {
+      var num = 0;
+      for (var i = 0; i < s.length; i += 1) {
+        num = num * 10 + chatToNum(s.charAt(i) );
+      }
+      return num;
+    };
+
+    var chatToNum = function(c) {
+      if ('0' <= c && c <= '9') {
+        return c.charCodeAt(0) - '0'.charCodeAt(0);
+      }
+      throw 'illegal char :' + c;
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // qrAlphaNum
+  //---------------------------------------------------------------------
+
+  var qrAlphaNum = function(data) {
+
+    var _mode = QRMode.MODE_ALPHA_NUM;
+    var _data = data;
+
+    var _this = {};
+
+    _this.getMode = function() {
+      return _mode;
+    };
+
+    _this.getLength = function(buffer) {
+      return _data.length;
+    };
+
+    _this.write = function(buffer) {
+
+      var s = _data;
+
+      var i = 0;
+
+      while (i + 1 < s.length) {
+        buffer.put(
+          getCode(s.charAt(i) ) * 45 +
+          getCode(s.charAt(i + 1) ), 11);
+        i += 2;
+      }
+
+      if (i < s.length) {
+        buffer.put(getCode(s.charAt(i) ), 6);
+      }
+    };
+
+    var getCode = function(c) {
+
+      if ('0' <= c && c <= '9') {
+        return c.charCodeAt(0) - '0'.charCodeAt(0);
+      } else if ('A' <= c && c <= 'Z') {
+        return c.charCodeAt(0) - 'A'.charCodeAt(0) + 10;
+      } else {
+        switch (c) {
+        case ' ' : return 36;
+        case '$' : return 37;
+        case '%' : return 38;
+        case '*' : return 39;
+        case '+' : return 40;
+        case '-' : return 41;
+        case '.' : return 42;
+        case '/' : return 43;
+        case ':' : return 44;
+        default :
+          throw 'illegal char :' + c;
+        }
+      }
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // qr8BitByte
+  //---------------------------------------------------------------------
+
+  var qr8BitByte = function(data) {
+
+    var _mode = QRMode.MODE_8BIT_BYTE;
+    var _data = data;
+    var _bytes = qrcode.stringToBytes(data);
+
+    var _this = {};
+
+    _this.getMode = function() {
+      return _mode;
+    };
+
+    _this.getLength = function(buffer) {
+      return _bytes.length;
+    };
+
+    _this.write = function(buffer) {
+      for (var i = 0; i < _bytes.length; i += 1) {
+        buffer.put(_bytes[i], 8);
+      }
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // qrKanji
+  //---------------------------------------------------------------------
+
+  var qrKanji = function(data) {
+
+    var _mode = QRMode.MODE_KANJI;
+    var _data = data;
+
+    var stringToBytes = qrcode.stringToBytesFuncs['SJIS'];
+    if (!stringToBytes) {
+      throw 'sjis not supported.';
+    }
+    !function(c, code) {
+      // self test for sjis support.
+      var test = stringToBytes(c);
+      if (test.length != 2 || ( (test[0] << 8) | test[1]) != code) {
+        throw 'sjis not supported.';
+      }
+    }('\u53cb', 0x9746);
+
+    var _bytes = stringToBytes(data);
+
+    var _this = {};
+
+    _this.getMode = function() {
+      return _mode;
+    };
+
+    _this.getLength = function(buffer) {
+      return ~~(_bytes.length / 2);
+    };
+
+    _this.write = function(buffer) {
+
+      var data = _bytes;
+
+      var i = 0;
+
+      while (i + 1 < data.length) {
+
+        var c = ( (0xff & data[i]) << 8) | (0xff & data[i + 1]);
+
+        if (0x8140 <= c && c <= 0x9FFC) {
+          c -= 0x8140;
+        } else if (0xE040 <= c && c <= 0xEBBF) {
+          c -= 0xC140;
+        } else {
+          throw 'illegal char at ' + (i + 1) + '/' + c;
+        }
+
+        c = ( (c >>> 8) & 0xff) * 0xC0 + (c & 0xff);
+
+        buffer.put(c, 13);
+
+        i += 2;
+      }
+
+      if (i < data.length) {
+        throw 'illegal char at ' + (i + 1);
+      }
+    };
+
+    return _this;
+  };
+
+  //=====================================================================
+  // GIF Support etc.
+  //
+
+  //---------------------------------------------------------------------
+  // byteArrayOutputStream
+  //---------------------------------------------------------------------
+
+  var byteArrayOutputStream = function() {
+
+    var _bytes = [];
+
+    var _this = {};
+
+    _this.writeByte = function(b) {
+      _bytes.push(b & 0xff);
+    };
+
+    _this.writeShort = function(i) {
+      _this.writeByte(i);
+      _this.writeByte(i >>> 8);
+    };
+
+    _this.writeBytes = function(b, off, len) {
+      off = off || 0;
+      len = len || b.length;
+      for (var i = 0; i < len; i += 1) {
+        _this.writeByte(b[i + off]);
+      }
+    };
+
+    _this.writeString = function(s) {
+      for (var i = 0; i < s.length; i += 1) {
+        _this.writeByte(s.charCodeAt(i) );
+      }
+    };
+
+    _this.toByteArray = function() {
+      return _bytes;
+    };
+
+    _this.toString = function() {
+      var s = '';
+      s += '[';
+      for (var i = 0; i < _bytes.length; i += 1) {
+        if (i > 0) {
+          s += ',';
+        }
+        s += _bytes[i];
+      }
+      s += ']';
+      return s;
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // base64EncodeOutputStream
+  //---------------------------------------------------------------------
+
+  var base64EncodeOutputStream = function() {
+
+    var _buffer = 0;
+    var _buflen = 0;
+    var _length = 0;
+    var _base64 = '';
+
+    var _this = {};
+
+    var writeEncoded = function(b) {
+      _base64 += String.fromCharCode(encode(b & 0x3f) );
+    };
+
+    var encode = function(n) {
+      if (n < 0) {
+        // error.
+      } else if (n < 26) {
+        return 0x41 + n;
+      } else if (n < 52) {
+        return 0x61 + (n - 26);
+      } else if (n < 62) {
+        return 0x30 + (n - 52);
+      } else if (n == 62) {
+        return 0x2b;
+      } else if (n == 63) {
+        return 0x2f;
+      }
+      throw 'n:' + n;
+    };
+
+    _this.writeByte = function(n) {
+
+      _buffer = (_buffer << 8) | (n & 0xff);
+      _buflen += 8;
+      _length += 1;
+
+      while (_buflen >= 6) {
+        writeEncoded(_buffer >>> (_buflen - 6) );
+        _buflen -= 6;
+      }
+    };
+
+    _this.flush = function() {
+
+      if (_buflen > 0) {
+        writeEncoded(_buffer << (6 - _buflen) );
+        _buffer = 0;
+        _buflen = 0;
+      }
+
+      if (_length % 3 != 0) {
+        // padding
+        var padlen = 3 - _length % 3;
+        for (var i = 0; i < padlen; i += 1) {
+          _base64 += '=';
+        }
+      }
+    };
+
+    _this.toString = function() {
+      return _base64;
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // base64DecodeInputStream
+  //---------------------------------------------------------------------
+
+  var base64DecodeInputStream = function(str) {
+
+    var _str = str;
+    var _pos = 0;
+    var _buffer = 0;
+    var _buflen = 0;
+
+    var _this = {};
+
+    _this.read = function() {
+
+      while (_buflen < 8) {
+
+        if (_pos >= _str.length) {
+          if (_buflen == 0) {
+            return -1;
+          }
+          throw 'unexpected end of file./' + _buflen;
+        }
+
+        var c = _str.charAt(_pos);
+        _pos += 1;
+
+        if (c == '=') {
+          _buflen = 0;
+          return -1;
+        } else if (c.match(/^\s$/) ) {
+          // ignore if whitespace.
+          continue;
+        }
+
+        _buffer = (_buffer << 6) | decode(c.charCodeAt(0) );
+        _buflen += 6;
+      }
+
+      var n = (_buffer >>> (_buflen - 8) ) & 0xff;
+      _buflen -= 8;
+      return n;
+    };
+
+    var decode = function(c) {
+      if (0x41 <= c && c <= 0x5a) {
+        return c - 0x41;
+      } else if (0x61 <= c && c <= 0x7a) {
+        return c - 0x61 + 26;
+      } else if (0x30 <= c && c <= 0x39) {
+        return c - 0x30 + 52;
+      } else if (c == 0x2b) {
+        return 62;
+      } else if (c == 0x2f) {
+        return 63;
+      } else {
+        throw 'c:' + c;
+      }
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // gifImage (B/W)
+  //---------------------------------------------------------------------
+
+  var gifImage = function(width, height) {
+
+    var _width = width;
+    var _height = height;
+    var _data = new Array(width * height);
+
+    var _this = {};
+
+    _this.setPixel = function(x, y, pixel) {
+      _data[y * _width + x] = pixel;
+    };
+
+    _this.write = function(out) {
+
+      //---------------------------------
+      // GIF Signature
+
+      out.writeString('GIF87a');
+
+      //---------------------------------
+      // Screen Descriptor
+
+      out.writeShort(_width);
+      out.writeShort(_height);
+
+      out.writeByte(0x80); // 2bit
+      out.writeByte(0);
+      out.writeByte(0);
+
+      //---------------------------------
+      // Global Color Map
+
+      // black
+      out.writeByte(0x00);
+      out.writeByte(0x00);
+      out.writeByte(0x00);
+
+      // white
+      out.writeByte(0xff);
+      out.writeByte(0xff);
+      out.writeByte(0xff);
+
+      //---------------------------------
+      // Image Descriptor
+
+      out.writeString(',');
+      out.writeShort(0);
+      out.writeShort(0);
+      out.writeShort(_width);
+      out.writeShort(_height);
+      out.writeByte(0);
+
+      //---------------------------------
+      // Local Color Map
+
+      //---------------------------------
+      // Raster Data
+
+      var lzwMinCodeSize = 2;
+      var raster = getLZWRaster(lzwMinCodeSize);
+
+      out.writeByte(lzwMinCodeSize);
+
+      var offset = 0;
+
+      while (raster.length - offset > 255) {
+        out.writeByte(255);
+        out.writeBytes(raster, offset, 255);
+        offset += 255;
+      }
+
+      out.writeByte(raster.length - offset);
+      out.writeBytes(raster, offset, raster.length - offset);
+      out.writeByte(0x00);
+
+      //---------------------------------
+      // GIF Terminator
+      out.writeString(';');
+    };
+
+    var bitOutputStream = function(out) {
+
+      var _out = out;
+      var _bitLength = 0;
+      var _bitBuffer = 0;
+
+      var _this = {};
+
+      _this.write = function(data, length) {
+
+        if ( (data >>> length) != 0) {
+          throw 'length over';
+        }
+
+        while (_bitLength + length >= 8) {
+          _out.writeByte(0xff & ( (data << _bitLength) | _bitBuffer) );
+          length -= (8 - _bitLength);
+          data >>>= (8 - _bitLength);
+          _bitBuffer = 0;
+          _bitLength = 0;
+        }
+
+        _bitBuffer = (data << _bitLength) | _bitBuffer;
+        _bitLength = _bitLength + length;
+      };
+
+      _this.flush = function() {
+        if (_bitLength > 0) {
+          _out.writeByte(_bitBuffer);
+        }
+      };
+
+      return _this;
+    };
+
+    var getLZWRaster = function(lzwMinCodeSize) {
+
+      var clearCode = 1 << lzwMinCodeSize;
+      var endCode = (1 << lzwMinCodeSize) + 1;
+      var bitLength = lzwMinCodeSize + 1;
+
+      // Setup LZWTable
+      var table = lzwTable();
+
+      for (var i = 0; i < clearCode; i += 1) {
+        table.add(String.fromCharCode(i) );
+      }
+      table.add(String.fromCharCode(clearCode) );
+      table.add(String.fromCharCode(endCode) );
+
+      var byteOut = byteArrayOutputStream();
+      var bitOut = bitOutputStream(byteOut);
+
+      // clear code
+      bitOut.write(clearCode, bitLength);
+
+      var dataIndex = 0;
+
+      var s = String.fromCharCode(_data[dataIndex]);
+      dataIndex += 1;
+
+      while (dataIndex < _data.length) {
+
+        var c = String.fromCharCode(_data[dataIndex]);
+        dataIndex += 1;
+
+        if (table.contains(s + c) ) {
+
+          s = s + c;
+
+        } else {
+
+          bitOut.write(table.indexOf(s), bitLength);
+
+          if (table.size() < 0xfff) {
+
+            if (table.size() == (1 << bitLength) ) {
+              bitLength += 1;
+            }
+
+            table.add(s + c);
+          }
+
+          s = c;
+        }
+      }
+
+      bitOut.write(table.indexOf(s), bitLength);
+
+      // end code
+      bitOut.write(endCode, bitLength);
+
+      bitOut.flush();
+
+      return byteOut.toByteArray();
+    };
+
+    var lzwTable = function() {
+
+      var _map = {};
+      var _size = 0;
+
+      var _this = {};
+
+      _this.add = function(key) {
+        if (_this.contains(key) ) {
+          throw 'dup key:' + key;
+        }
+        _map[key] = _size;
+        _size += 1;
+      };
+
+      _this.size = function() {
+        return _size;
+      };
+
+      _this.indexOf = function(key) {
+        return _map[key];
+      };
+
+      _this.contains = function(key) {
+        return typeof _map[key] != 'undefined';
+      };
+
+      return _this;
+    };
+
+    return _this;
+  };
+
+  var createDataURL = function(width, height, getPixel) {
+    var gif = gifImage(width, height);
+    for (var y = 0; y < height; y += 1) {
+      for (var x = 0; x < width; x += 1) {
+        gif.setPixel(x, y, getPixel(x, y) );
+      }
+    }
+
+    var b = byteArrayOutputStream();
+    gif.write(b);
+
+    var base64 = base64EncodeOutputStream();
+    var bytes = b.toByteArray();
+    for (var i = 0; i < bytes.length; i += 1) {
+      base64.writeByte(bytes[i]);
+    }
+    base64.flush();
+
+    return 'data:image/gif;base64,' + base64;
+  };
+
+  //---------------------------------------------------------------------
+  // returns qrcode function.
+
+  return qrcode;
+}();
+
+// multibyte support
+!function() {
+
+  qrcode.stringToBytesFuncs['UTF-8'] = function(s) {
+    // http://stackoverflow.com/questions/18729405/how-to-convert-utf8-string-to-byte-array
+    function toUTF8Array(str) {
+      var utf8 = [];
+      for (var i=0; i < str.length; i++) {
+        var charcode = str.charCodeAt(i);
+        if (charcode < 0x80) utf8.push(charcode);
+        else if (charcode < 0x800) {
+          utf8.push(0xc0 | (charcode >> 6),
+              0x80 | (charcode & 0x3f));
+        }
+        else if (charcode < 0xd800 || charcode >= 0xe000) {
+          utf8.push(0xe0 | (charcode >> 12),
+              0x80 | ((charcode>>6) & 0x3f),
+              0x80 | (charcode & 0x3f));
+        }
+        // surrogate pair
+        else {
+          i++;
+          // UTF-16 encodes 0x10000-0x10FFFF by
+          // subtracting 0x10000 and splitting the
+          // 20 bits of 0x0-0xFFFFF into two halves
+          charcode = 0x10000 + (((charcode & 0x3ff)<<10)
+            | (str.charCodeAt(i) & 0x3ff));
+          utf8.push(0xf0 | (charcode >>18),
+              0x80 | ((charcode>>12) & 0x3f),
+              0x80 | ((charcode>>6) & 0x3f),
+              0x80 | (charcode & 0x3f));
+        }
+      }
+      return utf8;
+    }
+    return toUTF8Array(s);
+  };
+
+}();
+
+(function (factory) {
+  if (typeof define === 'function' && define.amd) {
+      define([], factory);
+  } else if (typeof exports === 'object') {
+      module.exports = factory();
+  }
+}(function () {
+    return qrcode;
+}));
+
+</script>
 </head>
 <body>
 <div id="app">
@@ -181,9 +2456,6 @@
     <button id="camBtn" title="add the actress camera">CAMERA</button>
     <button id="theatreAll" title="play the whole table in sequence">THEATRE</button>
     <button id="masterAud" class="on">AUDIO ON</button>
-    <button id="addLane" title="add & name a new participant lane — build any grid">+ LANE</button>
-    <button id="saveScene" title="save the current call as a reusable scene">SAVE SCENE</button>
-    <button id="recBtn" title="record this call to a file for redoing takes">REC</button>
     <button id="exportBtn">EXPORT</button>
     <button id="importBtn">IMPORT</button>
     <input type="file" id="importFile" accept=".json">
@@ -210,19 +2482,20 @@
 <div id="stage">
   <div class="stop">
     <span class="srec"><span class="dot"></span>Recording…</span>
+    <span class="spill">Total non-video participants: <span id="snvp">1</span></span>
     <span id="sview">Gallery View</span>
   </div>
-  <button id="shide" style="display:none"></button>
-  <button id="exitStage" style="display:none"></button>
+  <button id="shide">HIDE CONTROLS (H)</button>
+  <button id="exitStage">EXIT STAGE</button>
   <div id="sgrid"></div>
   <div id="stoast"><div class="a">Important meeting starting NOW</div><div class="b">Performance Review · Phil</div></div>
   <div id="sdock"></div>
   <div class="sbot">
-    <div class="sc" id="sMute"><svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21H8v2h8v-2h-3v-2.08A7 7 0 0 0 19 12z"/></svg><span>Mute</span></div>
-    <div class="sc" id="sVideo"><svg viewBox="0 0 24 24"><path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11z"/></svg><span>Start Video</span></div>
+    <div class="sc"><svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21H8v2h8v-2h-3v-2.08A7 7 0 0 0 19 12z"/></svg><span>Mute</span></div>
+    <div class="sc"><svg viewBox="0 0 24 24"><path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11z"/></svg><span>Video</span></div>
     <div class="sc"><svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 3-1.34 3-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5C15 14.17 10.33 13 8 13z"/></svg><span>Participants</span></div>
-    <div class="sc" id="sChat" title="show / hide the MONTE director controls"><svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg><span>Chat</span></div>
-    <div class="sc leave" id="sLeave"><span class="lp">Leave</span></div>
+    <div class="sc"><svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg><span>Chat</span></div>
+    <div class="sc leave"><span class="lp">Leave</span></div>
   </div>
 </div>
 
@@ -294,7 +2567,6 @@ const SORDER=Object.keys(SCENES);
 /* ============ STATE ============ */
 const ST={live:{},aud:{},scene:null,master:true,inStage:false,
   flags:{}, // pid -> {spk,mut,gl}
-  onstage:new Set(), // who is in the current mosaic (free — not locked to a scene)
 };
 PEOPLE.forEach(p=>{ST.aud[p.id]={on:false,vol:1,solo:false,vo:null};ST.flags[p.id]={spk:false,mut:false,gl:false};});
 
@@ -319,8 +2591,7 @@ function buildTable(){
       <div class="chd"><div class="dot" style="background:${hsl(p.hue,55,45)}">${p.initials}</div>
         <div class="nm" style="color:${hsl(p.hue,70,68)}">${p.name}</div>
         <span class="liveflag">LIVE</span>
-        <button class="hbtn" data-a="ren" data-p="${p.id}" title="rename">✎</button>
-        <button class="hbtn" data-a="del" data-p="${p.id}" title="close this lane">✕</button></div>
+        <button class="hbtn" data-a="ren" data-p="${p.id}">✎</button></div>
       <div class="aud">
         <button class="amute ${a.on?'on':''}" data-p="${p.id}">${a.on?'AUD':'mute'}</button>
         <button class="solo ${a.solo?'on':''}" data-p="${p.id}">solo</button>
@@ -343,7 +2614,7 @@ function renderLane(pid){
   LANES[pid].forEach((cid,i)=>{const c=CLIP[cid];if(!c)return;
     const el=document.createElement('div');el.className='clip'+(ST.live[pid]===cid?' playing':'');
     el.id='clip-'+cid;el.dataset.cid=cid;el.dataset.pid=pid;
-    el.innerHTML=`<video muted preload="metadata" src="${c.src}#t=0.5"></video><button class="csnd" title="hear this clip"><svg viewBox="0 0 24 24"><path d="M3 10v4h4l5 5V5L7 10H3zm13.5 2A4.5 4.5 0 0 0 14 7.97v8.05A4.5 4.5 0 0 0 16.5 12zM14 3.23v2.06a7 7 0 0 1 0 13.42v2.06a9 9 0 0 0 0-17.54z"/></svg></button><div class="num">${i+1}</div><div class="lb">${c.label}</div><div class="scrub"></div><button class="x">✕</button>`;
+    el.innerHTML=`<video muted preload="metadata" src="${c.src}#t=0.5"></video><div class="num">${i+1}</div><div class="lb">${c.label}</div><div class="scrub"></div><button class="x">✕</button>`;
     list.appendChild(el);});
   const add=document.createElement('div');add.className='addclip';add.dataset.p=pid;add.innerHTML='<span style="font-size:14px">+</span> add clips';
   const fin=document.createElement('input');fin.type='file';fin.accept='video/*';fin.multiple=true;fin.className='clipin';
@@ -362,8 +2633,7 @@ function wireControls(){
   table.querySelectorAll('.fspk').forEach(b=>b.onclick=()=>{const p=b.dataset.p;setFlag(p,'spk',!ST.flags[p].spk,true);});
   table.querySelectorAll('.fmut').forEach(b=>b.onclick=()=>{const p=b.dataset.p;setFlag(p,'mut',!ST.flags[p].mut);});
   table.querySelectorAll('.fgl').forEach(b=>b.onclick=()=>{const p=b.dataset.p;setFlag(p,'gl',!ST.flags[p].gl);});
-  table.querySelectorAll('.hbtn[data-a=ren]').forEach(b=>b.onclick=()=>{const p=b.dataset.p;const nm=prompt('Rename '+P[p].name,P[p].name);if(nm){P[p].name=nm;buildTable();buildStage();if(ST.inStage)refreshStageLayout();}});
-  table.querySelectorAll('.hbtn[data-a=del]').forEach(b=>b.onclick=()=>removeLane(b.dataset.p));
+  table.querySelectorAll('.hbtn[data-a=ren]').forEach(b=>b.onclick=()=>{const p=b.dataset.p;const nm=prompt('Rename '+P[p].name,P[p].name);if(nm){P[p].name=nm;buildTable();buildStage();}});
   refreshFlags();
 }
 function refreshAud(){AI.forEach(p=>{const a=ST.aud[p.id];const ch=document.getElementById('ch-'+p.id);if(!ch)return;
@@ -380,28 +2650,16 @@ const ghost=document.getElementById('ghost'),dropline=document.getElementById('d
 function wireClips(pid){
   document.querySelectorAll('#clips-'+pid+' .clip').forEach(el=>{
     const cid=el.dataset.cid;
-    el.addEventListener('pointermove',e=>{if(drag||el.classList.contains('hearing'))return;const v=el.querySelector('video');if(!v)return;
+    el.addEventListener('pointermove',e=>{if(drag)return;const v=el.querySelector('video');if(!v)return;
       const r=el.getBoundingClientRect();const frac=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));
       if(v.readyState>=1&&v.duration){try{v.currentTime=frac*v.duration;}catch(_){}el.querySelector('.scrub').style.width=(frac*100)+'%';}});
     el.querySelector('.x').onclick=e=>{e.stopPropagation();removeClip(pid,cid);};
-    el.querySelector('.csnd').onclick=e=>{e.stopPropagation();previewClipSound(el);}; // hear this clip right here
-    el.addEventListener('click',()=>{if(el._moved){el._moved=false;return;}
-      if(ST.live[pid]===cid) unLive(pid); else goLive(pid,cid);}); // click the live clip again to take them off the call
+    el.addEventListener('click',()=>{if(el._moved){el._moved=false;return;}goLive(pid,cid);});
     el.addEventListener('dblclick',()=>openLoupe(pid,cid));
     el.addEventListener('pointerdown',e=>startDrag(e,pid,cid,el));
   });
 }
-function startDrag(e,pid,cid,el){if(e.target.classList.contains('x')||e.target.closest('.csnd'))return;drag={pid,cid,el,x:e.clientX,y:e.clientY,active:false};}
-// hear any clip right in the gallery — plays that clip's own audio, one at a time
-let hearingEl=null;
-function previewClipSound(el){
-  const v=el.querySelector('video'); if(!v)return;
-  if(hearingEl && hearingEl!==el){const ov=hearingEl.querySelector('video');if(ov){ov.muted=true;ov.pause();}
-    hearingEl.classList.remove('hearing');hearingEl.querySelector('.csnd')?.classList.remove('on');}
-  if(el.classList.contains('hearing')){v.muted=true;v.pause();el.classList.remove('hearing');el.querySelector('.csnd').classList.remove('on');hearingEl=null;return;}
-  v.muted=false;v.loop=true;try{v.currentTime=0;}catch(_){}v.play().catch(()=>{});
-  el.classList.add('hearing');el.querySelector('.csnd').classList.add('on');hearingEl=el;
-}
+function startDrag(e,pid,cid,el){if(e.target.classList.contains('x'))return;drag={pid,cid,el,x:e.clientX,y:e.clientY,active:false};}
 document.addEventListener('pointermove',e=>{
   if(!drag)return;
   if(!drag.active){if(Math.hypot(e.clientX-drag.x,e.clientY-drag.y)<6)return;drag.active=true;drag.el.classList.add('lifting');drag.el._moved=true;ghost.querySelector('img').src='';ghost.style.display='block';}
@@ -456,10 +2714,8 @@ function ensureStageVideo(pid,cid){
 }
 function goLive(pid,cid){
   ST.live[pid]=cid;
-  ST.onstage.add(pid); // casting a clip puts that person in the mosaic — build any combination freely
   document.querySelectorAll('#clips-'+pid+' .clip').forEach(el=>el.classList.toggle('playing',el.dataset.cid===cid));
   document.getElementById('ch-'+pid)?.classList.add('live');
-  if(ST.inStage){const t=document.getElementById('stile-'+pid);if(t)t.style.display='';refreshStageLayout();}
   // stage tile: swap active video
   const bank=stageVids[pid]||{};
   ensureStageVideo(pid,cid);
@@ -473,37 +2729,7 @@ function goLive(pid,cid){
 
 /* ============ per-character audio ============ */
 const audioEls={};
-const SPK_ON='<svg viewBox="0 0 24 24"><path d="M3 10v4h4l5 5V5L7 10H3zm13.5 2A4.5 4.5 0 0 0 14 7.97v8.05A4.5 4.5 0 0 0 16.5 12zM14 3.23v2.06a7 7 0 0 1 0 13.42v2.06a9 9 0 0 0 0-17.54z"/></svg>';
-const SPK_OFF='<svg viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45.05-.63zM19 12c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.8 8.8 0 0 0 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3 3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06a8.99 8.99 0 0 0 3.69-1.81L19.73 21 21 19.73 4.27 3zM12 4 9.91 6.09 12 8.18z"/></svg>';
-/* On the live stage, audio plays straight from each tile's own video (in sync,
-   reliable, and independently mutable per person) — no separate monitor layer. */
-function applyStageAudio(){
-  PEOPLE.forEach(p=>{
-    if(p.host) return;
-    const cid=ST.live[p.id];
-    Object.entries(stageVids[p.id]||{}).forEach(([id,v])=>{ v.muted = !(id===cid && ST.master && ST.aud[p.id].on); });
-    refreshTileCtl(p.id);
-  });
-  Object.values(audioEls).forEach(a=>a.pause()); // silence the MONTE monitors while on stage
-  if(typeof refreshHear==='function') refreshHear();
-}
-function refreshTileCtl(pid){
-  const b=document.querySelector('#stile-'+pid+' .tmute'); if(!b) return;
-  const on=ST.master && ST.aud[pid] && ST.aud[pid].on;
-  b.classList.toggle('on',on); b.classList.toggle('off',!on);
-  b.innerHTML = on ? SPK_ON : SPK_OFF;
-}
-function tileToggleAudio(pid){
-  ST.aud[pid].on=!ST.aud[pid].on; if(ST.aud[pid].on)ST.master=true;
-  applyStageAudio(); refreshAud();
-}
-function tileNextClip(pid){
-  const lane=LANES[pid]||[]; if(lane.length<2){toast('only one clip');return;}
-  const cur=lane.indexOf(ST.live[pid]); const next=lane[(cur+1)%lane.length];
-  goLive(pid,next);
-}
 function applyAudio(){
-  if(ST.inStage){ applyStageAudio(); return; } // the stage uses direct tile audio
   const anySolo=AI.some(p=>ST.aud[p.id].solo);
   AI.forEach(p=>{const a=ST.aud[p.id];const cid=ST.live[p.id];let el=audioEls[p.id];
     const wantSrc=a.vo||(cid?CLIP[cid].src:null);
@@ -513,41 +2739,6 @@ function applyAudio(){
     if(!el){el=new Audio();el.loop=true;audioEls[p.id]=el;}
     if(el.src!==wantSrc)el.src=wantSrc;el.volume=a.vol;el.play().catch(()=>{});
   });
-  if(typeof refreshHear==='function') refreshHear(); // keep the live tile highlight bound to the audio state
-}
-
-/* ============ DIEGETIC STAGE: click-to-hear + free mosaic ============ */
-// click a tile → that person is the ONLY audio + the active speaker (single voice)
-function stageHear(pid){
-  const already = ST.aud[pid] && ST.aud[pid].on && ST.aud[pid].solo;
-  AI.forEach(p=>{ST.aud[p.id].on=false;ST.aud[p.id].solo=false;ST.flags[p.id].spk=false;});
-  if(!already){ ST.aud[pid].on=true; ST.aud[pid].solo=true; ST.flags[pid].spk=true; }
-  ST.master=true;
-  applyAudio(); refreshHear();
-  PEOPLE.forEach(p=>{const t=document.getElementById('stile-'+p.id);if(t)t.classList.toggle('spk',ST.flags[p.id].spk);});
-  refreshFlags(); refreshDock(); refreshAud(); // reflect the live audio choice back onto MONTE's lane pills
-}
-function refreshHear(){PEOPLE.forEach(p=>{const t=document.getElementById('stile-'+p.id);
-  if(t)t.classList.toggle('hear', !!(ST.master&&ST.aud[p.id]&&ST.aud[p.id].on));});}
-function showTile(pid){ST.onstage.add(pid);const t=document.getElementById('stile-'+pid);if(t)t.style.display='';refreshStageLayout();}
-function removeFromStage(pid){ST.onstage.delete(pid);const t=document.getElementById('stile-'+pid);if(t)t.style.display='none';
-  if(ST.aud[pid]){ST.aud[pid].on=false;ST.aud[pid].solo=false;applyAudio();refreshHear();}refreshStageLayout();}
-// un-cast from MONTE: clear this person's live clip and take them off the call
-function unLive(pid){
-  delete ST.live[pid];
-  document.querySelectorAll('#clips-'+pid+' .clip').forEach(el=>el.classList.remove('playing'));
-  document.getElementById('ch-'+pid)?.classList.remove('live');
-  Object.values(stageVids[pid]||{}).forEach(v=>{v.classList.remove('on');v.pause();});
-  document.getElementById('stile-'+pid)?.classList.remove('has');
-  removeFromStage(pid);
-  if(!ST.inStage)toast(P[pid].name+' off');
-}
-// any set of people, auto-arranged — no fixed beats required
-function refreshStageLayout(){
-  const on=PEOPLE.filter(p=>ST.onstage.has(p.id));
-  const n=Math.max(1,on.length), cols=Math.ceil(Math.sqrt(n));
-  const sgrid=document.getElementById('sgrid');if(sgrid)sgrid.style.gridTemplateColumns=`repeat(${cols},1fr)`;
-  PEOPLE.forEach(p=>{const t=document.getElementById('stile-'+p.id);if(t)t.style.display=ST.onstage.has(p.id)?'':'none';});
 }
 
 /* ============ SCENES ============ */
@@ -558,9 +2749,10 @@ function applyScene(key){
   const s=SCENES[key];if(!s)return;ST.scene=key;
   document.querySelectorAll('#scenes button,#sdock .sc-scene').forEach(b=>b.classList.toggle('on',b.dataset.k===key));
   AI.forEach(p=>document.getElementById('ch-'+p.id)?.classList.toggle('off',!s.stiles.includes(p.id)));
-  // a scene is just a preset mosaic — it seeds who's on stage, then you're free to add/remove
-  ST.onstage=new Set(s.stiles);
-  refreshStageLayout();
+  // stage layout
+  const sgrid=document.getElementById('sgrid');
+  sgrid.style.gridTemplateColumns=`repeat(${s.cols},1fr)`;
+  PEOPLE.forEach(p=>{const t=document.getElementById('stile-'+p.id);if(t)t.style.display=s.stiles.includes(p.id)?'':'none';});
   // pick clips
   Object.entries(s.pick||{}).forEach(([pid,label])=>{const cid=LANES[pid].find(id=>CLIP[id].label===label)||LANES[pid][0];if(cid)goLive(pid,cid);});
   // flags: reset spk/gl then set scene's
@@ -569,6 +2761,7 @@ function applyScene(key){
   if(s.gl)setFlag(s.gl,'gl',true);
   // chrome
   document.getElementById('sview').textContent=s.view;
+  document.getElementById('snvp').textContent=s.nvp;
   document.getElementById('stoast').classList.toggle('on',!!s.toast);
   applyAudio();if(!ST.inStage)toast('Scene: '+s.name);
 }
@@ -587,22 +2780,9 @@ function setFlag(pid,f,on,exclusiveSpk){
 function buildStage(){
   const sgrid=document.getElementById('sgrid');sgrid.innerHTML='';stageVids&&Object.keys(stageVids).forEach(k=>delete stageVids[k]);
   PEOPLE.forEach(p=>{
-    // pure diegetic tile — no on-stage controls. Everything is set in MONTE; the
-    // stage just shows the consequence (clip + audio + who's on) live.
     const t=document.createElement('div');t.className='stile';t.id='stile-'+p.id;t.style.display='none';
     t.innerHTML=`<div class="sph"><div class="av" style="background:${hsl(p.hue,55,45)}">${p.initials}</div></div>
       <div class="sgl"></div><div class="snm">${p.name}${p.host?'<span class="h">Host</span>':''}</div>`;
-    if(!p.host){ // diegetic in-meeting controls: mute/unmute + advance this person's clip
-      const ctl=document.createElement('div');ctl.className='tctl';
-      ctl.innerHTML=`<button class="tmute" title="mute / unmute ${p.name}"></button>`
-        +`<button class="tnext" title="next clip for ${p.name}"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button>`;
-      t.appendChild(ctl);
-      ctl.querySelector('.tmute').onclick=e=>{e.stopPropagation();tileToggleAudio(p.id);};
-      ctl.querySelector('.tnext').onclick=e=>{e.stopPropagation();tileNextClip(p.id);};
-      // click the tile itself = advance to their next clip (dead simple)
-      t.addEventListener('click',e=>{ if(e.target.closest('.tctl'))return; tileNextClip(p.id); });
-      t.style.cursor='pointer';
-    }
     sgrid.appendChild(t);
   });
   buildDock();
@@ -627,71 +2807,28 @@ function refreshDock(){document.querySelectorAll('#sdock .grp button').forEach(b
 /* enter / exit stage */
 function enterStage(){
   ST.inStage=true;
-  const el=document.getElementById('stage');
-  el.classList.add('on');
-  document.getElementById('sdock').classList.add('hidden'); // diegetic by default — direct from MONTE / the Chat button
-  // MONTE IS THE SOURCE OF TRUTH — no scene rails. The call is exactly what you set:
-  // whoever has a clip cast to them (plus the host), playing that clip, with your audio.
-  const cast = PEOPLE.filter(p=>ST.live[p.id] && !p.host).map(p=>p.id);
-  if(!cast.length){ // nothing cast yet → gently populate with each person's first clip; fully editable, no rails
-    AI.forEach(p=>{ if(LANES[p.id] && LANES[p.id][0]) ST.live[p.id]=LANES[p.id][0]; });
-  }
-  ST.onstage = new Set(PEOPLE.filter(p=>ST.live[p.id] || p.host).map(p=>p.id));
-  refreshStageLayout();
-  PEOPLE.forEach(p=>{const cid=ST.live[p.id]; if(cid) goLive(p.id,cid);});
-  applyAudio(); refreshHear();
-  stageIdleArm();
-  if(el.requestFullscreen)el.requestFullscreen().catch(()=>{});
-}
-// The frame stays clean: the Zoom bar fades when idle, and EXIT only appears when
-// the mouse reaches the top edge. Esc always exits back to MONTE.
-let stageIdleT=null;
-function stageIdleArm(){
-  const el=document.getElementById('stage');
-  const onMove=(e)=>{el.classList.remove('idle');clearTimeout(stageIdleT);
-    stageIdleT=setTimeout(()=>{if(ST.inStage)el.classList.add('idle');},2800);
-    el.classList.toggle('peek', !!(e && e.clientY!=null && e.clientY<70));};
-  el.onmousemove=onMove;
-  el.ontouchstart=e=>{el.classList.add('peek');onMove();setTimeout(()=>el.classList.remove('peek'),2600);};
-  onMove();
+  document.getElementById('stage').classList.add('on');
+  // make sure current scene is applied to the stage
+  applyScene(ST.scene||'team');
+  const el=document.getElementById('stage');if(el.requestFullscreen)el.requestFullscreen().catch(()=>{});
+  toast('STAGE LIVE — press H to hide controls, then record');
 }
 function exitStage(){ST.inStage=false;document.getElementById('stage').classList.remove('on');
   if(document.fullscreenElement&&document.exitFullscreen)document.exitFullscreen().catch(()=>{});}
 document.getElementById('golive').onclick=enterStage;
 document.getElementById('exitStage').onclick=exitStage;
 document.getElementById('shide').onclick=toggleDock;
-document.getElementById('sLeave').onclick=exitStage; // the diegetic "Leave" returns to MONTE
-// The Zoom bottom bar is pure diegetic decoration — all directing (clips, sound,
-// who's on) happens in MONTE and the stage shows the consequence. Esc returns to MONTE.
 function toggleDock(){const d=document.getElementById('sdock');d.classList.toggle('hidden');
   document.getElementById('shide').textContent=d.classList.contains('hidden')?'SHOW CONTROLS (H)':'HIDE CONTROLS (H)';}
 
-/* camera — the diegetic Video button (and MONTE's CAMERA button) really turn it on/off */
-let camOn=false;
-async function toggleCamera(){
-  const t=document.getElementById('stile-nat');
-  if(camOn){
-    liveStream&&liveStream.getTracks().forEach(x=>x.stop());liveStream=null;camOn=false;
-    const v=t.querySelector('video.live');if(v){v.srcObject=null;v.remove();}
-    t.classList.remove('has','mir');reflectCamBtn();toast('camera off');return;
-  }
-  try{liveStream=await navigator.mediaDevices.getUserMedia({video:{width:1920,height:1080,facingMode:'user'},audio:true});
-    ST.onstage.add('nat');if(ST.inStage)refreshStageLayout();
+/* camera */
+document.getElementById('camBtn').onclick=async()=>{
+  try{liveStream=await navigator.mediaDevices.getUserMedia({video:{width:1920,height:1080,facingMode:'user'},audio:false});
+    const t=document.getElementById('stile-nat');
     let v=t.querySelector('video.live');if(!v){v=document.createElement('video');v.className='live on';v.autoplay=true;v.muted=true;v.playsInline=true;t.insertBefore(v,t.querySelector('.sph'));}
-    v.srcObject=liveStream;t.classList.add('has','mir');camOn=true;reflectCamBtn();toast('camera on');
+    v.srcObject=liveStream;t.classList.add('has','mir');toast('camera on — Natalie is live');
   }catch(e){toast('no camera access');}
-}
-function reflectCamBtn(){
-  const b=document.getElementById('sVideo');if(b){b.querySelector('span').textContent=camOn?'Stop Video':'Start Video';b.classList.toggle('on',camOn);}
-}
-document.getElementById('camBtn').onclick=toggleCamera;
-document.getElementById('sVideo').onclick=toggleCamera;
-// diegetic Mute = silence / restore the whole room (master audio)
-document.getElementById('sMute').onclick=()=>{ST.master=!ST.master;applyAudio();
-  const b=document.getElementById('sMute');b.querySelector('span').textContent=ST.master?'Mute':'Unmute';b.classList.toggle('on',!ST.master);};
-// diegetic Chat quietly reveals / hides the director dock (H also toggles it)
-document.getElementById('sChat').onclick=()=>{const d=document.getElementById('sdock');d.classList.toggle('hidden');
-  document.getElementById('sChat').classList.toggle('on',!d.classList.contains('hidden'));};
+};
 
 /* ============ THEATRE ============ */
 const TH={on:false,queue:[],i:0};const thv=document.getElementById('thv');
@@ -730,69 +2867,6 @@ document.getElementById('importFile').onchange=async e=>{const f=e.target.files[
 /* master audio */
 document.getElementById('masterAud').onclick=()=>{ST.master=!ST.master;const b=document.getElementById('masterAud');b.classList.toggle('on',ST.master);b.textContent=ST.master?'AUDIO ON':'AUDIO OFF';applyAudio();};
 
-/* ============ GENERALIZABLE: add & name arbitrary participant lanes ============ */
-let laneHue=200;
-document.getElementById('addLane').onclick=()=>{
-  const name=(prompt('Name this participant','Guest '+PEOPLE.length)||'').trim();
-  if(!name)return;
-  const id='p'+Date.now().toString(36);
-  laneHue=(laneHue+53)%360;
-  const p={id,name,hue:laneHue,initials:name.slice(0,1).toUpperCase()};
-  PEOPLE.push(p); P[id]=p; AI.push(p);
-  ST.aud[id]={on:false,vol:1,solo:false,vo:null}; ST.flags[id]={spk:false,mut:false,gl:false};
-  LANES[id]=[];
-  buildTable(); buildStage();
-  if(ST.inStage)refreshStageLayout();
-  toast('added lane: '+name+' — drop clips or a camera in');
-};
-
-/* ============ MUTABLE: close a lane / save a custom scene ============ */
-function removeLane(pid){
-  if(!confirm('Close '+(P[pid]?.name||'this')+' lane? Its clips are dropped.'))return;
-  let i=PEOPLE.findIndex(p=>p.id===pid); if(i>=0)PEOPLE.splice(i,1);
-  let j=AI.findIndex(p=>p.id===pid); if(j>=0)AI.splice(j,1);
-  (LANES[pid]||[]).forEach(cid=>delete CLIP[cid]);
-  delete P[pid]; delete ST.aud[pid]; delete ST.flags[pid]; delete ST.live[pid]; delete LANES[pid]; delete stageVids[pid];
-  ST.onstage.delete(pid);
-  buildTable(); buildStage(); if(ST.inStage)refreshStageLayout(); applyAudio();
-  toast('lane closed');
-}
-document.getElementById('saveScene').onclick=()=>{
-  const name=(prompt('Name this scene')||'').trim(); if(!name)return;
-  const key='s'+Date.now().toString(36);
-  const stiles=PEOPLE.filter(p=>ST.onstage.has(p.id)||ST.live[p.id]||p.host).map(p=>p.id);
-  const pick={}; PEOPLE.forEach(p=>{const cid=ST.live[p.id];if(cid&&CLIP[cid])pick[p.id]=CLIP[cid].label;});
-  const spk=PEOPLE.find(p=>ST.aud[p.id]&&ST.aud[p.id].solo);
-  SCENES[key]={name,desc:'custom',stiles,cols:Math.max(1,Math.ceil(Math.sqrt(stiles.length))),
-    view:'Gallery View',nvp:0,spk:spk?spk.id:null,pick,custom:true};
-  SORDER.push(key); buildScenes(); if(ST.inStage)buildDock();
-  toast('scene saved: '+name);
-};
-
-/* ============ RECORD A TAKE — capture the call to a file (redo takes) ============ */
-let mediaRec=null, recChunks=[];
-document.getElementById('recBtn').onclick=async()=>{
-  const btn=document.getElementById('recBtn');
-  if(mediaRec&&mediaRec.state==='recording'){mediaRec.stop();return;}
-  try{
-    const disp=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:30},audio:true});
-    const tracks=[...disp.getVideoTracks(),...disp.getAudioTracks(),...(liveStream?liveStream.getAudioTracks():[])];
-    const out=new MediaStream(tracks);
-    const mime=['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'].find(m=>MediaRecorder.isTypeSupported(m))||'';
-    recChunks=[]; mediaRec=new MediaRecorder(out,mime?{mimeType:mime,videoBitsPerSecond:12e6}:undefined);
-    mediaRec.ondataavailable=e=>{if(e.data.size)recChunks.push(e.data);};
-    mediaRec.onstop=()=>{disp.getTracks().forEach(t=>t.stop());
-      const blob=new Blob(recChunks,{type:mediaRec.mimeType||'video/webm'});
-      const a=document.createElement('a');a.href=URL.createObjectURL(blob);
-      a.download='scene06_take_'+new Date().toISOString().replace(/[:.]/g,'-')+'.webm';a.click();
-      setTimeout(()=>URL.revokeObjectURL(a.href),5000);
-      btn.textContent='REC';btn.classList.remove('on');toast('take saved');};
-    disp.getVideoTracks()[0].onended=()=>{if(mediaRec&&mediaRec.state==='recording')mediaRec.stop();};
-    mediaRec.start(1000); btn.textContent='● STOP';btn.classList.add('on');
-    toast('recording — pick this tab/window, then GO LIVE');
-  }catch(e){toast('recording cancelled');}
-};
-
 /* keyboard */
 window.addEventListener('keydown',e=>{
   if(document.activeElement&&document.activeElement.tagName==='INPUT')return;
@@ -804,6 +2878,362 @@ window.addEventListener('keydown',e=>{
 
 /* init */
 buildScenes();buildTable();buildStage();applyScene('team');
+
+/* ================================================================
+   MONTE SCORE + TRANSPORT (plugin block — no edits above needed).
+   The table IS the score: row r = each lane's r-th clip; short lanes
+   hold their last clip. One lane SPEAKS per row (rotating, per-row
+   override), the rest react muted. A wall clock advances the rows —
+   every lane hard-cuts together at the boundary. Works standalone;
+   ?director=1 opens the same file as a cue console over
+   BroadcastChannel('scene6') — the channel director.html already uses.
+   ================================================================ */
+(function(){
+const CHAN='scene6';
+const IS_DIR=new URLSearchParams(location.search).has('director');
+const SCORE={rowDur:10,loop:true,spk:{}};
+const TR={on:false,t0:0,row:-1,hold:null,timer:null};
+const SCOREKEY='scene6score';
+
+/* ---- injected UI: score strip, transport buttons, row readouts ---- */
+const css=document.createElement('style');css.textContent=`
+  #score{display:flex;gap:4px;padding:7px 10px;border-bottom:1px solid var(--line);overflow-x:auto;flex:0 0 auto;align-items:center}
+  #score:empty{display:none}
+  #score .lbl{font-size:9px;color:var(--dim);letter-spacing:.1em;flex:0 0 auto;margin-right:2px}
+  .rowchip{flex:0 0 auto;display:flex;align-items:center;gap:5px;border:1px solid var(--line);border-radius:7px;background:#101014;padding:5px 8px;cursor:pointer;font-size:10px}
+  .rowchip b{color:var(--dim);font-size:9px}
+  .rowchip .sb{width:16px;height:16px;border-radius:50%;display:grid;place-items:center;font-size:8px;font-weight:800;color:#fff}
+  .rowchip.cur{border-color:var(--hot);box-shadow:0 0 8px rgba(159,231,255,.35)}
+  .rowchip.cur b{color:var(--hot)}
+  .rowchip:hover{border-color:var(--hot)}
+  #scoreGo{background:var(--green)!important;border-color:var(--green)!important;color:#000!important}
+  #scoreGo.on{background:var(--gold)!important;border-color:var(--gold)!important}
+  #rowDur{width:44px;background:#101014;border:1px solid var(--line);border-radius:6px;color:var(--ink);font:inherit;font-size:10px;padding:5px 4px;text-align:center}
+  #srow{color:var(--hot);font-size:10px;font-weight:700;letter-spacing:.06em;margin-left:6px}
+  #stageRow{color:#9a9aa2;font-size:11px}
+  body.director #golive,body.director #camBtn,body.director #recBtn{display:none}
+  body.director #bar{border-bottom:2px solid var(--gold)}
+  #dirhud{display:none;padding:10px;border-bottom:1px solid var(--line);gap:16px;align-items:center;flex:0 0 auto}
+  body.director #dirhud{display:flex}
+  #dirhud .big{font-size:26px;font-weight:800;color:var(--hot);letter-spacing:.04em;min-width:150px}
+  #dirhud .nx{font-size:12px;color:var(--dim)} #dirhud .nx b{color:var(--ink)}
+  #dirhud .cd{font-size:26px;font-weight:800;color:var(--gold);min-width:70px;text-align:right}
+  #dirhud .lk{font-size:9px;color:var(--dim);margin-left:auto;text-align:right}
+  #dirhud .lk.ok{color:var(--green)}`;
+document.head.appendChild(css);
+const bar=document.getElementById('bar');
+const mk=(tag,attrs,html)=>{const n=document.createElement(tag);Object.entries(attrs||{}).forEach(([k,v])=>n.setAttribute(k,v));if(html!=null)n.innerHTML=html;return n;};
+const goB=mk('button',{id:'scoreGo',title:'play the score — rows advance on the clock, one speaker per row'},'▶ SCORE');
+const durI=mk('input',{id:'rowDur',type:'number',min:'2',max:'60',step:'1',value:'10',title:'seconds per row'});
+const dirB=mk('button',{id:'dirBtn',title:'open the director window (optional — everything works without it)'},'DIRECTOR');
+const srow=mk('span',{id:'srow'},'');
+bar.insertBefore(dirB,bar.children[1]);bar.insertBefore(durI,dirB);bar.insertBefore(goB,durI);bar.appendChild(srow);
+const dirhud=mk('div',{id:'dirhud'},'<span class="big" id="dNow">—</span><span class="cd" id="dCd"></span><span class="nx" id="dNext"></span><span class="lk" id="dLink">stage: not detected — open scene6.html (no ?director) in another window</span>');
+const scenesEl=document.getElementById('scenes');
+scenesEl.parentNode.insertBefore(dirhud,scenesEl);
+const strip=mk('div',{id:'score'},'');
+scenesEl.parentNode.insertBefore(strip,scenesEl.nextSibling);
+const stopEl=document.querySelector('#stage .stop');
+const stageRow=mk('span',{id:'stageRow'},'');
+if(stopEl)stopEl.insertBefore(stageRow,stopEl.children[1]||null);
+
+/* ---- score model ---- */
+function loadScore(){try{const s=JSON.parse(localStorage.getItem(SCOREKEY)||'null');
+  if(s){SCORE.rowDur=s.rowDur||10;SCORE.loop=s.loop!==false;SCORE.spk=s.spk||{};}}catch(e){}durI.value=SCORE.rowDur;}
+function saveScore(){try{localStorage.setItem(SCOREKEY,JSON.stringify(SCORE));}catch(e){}}
+function scoreRows(){let m=0;AI.forEach(p=>{m=Math.max(m,(LANES[p.id]||[]).length);});return Math.min(m,24);}
+function rowCell(pid,r){const l=LANES[pid]||[];return l.length?l[Math.min(r,l.length-1)]:null;}
+function rowFresh(pid,r){return r<((LANES[pid]||[]).length);}
+function rowSpeaker(r){
+  const ids=AI.filter(p=>rowCell(p.id,r)).map(p=>p.id);if(!ids.length)return null;
+  const o=SCORE.spk[r];if(o&&ids.includes(o))return o;
+  const fresh=AI.filter(p=>rowFresh(p.id,r)).map(p=>p.id);
+  const pool=fresh.length?fresh:ids;return pool[r%pool.length];
+}
+/* the row's single voice: this lane audible+solo+spk ring, everyone else quiet */
+function scoreHear(pid){
+  AI.forEach(p=>{ST.aud[p.id].on=false;ST.aud[p.id].solo=false;});
+  if(pid){ST.aud[pid].on=true;ST.aud[pid].solo=true;ST.master=true;}
+  applyAudio();if(typeof refreshAud==='function')refreshAud();
+  if(pid)setFlag(pid,'spk',true,true);
+}
+/* the score's mosaic: every lane with a cell this row, host too */
+function scoreLayout(){
+  const ids=AI.filter(p=>rowCell(p.id,TR.row)).map(p=>p.id);
+  const all=[PEOPLE.find(p=>p.host).id,...ids];
+  const cols=Math.ceil(Math.sqrt(all.length));
+  const sgrid=document.getElementById('sgrid');if(sgrid)sgrid.style.gridTemplateColumns=`repeat(${cols},1fr)`;
+  PEOPLE.forEach(p=>{const t=document.getElementById('stile-'+p.id);if(t)t.style.display=all.includes(p.id)?'':'none';});
+}
+function enterRow(r){
+  const n=scoreRows();if(!n){trStop();toast('no clips in any lane');return;}
+  if(r>=n){if(SCORE.loop){TR.t0=performance.now();r=0;}else{trStop();toast('score complete');return;}}
+  TR.row=r;
+  AI.forEach(p=>{const cid=rowCell(p.id,r);if(cid)goLive(p.id,cid);});
+  scoreLayout();
+  const spk=rowSpeaker(r);scoreHear(spk);
+  scoreHUD();
+  sendCue({t:'state',row:TR.row,n,spk:spk?P[spk].name:null,next:nextName(r,n),dur:SCORE.rowDur,on:TR.on});
+}
+function nextName(r,n){const s=rowSpeaker((r+1)%n);return s?P[s].name:null;}
+function trTick(){
+  if(!TR.on)return;
+  const t=(performance.now()-TR.t0)/1000;
+  const r=Math.floor(t/SCORE.rowDur);
+  if(r!==TR.row)enterRow(r);
+  const left=SCORE.rowDur-(t%SCORE.rowDur);hudTime(left);
+  if(!trTick._h||performance.now()-trTick._h>500){trTick._h=performance.now();
+    sendCue({t:'state',row:TR.row,n:scoreRows(),left:+left.toFixed(1),
+      spk:(TR.row>=0&&rowSpeaker(TR.row))?P[rowSpeaker(TR.row)].name:null,
+      next:nextName(Math.max(0,TR.row),scoreRows()),dur:SCORE.rowDur,on:true});}
+}
+function trGo(){
+  if(IS_DIR){sendCue({t:'go'});return;}
+  if(TR.on)return;
+  if(!scoreRows()){toast('no clips in any lane');return;}
+  if(!ST.inStage)enterStage();
+  TR.on=true;
+  const base=TR.hold!=null?TR.hold:(TR.row>=0?TR.row*SCORE.rowDur:0);
+  TR.t0=performance.now()-base*1000;TR.hold=null;
+  if(TR.row<0)enterRow(0);
+  else Object.values(stageVids).forEach(b=>Object.values(b).forEach(v=>{if(v.classList.contains('on'))v.play().catch(()=>{});}));
+  clearInterval(TR.timer);TR.timer=setInterval(trTick,100);scoreHUD();
+}
+function trHold(){
+  if(IS_DIR){sendCue({t:'hold'});return;}
+  if(!TR.on)return;
+  TR.hold=(performance.now()-TR.t0)/1000;TR.on=false;clearInterval(TR.timer);
+  Object.values(stageVids).forEach(b=>Object.values(b).forEach(v=>v.pause()));
+  Object.values(audioEls).forEach(a=>a.pause());
+  scoreHUD();sendCue({t:'state',row:TR.row,n:scoreRows(),on:false,held:true});
+}
+function trJump(r){
+  if(IS_DIR){sendCue({t:'jump',row:r});return;}
+  if(!ST.inStage)enterStage();
+  TR.hold=null;TR.t0=performance.now()-r*SCORE.rowDur*1000;
+  if(!TR.on){TR.on=true;clearInterval(TR.timer);TR.timer=setInterval(trTick,100);}
+  enterRow(r);
+}
+function trStop(){TR.on=false;clearInterval(TR.timer);TR.row=-1;TR.hold=null;scoreHUD();}
+function cycleSpk(r){
+  const ids=AI.filter(p=>rowCell(p.id,r)).map(p=>p.id);if(!ids.length)return;
+  const cur=rowSpeaker(r);const i=ids.indexOf(cur);
+  SCORE.spk[r]=ids[(i+1)%ids.length];saveScore();scoreHUD();
+  if(IS_DIR)sendCue({t:'score',score:SCORE});
+  else if(TR.row===r)scoreHear(SCORE.spk[r]);
+  toast('row '+(r+1)+' speaker: '+P[SCORE.spk[r]].name);
+}
+function scoreHUD(){
+  const n=scoreRows();strip.innerHTML='';
+  if(n)strip.appendChild(mk('span',{class:'lbl'},'SCORE'));
+  for(let r=0;r<n;r++){
+    const spk=rowSpeaker(r);
+    const chip=mk('div',{class:'rowchip'+(r===TR.row?' cur':''),title:(spk?P[spk].name+' speaks':'empty')+' — click: cue row · right-click: change speaker'},
+      `<b>${r+1}</b><span class="sb" style="background:${spk?hsl(P[spk].hue,55,45):'#333'}">${spk?P[spk].initials:'·'}</span>`);
+    chip.onclick=e=>{if(e.shiftKey)cycleSpk(r);else trJump(r);};
+    chip.oncontextmenu=e=>{e.preventDefault();cycleSpk(r);};
+    strip.appendChild(chip);
+  }
+  goB.textContent=TR.on?'❚❚ HOLD':'▶ SCORE';goB.classList.toggle('on',TR.on);
+  const spk=TR.row>=0?rowSpeaker(TR.row):null;
+  const txt=TR.row>=0?`ROW ${TR.row+1}/${n} · ${spk?P[spk].name:'—'}`:(TR.hold!=null?'HELD':'');
+  srow.textContent=txt;stageRow.textContent=txt;
+}
+function hudTime(left){
+  const n=scoreRows(),spk=TR.row>=0?rowSpeaker(TR.row):null;
+  const base=TR.row>=0?`ROW ${TR.row+1}/${n} · ${spk?P[spk].name:'—'}`:'';
+  const t=base+(TR.on?' · -'+left.toFixed(1)+'s':'');
+  srow.textContent=t;stageRow.textContent=t;
+}
+goB.onclick=()=>TR.on?trHold():trGo();
+durI.onchange=e=>{SCORE.rowDur=Math.max(2,Math.min(60,+e.target.value||10));e.target.value=SCORE.rowDur;saveScore();
+  if(TR.on)TR.t0=performance.now()-TR.row*SCORE.rowDur*1000;
+  scoreHUD();if(IS_DIR)sendCue({t:'score',score:SCORE});};
+dirB.onclick=()=>{if(IS_DIR){toast('this IS the director');return;}
+  window.open(location.pathname+'?director=1','scene6Director','width=1200,height=760');
+  toast('director opened — it cues this window');};
+
+/* ---- cue channel (shared with director.html / index.html) ---- */
+let bc=null;try{bc=new BroadcastChannel(CHAN);}catch(e){}
+function sendCue(m){if(bc)try{bc.postMessage(m);}catch(e){}
+  try{localStorage.setItem(CHAN+'-cue',JSON.stringify({...m,_n:Math.random()}));}catch(e){}}
+let DIRSTATE=null,dirSeen=0;
+function dirHUD(){
+  const s=DIRSTATE;if(!s)return;dirSeen=performance.now();
+  document.getElementById('dNow').textContent=s.row!=null&&s.row>=0?('ROW '+(s.row+1)+'/'+s.n+(s.spk?' · '+s.spk:'')):'—';
+  document.getElementById('dCd').textContent=s.left!=null?('-'+s.left+'s'):(s.held?'HELD':'');
+  document.getElementById('dNext').innerHTML=s.next?('next: <b>'+s.next+'</b>'):'';
+  const lk=document.getElementById('dLink');lk.textContent='stage: connected';lk.classList.add('ok');
+  if(typeof s.row==='number'&&s.row!==TR.row){TR.row=s.row;scoreHUD();}
+}
+setInterval(()=>{if(IS_DIR&&performance.now()-dirSeen>4000){const lk=document.getElementById('dLink');
+  lk.textContent='stage: not detected — open scene6.html (no ?director) in another window';lk.classList.remove('ok');}},2000);
+function handleCue(m){
+  if(!m||typeof m!=='object')return;
+  if(IS_DIR){if(m.t==='state')DIRSTATE=m,dirHUD();return;}
+  switch(m.t){
+    case 'go':trGo();break;
+    case 'hold':trHold();break;
+    case 'jump':trJump(m.row|0);break;
+    case 'score':Object.assign(SCORE,m.score);saveScore();durI.value=SCORE.rowDur;
+      if(TR.on)TR.t0=performance.now()-TR.row*SCORE.rowDur*1000;scoreHUD();break;
+    case 'hear':scoreHear(m.pid);break;
+    /* director.html's original vocabulary keeps working: */
+    case 'scene':applyScene(m.key);break;
+    case 'clip':{const cid=(LANES[m.pid]||[]).find(x=>CLIP[x]&&CLIP[x].file===m.file)||m.cid;if(cid)goLive(m.pid,cid);break;}
+    case 'flag':setFlag(m.pid,m.f,m.on);break;
+  }
+}
+if(bc)bc.onmessage=e=>handleCue(e.data);
+window.addEventListener('storage',e=>{if(e.key===CHAN+'-cue'&&e.newValue){try{handleCue(JSON.parse(e.newValue));}catch(_){}}});
+
+/* keyboard: space go/hold · [ ] rows */
+window.addEventListener('keydown',e=>{
+  if(document.activeElement&&/INPUT|TEXTAREA/.test(document.activeElement.tagName))return;
+  if(TH&&TH.on)return;
+  if(e.key===' '&&(IS_DIR||ST.inStage||TR.on||TR.hold!=null)){e.preventDefault();TR.on?trHold():trGo();}
+  if(e.key===']')trJump(Math.min(scoreRows()-1,(TR.row<0?0:TR.row+1)));
+  if(e.key==='[')trJump(Math.max(0,TR.row-1));
+});
+
+if(IS_DIR){document.body.classList.add('director');
+  document.getElementById('stat').textContent='DIRECTOR — cues the stage window; open scene6.html beside it';}
+loadScore();scoreHUD();
+
+/* ---- REMOTE: cross-device cue bus (phone / second machine) over the thunder relay ----
+   BroadcastChannel only reaches windows on THIS machine. For a QR-paired controller on
+   another device, cues travel via the already-deployed Cloudflare DO relay
+   (thunder-rigs-relay.hartswf0.workers.dev): join a room, POST cues, poll for them.
+   REMOTE button = create/join room + show the QR. ?remote=CODE = the controller panel. */
+const RELAY='https://thunder-rigs-relay.hartswf0.workers.dev/trig/';
+const IS_REMOTE=(new URLSearchParams(location.search).get('remote')||'').toUpperCase()||null;
+const relay={room:null,peer:null,after:0,on:false,timer:null,lastState:0};
+async function relayJoin(code,name){
+  relay.room=String(code).toUpperCase().replace(/[^A-Z0-9-]/g,'').slice(0,16);
+  try{
+    const r=await fetch(RELAY+encodeURIComponent(relay.room)+'/join',{method:'POST',body:JSON.stringify({name})});
+    const d=await r.json();if(!d.peerId)return false;
+    relay.peer=d.peerId;relay.after=d.seq||0;relay.on=true;
+    clearInterval(relay.timer);relay.timer=setInterval(relayPoll,IS_REMOTE?700:900);
+    return true;
+  }catch(e){return false;}
+}
+async function relayPoll(){
+  if(!relay.on)return;
+  try{
+    const r=await fetch(RELAY+encodeURIComponent(relay.room)+'/poll?peerId='+relay.peer+'&after='+relay.after);
+    const d=await r.json();
+    (d.messages||[]).forEach(m=>{
+      if(m.seq>relay.after)relay.after=m.seq;
+      if(m.from!==relay.peer&&m.msg&&m.msg.t){IS_REMOTE?remoteState(m.msg):handleCue(m.msg);}
+    });
+  }catch(e){}
+}
+function relaySend(m){
+  if(!relay.on)return;
+  if(m.t==='state'){const now=performance.now();if(now-relay.lastState<1200)return;relay.lastState=now;}
+  fetch(RELAY+encodeURIComponent(relay.room)+'/send',{method:'POST',body:JSON.stringify({peerId:relay.peer,msg:m})}).catch(()=>{});
+}
+/* every cue the page sends also rides the relay once a room is joined */
+const __send0=sendCue;sendCue=function(m){__send0(m);relaySend(m);};
+function myRoom(){
+  const k=CHAN+'-room';let r=localStorage.getItem(k);
+  if(!r){r=(CHAN.replace(/[^a-z]/gi,'').slice(0,2)+Math.random().toString(36).slice(2,6)).toUpperCase();localStorage.setItem(k,r);}
+  return r;
+}
+function showQR(){
+  let ov=document.getElementById('qrov');
+  if(!ov){
+    ov=document.createElement('div');ov.id='qrov';
+    ov.style.cssText='position:fixed;inset:0;z-index:400;background:rgba(5,5,8,.93);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;cursor:pointer';
+    ov.onclick=()=>ov.remove();
+    document.body.appendChild(ov);
+  }
+  const url=location.origin+location.pathname+'?remote='+relay.room;
+  let svg='';
+  try{const q=qrcode(0,'M');q.addData(url);q.make();svg=q.createSvgTag({cellSize:6,margin:2,scalable:true});}catch(e){}
+  ov.innerHTML='<div style="background:#fff;padding:14px;border-radius:12px;width:min(64vw,300px)">'+svg+'</div>'
+    +'<div style="font:800 26px ui-monospace,monospace;letter-spacing:.2em;color:#fff">'+relay.room+'</div>'
+    +'<div style="font:11px ui-monospace,monospace;color:#9a9aa2;max-width:80vw;text-align:center;word-break:break-all">'+url+'</div>'
+    +'<div style="font:10px ui-monospace,monospace;color:#6a6a72">scan with a phone — it becomes the cue controller · tap to close</div>';
+}
+(function remoteWire(){
+  const db=document.getElementById('dirBtn');if(!db)return;
+  const rb=document.createElement('button');rb.id='remoteBtn';rb.textContent='REMOTE';
+  rb.title='pair a phone / second device by QR — it cues this window through the relay';
+  db.insertAdjacentElement('afterend',rb);
+  rb.onclick=async()=>{
+    if(!relay.on){
+      rb.textContent='REMOTE…';
+      const ok=await relayJoin(myRoom(),IS_DIR?'director':'stage');
+      if(!ok){rb.textContent='REMOTE';toast('relay unreachable');return;}
+      rb.classList.add('on');rb.textContent='REMOTE '+relay.room;
+    }
+    showQR();
+  };
+})();
+/* ---- the controller panel itself (?remote=CODE) — phone-sized, relay-only ---- */
+function remoteState(m){
+  if(!IS_REMOTE||m.t!=='state')return;
+  const g=id=>document.getElementById(id);
+  if(!g('rpanel'))return;
+  g('rNow').textContent=(m.row!=null&&m.row>=0)?('ROW '+(m.row+1)+'/'+m.n):'—';
+  g('rSpk').textContent=m.spk||'';
+  g('rNext').textContent=m.next?('next: '+m.next):'';
+  g('rCd').textContent=m.left!=null?('-'+m.left+'s'):(m.held?'HELD':'');
+  g('rGo').textContent=m.on?'❚❚ HOLD':'▶ GO';
+  g('rGo').classList.toggle('hold',!!m.on);
+  const rows=g('rRows');
+  const n=m.n|0;
+  if(rows&&rows.childElementCount!==n){
+    rows.innerHTML='';
+    for(let r=0;r<n;r++){const b=document.createElement('button');b.textContent=r+1;
+      b.onclick=()=>relaySend({t:'jump',row:r});rows.appendChild(b);}
+  }
+  if(rows)[...rows.children].forEach((b,i)=>b.classList.toggle('cur',i===m.row));
+  g('rLink').textContent='connected · '+relay.room;g('rLink').style.color='#43c463';
+  remoteState._m=m;
+}
+if(IS_REMOTE){
+  const p=document.createElement('div');p.id='rpanel';
+  p.innerHTML='<style>'
+    +'#rpanel{position:fixed;inset:0;z-index:500;background:#0a0a0c;color:#f2f2ee;font-family:ui-monospace,Menlo,monospace;'
+    +'display:flex;flex-direction:column;gap:12px;padding:16px;align-items:stretch}'
+    +'#rpanel .hd{display:flex;align-items:center;gap:8px;font-size:12px;letter-spacing:.14em}'
+    +'#rpanel .hd b{color:#9fe7ff}#rpanel #rLink{margin-left:auto;font-size:10px;color:#9a9aa2}'
+    +'#rpanel .now{text-align:center;margin-top:8px}'
+    +'#rpanel #rNow{font-size:34px;font-weight:800;color:#9fe7ff;letter-spacing:.04em}'
+    +'#rpanel #rSpk{font-size:16px;color:#fff;margin-top:2px}'
+    +'#rpanel #rCd{font-size:44px;font-weight:800;color:#f1c40f}'
+    +'#rpanel #rNext{font-size:12px;color:#9a9aa2}'
+    +'#rpanel #rGo{font-size:22px;font-weight:800;padding:20px;border-radius:14px;border:0;background:#43c463;color:#000;cursor:pointer}'
+    +'#rpanel #rGo.hold{background:#f1c40f}'
+    +'#rpanel .pn{display:flex;gap:10px}'
+    +'#rpanel .pn button{flex:1;font-size:16px;font-weight:800;padding:14px;border-radius:12px;border:1px solid rgba(242,242,238,.25);background:transparent;color:#f2f2ee;cursor:pointer}'
+    +'#rpanel #rRows{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;overflow-y:auto}'
+    +'#rpanel #rRows button{padding:12px 0;border-radius:10px;border:1px solid rgba(242,242,238,.22);background:#101014;color:#dcdce0;font-weight:800;font-size:14px;cursor:pointer}'
+    +'#rpanel #rRows button.cur{background:#9fe7ff;color:#000;border-color:#9fe7ff}'
+    +'#rpanel .ft{font-size:9px;color:#6a6a72;text-align:center}'
+    +'</style>'
+    +'<div class="hd"><b>MONTE REMOTE</b><span id="rLink">connecting…</span></div>'
+    +'<div class="now"><div id="rNow">—</div><div id="rSpk"></div><div id="rCd"></div><div id="rNext"></div></div>'
+    +'<button id="rGo">▶ GO</button>'
+    +'<div class="pn"><button id="rPrev">◀ PREV</button><button id="rNextB">NEXT ▶</button></div>'
+    +'<div id="rRows"></div>'
+    +'<div class="ft">cues travel via the relay — works from any device on any network</div>';
+  document.body.appendChild(p);
+  document.getElementById('rGo').onclick=()=>{const m=remoteState._m;relaySend({t:(m&&m.on)?'hold':'go'});};
+  document.getElementById('rPrev').onclick=()=>{const m=remoteState._m||{row:1};relaySend({t:'jump',row:Math.max(0,(m.row|0)-1)});};
+  document.getElementById('rNextB').onclick=()=>{const m=remoteState._m||{row:-1};relaySend({t:'jump',row:(m.row|0)+1});};
+  relayJoin(IS_REMOTE,'remote').then(ok=>{
+    const lk=document.getElementById('rLink');
+    if(!ok){lk.textContent='relay unreachable';lk.style.color='#e8402f';}
+    else{lk.textContent='joined '+relay.room+' — waiting for the stage';relaySend({t:'hello-remote'});}
+  });
+}
+
+window.SCOREAPI={SCORE,TR,trGo,trHold,trJump,scoreRows,rowSpeaker,enterRow};   // console/testing handle
+})();
 </script>
 </body>
 </html>
