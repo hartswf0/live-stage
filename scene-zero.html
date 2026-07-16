@@ -3787,6 +3787,46 @@ function iconBar(){
   if(srow)bar.insertBefore(srow,stat||null);
 }
 iconBar();
+/* ---- VOID SURFACE: every visible element is a claim about what matters now ----
+   REST (nothing to play): one invitation. BUILD (composing): build tools + stage
+   entry. LIVE (stage or clock running): transport, camera, audio, rec, link —
+   nothing else. Cuts are by STATE VALIDITY, not frequency guesses: a control
+   leaves when its claim is false and returns with its state. Nothing that shows
+   consequence, recovery, or exit is ever cut. */
+const SURFACE={
+  scoreGo:s=>s!=='REST', rowDur:s=>s!=='REST',
+  golive:s=>s==='BUILD', camBtn:s=>s!=='REST', masterAud:s=>s!=='REST',
+  dirBtn:s=>s!=='REST', remoteBtn:s=>s!=='REST',
+  addLane:s=>s!=='LIVE', libBtn:s=>s!=='LIVE', worldsBtn:s=>s==='BUILD',
+  seqBtn:s=>s==='BUILD', wallBtn:s=>s!=='LIVE',
+  theatreAll:s=>s==='BUILD', saveScene:s=>s==='BUILD',
+  recBtn:s=>s!=='REST', exportBtn:s=>s==='BUILD', importBtn:s=>s!=='LIVE',
+  backBtn:s=>s!=='LIVE',
+};
+function surfaceState(){
+  const hasClips=AI.some(p=>(LANES[p.id]||[]).length);
+  if(!hasClips)return 'REST';
+  if((typeof ST!=='undefined'&&ST.inStage)||TR.on)return 'LIVE';
+  return 'BUILD';
+}
+function applySurface(){
+  if(IS_REMOTE)return;
+  const s=surfaceState();
+  if(applySurface._s===s)return;
+  applySurface._s=s;
+  Object.entries(SURFACE).forEach(([id,ok])=>{const el=document.getElementById(id);
+    if(el)el.style.display=ok(s)?'':'none';});
+  document.querySelectorAll('#bar .bgrp').forEach(g=>{
+    const any=[...g.children].some(c=>c.style.display!=='none');
+    g.style.display=any?'':'none';});
+  const sc=document.getElementById('scenes');if(sc)sc.style.display=(s==='BUILD')?'':'none';
+  const stp=document.getElementById('score')||document.getElementById('scorestrip');
+  if(stp)stp.style.display=(s==='REST')?'none':'';
+  const stat=document.querySelector('#bar .stat');
+  if(stat)stat.style.display=(s==='LIVE')?'none':'';
+}
+setInterval(applySurface,600);applySurface();
+
 /* ---- GO LIVE: the puppet shows no strings, but the director isn't stranded ----
    What matters live: hold/resume, step a row, the camera, get out. One strip,
    invisible until the mouse peeks the top edge — a screen-share sees a Zoom call. */
