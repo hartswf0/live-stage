@@ -2891,7 +2891,7 @@ buildScenes();buildTable();buildStage();applyScene('team');
 (function(){
 const CHAN='scene6';
 const IS_DIR=new URLSearchParams(location.search).has('director');
-const SCORE={rowDur:10,loop:true,spk:{},cell:{}};
+const SCORE={rowDur:10,loop:true,spk:{},cell:{},rows:null};
 const TR={on:false,t0:0,row:-1,hold:null,timer:null};
 const SCOREKEY='scene6score';
 
@@ -2939,18 +2939,54 @@ if(stopEl)stopEl.insertBefore(stageRow,stopEl.children[1]||null);
 
 /* ---- score model ---- */
 function loadScore(){try{const s=JSON.parse(localStorage.getItem(SCOREKEY)||'null');
-  if(s){SCORE.rowDur=s.rowDur||10;SCORE.loop=s.loop!==false;SCORE.spk=s.spk||{};SCORE.cell=s.cell||{};}}catch(e){}durI.value=SCORE.rowDur;}
+  if(s){SCORE.rowDur=s.rowDur||10;SCORE.loop=s.loop!==false;SCORE.spk=s.spk||{};SCORE.cell=s.cell||{};SCORE.rows=s.rows||null;}}catch(e){}durI.value=SCORE.rowDur;}
 function saveScore(){try{localStorage.setItem(SCOREKEY,JSON.stringify(SCORE));}catch(e){}}
-function scoreRows(){let m=0;AI.forEach(p=>{m=Math.max(m,(LANES[p.id]||[]).length);});return Math.min(m,24);}
-/* a PINNED cell wins over lane order — otherwise setting a take from the remote is
-   fake: the next row boundary recomputes from order and erases it. Keyed by index
-   (device-independent), carried in SCORE, so it persists, loops, and syncs. */
+function scoreRows(){return ensureRows().length;}
+/* THE SCORE IS A DOCUMENT, NOT A DERIVATION.
+   SCORE.rows is an explicit array — each row is {dur, cells:{laneId: takeIdx|-1}}.
+   It is SEEDED once from lane order (that is all the old "built-in order" ever was),
+   then owned by you: add/delete rows, pin any take to any cell, REST a lane for a
+   row (-1 → its tile leaves the mosaic), give a row its own duration so time is a
+   rhythm, not a metronome. Persists, syncs, survives the clock. */
+function seedRows(n){
+  let maxL=0;AI.forEach(p=>{maxL=Math.max(maxL,(LANES[p.id]||[]).length);});
+  const N=Math.max(1,Math.min(24,n||Math.min(maxL||1,12)));
+  const rows=[];for(let r=0;r<N;r++)rows.push({dur:null,cells:{}});
+  return rows;
+}
+function ensureRows(){
+  if(!SCORE.rows||!SCORE.rows.length)SCORE.rows=seedRows();
+  if(SCORE.cell&&Object.keys(SCORE.cell).length){   // migrate legacy pins
+    Object.entries(SCORE.cell).forEach(([k,idx])=>{const [r,pid]=k.split('|');
+      if(SCORE.rows[+r])SCORE.rows[+r].cells[pid]=idx;});
+    SCORE.cell={};
+  }
+  return SCORE.rows;
+}
+function rowDurOf(r){const rows=ensureRows();return (rows[r]&&rows[r].dur)||SCORE.rowDur;}
+function rowStart(r){let t=0;for(let i=0;i<r;i++)t+=rowDurOf(i);return t;}
+function rowAt(t){const rows=ensureRows();let acc=0;
+  for(let i=0;i<rows.length;i++){acc+=rowDurOf(i);if(t<acc)return i;}return rows.length;}
 function rowCell(pid,r){const l=LANES[pid]||[];if(!l.length)return null;
-  const ov=SCORE.cell&&SCORE.cell[r+'|'+pid];
+  const row=ensureRows()[r];const ov=row?row.cells[pid]:undefined;
+  if(ov===-1)return null;                       // RESTING this row — leaves the mosaic
   if(ov!=null&&l[ov])return l[ov];
-  return l[Math.min(r,l.length-1)];}
-function pinCell(pid,r,idx){SCORE.cell=SCORE.cell||{};SCORE.cell[r+'|'+pid]=idx;}
-function unpinCell(pid,r){if(SCORE.cell)delete SCORE.cell[r+'|'+pid];}
+  return l[Math.min(r,l.length-1)];
+}
+function pinCell(pid,r,idx){const rows=ensureRows();if(rows[r])rows[r].cells[pid]=idx;}
+function unpinCell(pid,r){const rows=ensureRows();if(rows[r])delete rows[r].cells[pid];}
+function scoreEdited(){saveScore();sendCue({t:'score',score:SCORE});
+  if(typeof scoreHUD==='function')scoreHUD();}
+function addRow(){if(scoreRows()>=24)return;ensureRows().push({dur:null,cells:{}});scoreEdited();}
+function delRow(r){const rows=ensureRows();if(rows.length<=1)return;rows.splice(r,1);
+  if(TR.row>=rows.length)TR.row=rows.length-1;
+  if(TR.on){TR.t0=performance.now()-rowStart(TR.row)*1000;enterRow(TR.row);}
+  scoreEdited();}
+function cycleDur(r){const rows=ensureRows();if(!rows[r])return;
+  const P=[null,3,5,8,15,20];const i=P.indexOf(rows[r].dur);
+  rows[r].dur=P[(i+1)%P.length];
+  if(TR.on)TR.t0=performance.now()-rowStart(TR.row)*1000;
+  scoreEdited();}
 function rowFresh(pid,r){return r<((LANES[pid]||[]).length);}
 function rowSpeaker(r){
   const ids=AI.filter(p=>rowCell(p.id,r)).map(p=>p.id);if(!ids.length)return null;
@@ -2987,9 +3023,9 @@ function nextName(r,n){const s=rowSpeaker((r+1)%n);return s?P[s].name:null;}
 function trTick(){
   if(!TR.on)return;
   const t=(performance.now()-TR.t0)/1000;
-  const r=Math.floor(t/SCORE.rowDur);
+  const r=rowAt(t);
   if(r!==TR.row)enterRow(r);
-  const left=SCORE.rowDur-(t%SCORE.rowDur);hudTime(left);
+  const left=Math.max(0,rowStart(TR.row)+rowDurOf(TR.row)-((performance.now()-TR.t0)/1000));hudTime(left);
   if(!trTick._h||performance.now()-trTick._h>500){trTick._h=performance.now();
     sendCue({t:'state',row:TR.row,n:scoreRows(),left:+left.toFixed(1),
       spk:(TR.row>=0&&rowSpeaker(TR.row))?P[rowSpeaker(TR.row)].name:null,
@@ -3001,7 +3037,7 @@ function trGo(){
   if(!scoreRows()){toast('no clips in any lane');return;}
   if(!ST.inStage)enterStage();
   TR.on=true;
-  const base=TR.hold!=null?TR.hold:(TR.row>=0?TR.row*SCORE.rowDur:0);
+  const base=TR.hold!=null?TR.hold:(TR.row>=0?rowStart(TR.row):0);
   TR.t0=performance.now()-base*1000;TR.hold=null;
   if(TR.row<0)enterRow(0);
   else Object.values(stageVids).forEach(b=>Object.values(b).forEach(v=>{if(v.classList.contains('on'))v.play().catch(()=>{});}));
@@ -3018,7 +3054,7 @@ function trHold(){
 function trJump(r){
   if(IS_DIR){sendCue({t:'jump',row:r});return;}
   if(!ST.inStage)enterStage();
-  TR.hold=null;TR.t0=performance.now()-r*SCORE.rowDur*1000;
+  TR.hold=null;TR.t0=performance.now()-rowStart(r)*1000;
   if(!TR.on){TR.on=true;clearInterval(TR.timer);TR.timer=setInterval(trTick,100);}
   enterRow(r);
 }
@@ -3037,11 +3073,14 @@ function scoreHUD(){
   for(let r=0;r<n;r++){
     const spk=rowSpeaker(r);
     const chip=mk('div',{class:'rowchip'+(r===TR.row?' cur':''),title:(spk?P[spk].name+' speaks':'empty')+' — click: cue row · right-click: change speaker'},
-      `<b>${r+1}</b><span class="sb" style="background:${spk?hsl(P[spk].hue,55,45):'#333'}">${spk?P[spk].initials:'·'}</span>`);
-    chip.onclick=e=>{if(e.shiftKey)cycleSpk(r);else trJump(r);};
+      `<b>${r+1}</b><span class="sb" style="background:${spk?hsl(P[spk].hue,55,45):'#333'}">${spk?P[spk].initials:'·'}</span>`+`<span class="du" data-r="${r}" style="font-size:8px;color:#8a8a92;margin-left:2px;cursor:pointer" title="row duration — click to cycle">${rowDurOf(r)}s</span><span class="rx" data-r="${r}" style="font-size:9px;color:#7a4040;margin-left:3px;cursor:pointer" title="delete row">×</span>`);
+    chip.onclick=e=>{if(e.target.classList.contains('du')){cycleDur(r);return;}if(e.target.classList.contains('rx')){delRow(r);return;}if(e.shiftKey)cycleSpk(r);else trJump(r);};
     chip.oncontextmenu=e=>{e.preventDefault();cycleSpk(r);};
     strip.appendChild(chip);
   }
+  if(n&&n<24){const plus=document.createElement('div');plus.className='rowchip';plus.style.opacity='.75';
+    plus.innerHTML='<b>+</b>';plus.title='add a row at the end';
+    plus.onclick=()=>addRow();strip.appendChild(plus);}
   goB.textContent=TR.on?'❚❚ HOLD':'▶ SCORE';goB.classList.toggle('on',TR.on);
   const spk=TR.row>=0?rowSpeaker(TR.row):null;
   const txt=TR.row>=0?`ROW ${TR.row+1}/${n} · ${spk?P[spk].name:'—'}`:(TR.hold!=null?'HELD':'');
@@ -3055,7 +3094,7 @@ function hudTime(left){
 }
 goB.onclick=()=>TR.on?trHold():trGo();
 durI.onchange=e=>{SCORE.rowDur=Math.max(2,Math.min(60,+e.target.value||10));e.target.value=SCORE.rowDur;saveScore();
-  if(TR.on)TR.t0=performance.now()-TR.row*SCORE.rowDur*1000;
+  if(TR.on)TR.t0=performance.now()-rowStart(TR.row)*1000;
   scoreHUD();if(IS_DIR)sendCue({t:'score',score:SCORE});};
 dirB.onclick=()=>{if(IS_DIR){toast('this IS the director');return;}
   window.open(location.pathname+'?director=1','scene6Director','width=1200,height=760');
@@ -3084,7 +3123,7 @@ function handleCue(m){
     case 'hold':trHold();break;
     case 'jump':trJump(m.row|0);break;
     case 'score':Object.assign(SCORE,m.score);saveScore();durI.value=SCORE.rowDur;
-      if(TR.on)TR.t0=performance.now()-TR.row*SCORE.rowDur*1000;
+      if(TR.on)TR.t0=performance.now()-rowStart(TR.row)*1000;
       if(TR.row>=0)enterRow(TR.row);scoreHUD();break;
     case 'hear':scoreHear(m.pid);break;
     case 'aud':{const a=ST.aud[m.pid];if(a){a.on=!!m.on;if(m.on)ST.master=true;applyAudio();}break;}
@@ -3301,6 +3340,7 @@ function remoteState(m){
   if(remoteGrid._row!==m.row||remoteGrid._n!==m.n){remoteGrid();}
   else{
     document.querySelectorAll('#rChips .rc').forEach((b,i)=>b.classList.toggle('cur',i===m.row));
+    const cueB=document.getElementById('rCue');if(cueB){const sel=remoteGrid._sel;const show=sel!=null&&sel!==m.row&&sel<m.n;cueB.style.display=show?'':'none';if(show)cueB.textContent='CUE '+(sel+1);}
     document.querySelectorAll('#rLanes .rlane').forEach(el=>{
       el.classList.toggle('spk',el.dataset.pid===(m.spkPid||''));
       if(m.auds){const mb=el.querySelector('.rmute');if(mb){const on=!!m.auds[el.dataset.pid];
@@ -3312,7 +3352,8 @@ function remoteState(m){
 function buildTakes(strip,pid,row){
   strip.innerHTML='';
   const lane=LANES[pid]||[],cur=rowCell(pid,row);
-  const pinned=SCORE.cell&&SCORE.cell[row+'|'+pid];
+  const rowObj=ensureRows()[row]||{cells:{}};
+  const pinned=(pid in rowObj.cells)?rowObj.cells[pid]:null;
   const nameOf=(typeof PMAP!=='undefined'&&PMAP[pid]&&PMAP[pid].name)||(typeof P!=='undefined'&&P[pid]&&P[pid].name)||pid;
   lane.forEach((cid,idx)=>{
     const c=CLIP[cid];if(!c)return;
@@ -3330,6 +3371,12 @@ function buildTakes(strip,pid,row){
     };
     strip.appendChild(t);
   });
+  {const rb=document.createElement('button');rb.className='rtake rest'+(pinned===-1?' pinned':'');
+    rb.innerHTML='<span class="rtth ac">REST</span><span class="rtlb">off this row</span>';
+    rb.title='this lane leaves the mosaic for this row';
+    rb.onclick=()=>{pinCell(pid,row,-1);relaySend({t:'score',score:SCORE});
+      buildTakes(strip,pid,row);remoteGrid._row=-99;toastR(nameOf+' rests on row '+(row+1));};
+    strip.appendChild(rb);}
   if(pinned!=null){
     const a=document.createElement('button');a.className='rtake auto';
     a.innerHTML='<span class="rtth ac">AUTO</span><span class="rtlb">follow score order</span>';
@@ -3354,20 +3401,20 @@ function remoteGrid(){
   chips.innerHTML='';
   for(let r=0;r<n;r++){
     const spk=rowSpeaker(r),pp=spk?(P[spk]||{}):null;
-    const b=document.createElement('button');b.className='rc'+(r===m.row?' cur':'');
-    b.innerHTML='<b>'+(r+1)+'</b><span class="ri">'+(pp&&pp.initials?pp.initials:'·')+'</span>';
-    b.title=(pp&&pp.name?pp.name+' speaks':'empty')+' — tap: cue row · badge: change speaker';
+    const b=document.createElement('button');b.className='rc'+(r===m.row?' cur':'')+(remoteGrid._sel===r?' sel':'');
+    b.innerHTML='<b>'+(r+1)+'</b><span class="ri">'+(pp&&pp.initials?pp.initials:'·')+'</span>'+'<span class="rdu">'+rowDurOf(r)+'s</span>';
+    b.title=(pp&&pp.name?pp.name+' speaks':'empty')+' — tap: select · badge: speaker · time: duration';
     b.onclick=e=>{
       if(e.target.classList.contains('ri')){
         const ids=AI.filter(p=>rowCell(p.id,r)).map(p=>p.id);if(!ids.length)return;
         const cur=rowSpeaker(r),i=ids.indexOf(cur);SCORE.spk[r]=ids[(i+1)%ids.length];
         relaySend({t:'score',score:SCORE});remoteGrid();
-      }else relaySend({t:'jump',row:r});
+      }else if(e.target.classList.contains('rdu')){cycleDur(r);remoteGrid();      }else{remoteGrid._sel=(remoteGrid._sel===r?null:r);remoteGrid();}
     };
     chips.appendChild(b);
   }
   lanesEl.innerHTML='';
-  const row=Math.max(0,m.row|0);
+  const row=(remoteGrid._sel!=null&&remoteGrid._sel<n)?remoteGrid._sel:Math.max(0,m.row|0);
   AI.forEach(p=>{
     if(!(LANES[p.id]||[]).length)return;
     const cid=rowCell(p.id,row);
@@ -3434,6 +3481,9 @@ if(IS_REMOTE){
     +'#rChips .rc b{color:#9a9aa2;font-size:11px}'
     +'#rChips .rc .ri{width:20px;height:20px;border-radius:50%;background:#2a2a30;color:#fff;display:grid;place-items:center;font-size:9px}'
     +'#rChips .rc.cur{border-color:#9fe7ff;background:#12222a}#rChips .rc.cur b{color:#9fe7ff}'
+    +'#rChips .rc.sel{border-color:#f1c40f;box-shadow:0 0 0 1px #f1c40f}'
+    +'#rChips .rc .rdu{font-size:8px;color:#8a8a92}'
+    +'.rtake.rest .rtth{color:#c98a3b}'
     +'#rLanes{display:flex;flex-direction:column;gap:8px}'
     +'.rlane{display:flex;gap:10px;border:1px solid rgba(242,242,238,.16);border-radius:12px;padding:8px;background:#0e0e12;align-items:center}'
     +'.rlane.spk{border-color:#2d8cff;box-shadow:0 0 0 1px #2d8cff}'
@@ -3472,15 +3522,16 @@ if(IS_REMOTE){
     +'<div class="hd"><b>MONTE REMOTE</b><span id="rLink">connecting…</span></div>'
     +'<div class="now"><span id="rNow">—</span><span id="rSpk"></span><span id="rCd"></span></div>'
     +'<button id="rGo">▶ GO</button>'
-    +'<div class="pn"><button id="rPrev">◀ PREV</button><button id="rNextB">NEXT ▶</button>'
+    +'<div class="pn"><button id="rCue" style="display:none;background:#f1c40f;color:#000;border-color:#f1c40f">CUE</button>'+'<button id="rPrev">◀ PREV</button><button id="rNextB">NEXT ▶</button>'
     +'<div class="dur"><button id="rDurM">−</button><span id="rDurV">10s</span><button id="rDurP">+</button></div></div>'
     +'<div id="rChips"></div>'
     +'<div id="rLanes"></div>'
-    +'<div class="ft">cues travel via the relay — tap a row to cue it · badge = change speaker · TAKES = every take, tap to set</div>';
+    +'<div class="ft">cues travel via the relay — tap a row to SELECT and edit it · CUE sends the stage there · badge = speaker · time = row duration · TAKES/REST per lane</div>';
   document.body.appendChild(p);
   document.getElementById('rGo').onclick=()=>{const m=remoteState._m;relaySend({t:(m&&m.on)?'hold':'go'});};
   document.getElementById('rPrev').onclick=()=>{const m=remoteState._m||{row:1};relaySend({t:'jump',row:Math.max(0,(m.row|0)-1)});};
   document.getElementById('rNextB').onclick=()=>{const m=remoteState._m||{row:-1};relaySend({t:'jump',row:(m.row|0)+1});};
+  document.getElementById('rCue').onclick=()=>{const r=remoteGrid._sel;if(r!=null){relaySend({t:'jump',row:r});remoteGrid._sel=null;remoteGrid();}};
   const durSet=d=>{SCORE.rowDur=Math.max(2,Math.min(60,d));document.getElementById('rDurV').textContent=SCORE.rowDur+'s';
     relaySend({t:'score',score:SCORE});};
   document.getElementById('rDurM').onclick=()=>durSet(SCORE.rowDur-1);
