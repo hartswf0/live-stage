@@ -3078,6 +3078,8 @@ function handleCue(m){
     case 'score':Object.assign(SCORE,m.score);saveScore();durI.value=SCORE.rowDur;
       if(TR.on)TR.t0=performance.now()-TR.row*SCORE.rowDur*1000;scoreHUD();break;
     case 'hear':scoreHear(m.pid);break;
+    case 'aud':{const a=ST.aud[m.pid];if(a){a.on=!!m.on;if(m.on)ST.master=true;applyAudio();}break;}
+    case 'nexttake':{const l=LANES[m.pid]||[];if(l.length>1){const i=l.indexOf(ST.live[m.pid]);goLive(m.pid,l[(i+1)%l.length]);applyAudio();}break;}
     /* director.html's original vocabulary keeps working: */
     case 'scene':applyScene(m.key);break;
     case 'clip':{const cid=(LANES[m.pid]||[]).find(x=>CLIP[x]&&CLIP[x].file===m.file)||m.cid;if(cid)goLive(m.pid,cid);break;}
@@ -3116,7 +3118,7 @@ async function relayJoin(code,name){
     const d=await r.json();if(!d.peerId)return false;
     relay.peer=d.peerId;relay.after=d.seq||0;relay.on=true;
     clearInterval(relay.timer);relay.timer=setInterval(relayPoll,IS_REMOTE?700:900);
-    if(!IS_REMOTE)setTimeout(pullSnapshot,300);   // late joiner catches up from the room snapshot
+    setTimeout(pullSnapshot,300);   // late joiner (remote included) catches up from the room snapshot
     return true;
   }catch(e){return false;}
 }
@@ -3131,7 +3133,12 @@ async function relayPoll(){
     if(typeof d.seq==='number'&&d.seq<relay.after)relay.after=d.seq;   // DO evicted & seq rewound
     (d.messages||[]).forEach(m=>{
       if(m.seq>relay.after)relay.after=m.seq;
-      if(m.from!==relay.peer&&m.msg&&m.msg.t){IS_REMOTE?remoteState(m.msg):handleCue(m.msg);}
+      if(m.from!==relay.peer&&m.msg&&m.msg.t){
+        if(IS_REMOTE){
+          if(m.msg.t==='state')remoteState(m.msg);
+          else if(m.msg.t==='table'||m.msg.t==='score'){handleCue(m.msg);if(typeof remoteGrid==='function')remoteGrid();}
+        }else handleCue(m.msg);
+      }
     });
   }catch(e){}
 }
@@ -3143,7 +3150,10 @@ function relaySend(m){
   fetch(RELAY+encodeURIComponent(relay.room)+'/send',{method:'POST',body:JSON.stringify({peerId:relay.peer,msg:m})}).catch(()=>{});
 }
 /* every cue the page sends also rides the relay once a room is joined */
-const __send0=sendCue;sendCue=function(m){__send0(m);relaySend(m);};
+const __send0=sendCue;sendCue=function(m){
+  if(m&&m.t==='state'){try{m.rowDur=SCORE.rowDur;m.spkPid=(m.row!=null&&m.row>=0)?rowSpeaker(m.row):null;m.auds=Object.fromEntries(AI.map(p=>[p.id,!!(ST.aud[p.id]&&ST.aud[p.id].on)]));}catch(e){}}
+  __send0(m);relaySend(m);
+};
 function myRoom(){
   /* the whole hartswf0.github.io origin shares ONE ~5MB localStorage (thunder-rigs,
      decks, scenes...) — it can be FULL. Never let storage kill the room: memory first,
@@ -3223,7 +3233,7 @@ function broadcastTable(){
   },400);
 }
 async function pullSnapshot(){
-  if(!relay.on||IS_REMOTE)return;
+  if(!relay.on)return;
   try{
     const r=await fetch(RELAY+encodeURIComponent(relay.room)+'/snapshot',{cache:'no-store'});
     const d=await r.json();const sn=d&&d.snapshot;
@@ -3232,7 +3242,7 @@ async function pullSnapshot(){
 }
 const __save0=saveTable;saveTable=function(){__save0();broadcastTable();};
 const __hc1=handleCue;handleCue=function(m){
-  if(m&&m.t==='table'&&m.data){if(!IS_REMOTE)applyTableData(m.v||0,m.data);return;}
+  if(m&&m.t==='table'&&m.data){applyTableData(m.v||0,m.data);if(IS_REMOTE&&typeof remoteGrid==='function')remoteGrid();return;}
   __hc1(m);
 };
 function tableData(){
@@ -3262,65 +3272,180 @@ function applyTableData(v,data){
   }catch(e){toast('table sync failed');}
 }
 
-/* ---- the controller panel itself (?remote=CODE) — phone-sized, relay-only ---- */
+/* ---- REMOTE v2: a mini-MONTE with eyes ----
+   The remote gets the full table via edit-sync (snapshot on join, table cues live),
+   so it can SEE the score: per-lane thumbnails, who speaks now, what's on deck —
+   and control it: per-lane SPEAK / mute / next-take, per-row speaker, row duration.
+   State heartbeats carry live row/countdown/mute truth. Cues are relay-only. */
 function remoteState(m){
-  if(!IS_REMOTE||m.t!=='state')return;
-  const g=id=>document.getElementById(id);
-  if(!g('rpanel'))return;
+  if(!IS_REMOTE||!m||m.t!=='state')return;
+  remoteState._m=m;
+  const g=id=>document.getElementById(id);if(!g('rpanel'))return;
   g('rNow').textContent=(m.row!=null&&m.row>=0)?('ROW '+(m.row+1)+'/'+m.n):'—';
   g('rSpk').textContent=m.spk||'';
-  g('rNext').textContent=m.next?('next: '+m.next):'';
   g('rCd').textContent=m.left!=null?('-'+m.left+'s'):(m.held?'HELD':'');
-  g('rGo').textContent=m.on?'❚❚ HOLD':'▶ GO';
-  g('rGo').classList.toggle('hold',!!m.on);
-  const rows=g('rRows');
-  const n=m.n|0;
-  if(rows&&rows.childElementCount!==n){
-    rows.innerHTML='';
-    for(let r=0;r<n;r++){const b=document.createElement('button');b.textContent=r+1;
-      b.onclick=()=>relaySend({t:'jump',row:r});rows.appendChild(b);}
-  }
-  if(rows)[...rows.children].forEach((b,i)=>b.classList.toggle('cur',i===m.row));
+  g('rGo').textContent=m.on?'❚❚ HOLD':'▶ GO';g('rGo').classList.toggle('hold',!!m.on);
+  if(m.rowDur){SCORE.rowDur=m.rowDur;const d=g('rDurV');if(d)d.textContent=m.rowDur+'s';}
   g('rLink').textContent='connected · '+relay.room;g('rLink').style.color='#43c463';
-  remoteState._m=m;
+  if(remoteGrid._row!==m.row||remoteGrid._n!==m.n){remoteGrid();}
+  else{
+    document.querySelectorAll('#rChips .rc').forEach((b,i)=>b.classList.toggle('cur',i===m.row));
+    document.querySelectorAll('#rLanes .rlane').forEach(el=>{
+      el.classList.toggle('spk',el.dataset.pid===(m.spkPid||''));
+      if(m.auds){const mb=el.querySelector('.rmute');if(mb){const on=!!m.auds[el.dataset.pid];
+        mb.textContent=on?'🔊':'🔇';mb.classList.toggle('on',on);}}
+    });
+  }
+}
+function remoteGrid(){
+  if(!IS_REMOTE)return;
+  const m=remoteState._m||{row:-1,n:scoreRows(),auds:null,spkPid:null};
+  remoteGrid._row=m.row;remoteGrid._n=scoreRows()||m.n;
+  const chips=document.getElementById('rChips'),lanesEl=document.getElementById('rLanes');
+  if(!chips||!lanesEl)return;
+  const n=scoreRows();
+  chips.innerHTML='';
+  for(let r=0;r<n;r++){
+    const spk=rowSpeaker(r),pp=spk?(P[spk]||{}):null;
+    const b=document.createElement('button');b.className='rc'+(r===m.row?' cur':'');
+    b.innerHTML='<b>'+(r+1)+'</b><span class="ri">'+(pp&&pp.initials?pp.initials:'·')+'</span>';
+    b.title=(pp&&pp.name?pp.name+' speaks':'empty')+' — tap: cue row · badge: change speaker';
+    b.onclick=e=>{
+      if(e.target.classList.contains('ri')){
+        const ids=AI.filter(p=>rowCell(p.id,r)).map(p=>p.id);if(!ids.length)return;
+        const cur=rowSpeaker(r),i=ids.indexOf(cur);SCORE.spk[r]=ids[(i+1)%ids.length];
+        relaySend({t:'score',score:SCORE});remoteGrid();
+      }else relaySend({t:'jump',row:r});
+    };
+    chips.appendChild(b);
+  }
+  lanesEl.innerHTML='';
+  const row=Math.max(0,m.row|0);
+  AI.forEach(p=>{
+    if(!(LANES[p.id]||[]).length)return;
+    const cid=rowCell(p.id,row);
+    const card=document.createElement('div');card.className='rlane'+(m.spkPid===p.id?' spk':'');
+    card.dataset.pid=p.id;
+    const th=document.createElement('div');th.className='rth';
+    const c=cid?CLIP[cid]:null;
+    if(c){const el=(function(c){const v=document.createElement('video');v.muted=true;v.playsInline=true;v.preload='metadata';v.src=c.src+'#t=0.5';return v;})(c);if(el)th.appendChild(el);}
+    card.appendChild(th);
+    const bx=document.createElement('div');bx.className='rbx';
+    const nm=document.createElement('div');nm.className='rnm';nm.textContent=p.name;bx.appendChild(nm);
+    const now=document.createElement('div');now.className='rmeta';
+    now.textContent='now: '+(c?c.label:'—');bx.appendChild(now);
+    const deckCid=n>1?rowCell(p.id,(row+1)%n):null;
+    const deck=document.createElement('div');deck.className='rmeta deck';
+    deck.textContent='deck: '+(deckCid&&CLIP[deckCid]?CLIP[deckCid].label:'—');bx.appendChild(deck);
+    const ct=document.createElement('div');ct.className='rct';
+    const bS=document.createElement('button');bS.textContent='SPEAK';bS.className='rspk';
+    bS.onclick=()=>relaySend({t:'hear',pid:p.id});
+    const bM=document.createElement('button');bM.className='rmute';
+    const on=!!(m.auds&&m.auds[p.id]);bM.textContent=on?'🔊':'🔇';bM.classList.toggle('on',on);
+    bM.onclick=()=>relaySend({t:'aud',pid:p.id,on:!bM.classList.contains('on')});
+    const bN=document.createElement('button');bN.textContent='TAKE ▸';
+    bN.title='advance this lane to its next clip';
+    bN.onclick=()=>relaySend({t:'nexttake',pid:p.id});
+    ct.append(bS,bM,bN);bx.appendChild(ct);
+    card.appendChild(bx);
+    lanesEl.appendChild(card);
+  });
 }
 if(IS_REMOTE){
   const p=document.createElement('div');p.id='rpanel';
   p.innerHTML='<style>'
     +'#rpanel{position:fixed;inset:0;z-index:500;background:#0a0a0c;color:#f2f2ee;font-family:ui-monospace,Menlo,monospace;'
-    +'display:flex;flex-direction:column;gap:12px;padding:16px;align-items:stretch}'
-    +'#rpanel .hd{display:flex;align-items:center;gap:8px;font-size:12px;letter-spacing:.14em}'
+    +'display:flex;flex-direction:column;gap:10px;padding:12px;overflow-y:auto}'
+    +'#rpanel .hd{display:flex;align-items:center;gap:8px;font-size:12px;letter-spacing:.14em;flex:0 0 auto}'
     +'#rpanel .hd b{color:#9fe7ff}#rpanel #rLink{margin-left:auto;font-size:10px;color:#9a9aa2}'
-    +'#rpanel .now{text-align:center;margin-top:8px}'
-    +'#rpanel #rNow{font-size:34px;font-weight:800;color:#9fe7ff;letter-spacing:.04em}'
-    +'#rpanel #rSpk{font-size:16px;color:#fff;margin-top:2px}'
-    +'#rpanel #rCd{font-size:44px;font-weight:800;color:#f1c40f}'
-    +'#rpanel #rNext{font-size:12px;color:#9a9aa2}'
-    +'#rpanel #rGo{font-size:22px;font-weight:800;padding:20px;border-radius:14px;border:0;background:#43c463;color:#000;cursor:pointer}'
+    +'#rpanel .now{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}'
+    +'#rpanel #rNow{font-size:24px;font-weight:800;color:#9fe7ff}'
+    +'#rpanel #rSpk{font-size:14px;color:#fff;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
+    +'#rpanel #rCd{font-size:24px;font-weight:800;color:#f1c40f}'
+    +'#rpanel #rGo{font-size:18px;font-weight:800;padding:14px;border-radius:12px;border:0;background:#43c463;color:#000;cursor:pointer;flex:0 0 auto}'
     +'#rpanel #rGo.hold{background:#f1c40f}'
-    +'#rpanel .pn{display:flex;gap:10px}'
-    +'#rpanel .pn button{flex:1;font-size:16px;font-weight:800;padding:14px;border-radius:12px;border:1px solid rgba(242,242,238,.25);background:transparent;color:#f2f2ee;cursor:pointer}'
-    +'#rpanel #rRows{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;overflow-y:auto}'
-    +'#rpanel #rRows button{padding:12px 0;border-radius:10px;border:1px solid rgba(242,242,238,.22);background:#101014;color:#dcdce0;font-weight:800;font-size:14px;cursor:pointer}'
-    +'#rpanel #rRows button.cur{background:#9fe7ff;color:#000;border-color:#9fe7ff}'
-    +'#rpanel .ft{font-size:9px;color:#6a6a72;text-align:center}'
+    +'#rpanel .pn{display:flex;gap:8px;align-items:stretch}'
+    +'#rpanel .pn button{flex:1;font-size:13px;font-weight:800;padding:10px;border-radius:10px;border:1px solid rgba(242,242,238,.25);background:transparent;color:#f2f2ee;cursor:pointer}'
+    +'#rpanel .dur{display:flex;gap:0;align-items:center;border:1px solid rgba(242,242,238,.25);border-radius:10px;overflow:hidden;flex:0 0 auto}'
+    +'#rpanel .dur button{border:0;background:transparent;color:#9fe7ff;font-size:16px;font-weight:800;padding:10px 12px;cursor:pointer}'
+    +'#rpanel .dur span{font-size:12px;font-weight:800;min-width:34px;text-align:center;color:#f2f2ee}'
+    +'#rChips{display:flex;gap:5px;overflow-x:auto;flex:0 0 auto;padding:2px 0}'
+    +'#rChips .rc{flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:8px 10px;border-radius:9px;'
+    +'border:1px solid rgba(242,242,238,.22);background:#101014;color:#dcdce0;font-weight:800;font-size:13px;cursor:pointer}'
+    +'#rChips .rc b{color:#9a9aa2;font-size:11px}'
+    +'#rChips .rc .ri{width:20px;height:20px;border-radius:50%;background:#2a2a30;color:#fff;display:grid;place-items:center;font-size:9px}'
+    +'#rChips .rc.cur{border-color:#9fe7ff;background:#12222a}#rChips .rc.cur b{color:#9fe7ff}'
+    +'#rLanes{display:flex;flex-direction:column;gap:8px}'
+    +'.rlane{display:flex;gap:10px;border:1px solid rgba(242,242,238,.16);border-radius:12px;padding:8px;background:#0e0e12;align-items:center}'
+    +'.rlane.spk{border-color:#2d8cff;box-shadow:0 0 0 1px #2d8cff}'
+    +'.rth{width:74px;height:46px;border-radius:7px;overflow:hidden;background:#000;flex:0 0 auto}'
+    +'.rth video,.rth img{width:100%;height:100%;object-fit:cover;display:block}'
+    +'.rbx{flex:1;min-width:0}'
+    +'.rnm{font-size:13px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
+    +'.rmeta{font-size:10px;color:#9a9aa2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
+    +'.rmeta.deck{color:#6a6a72}'
+    +'.rct{display:flex;gap:6px;margin-top:6px}'
+    +'.rct button{font-size:10px;font-weight:800;padding:6px 9px;border-radius:8px;border:1px solid rgba(242,242,238,.22);background:transparent;color:#f2f2ee;cursor:pointer}'
+    +'.rct .rspk{color:#2d8cff;border-color:#2d8cff}'
+    +'.rct .rmute.on{background:#9fe7ff;color:#000;border-color:#9fe7ff}'
+    +'#rpanel .ft{font-size:9px;color:#6a6a72;text-align:center;padding-bottom:8px}'
     +'</style>'
     +'<div class="hd"><b>MONTE REMOTE</b><span id="rLink">connecting…</span></div>'
-    +'<div class="now"><div id="rNow">—</div><div id="rSpk"></div><div id="rCd"></div><div id="rNext"></div></div>'
+    +'<div class="now"><span id="rNow">—</span><span id="rSpk"></span><span id="rCd"></span></div>'
     +'<button id="rGo">▶ GO</button>'
-    +'<div class="pn"><button id="rPrev">◀ PREV</button><button id="rNextB">NEXT ▶</button></div>'
-    +'<div id="rRows"></div>'
-    +'<div class="ft">cues travel via the relay — works from any device on any network</div>';
+    +'<div class="pn"><button id="rPrev">◀ PREV</button><button id="rNextB">NEXT ▶</button>'
+    +'<div class="dur"><button id="rDurM">−</button><span id="rDurV">10s</span><button id="rDurP">+</button></div></div>'
+    +'<div id="rChips"></div>'
+    +'<div id="rLanes"></div>'
+    +'<div class="ft">cues travel via the relay — tap a row to cue it · badge = change speaker · SPEAK / mute / TAKE per lane</div>';
   document.body.appendChild(p);
   document.getElementById('rGo').onclick=()=>{const m=remoteState._m;relaySend({t:(m&&m.on)?'hold':'go'});};
   document.getElementById('rPrev').onclick=()=>{const m=remoteState._m||{row:1};relaySend({t:'jump',row:Math.max(0,(m.row|0)-1)});};
   document.getElementById('rNextB').onclick=()=>{const m=remoteState._m||{row:-1};relaySend({t:'jump',row:(m.row|0)+1});};
+  const durSet=d=>{SCORE.rowDur=Math.max(2,Math.min(60,d));document.getElementById('rDurV').textContent=SCORE.rowDur+'s';
+    relaySend({t:'score',score:SCORE});};
+  document.getElementById('rDurM').onclick=()=>durSet(SCORE.rowDur-1);
+  document.getElementById('rDurP').onclick=()=>durSet(SCORE.rowDur+1);
   relayJoin(IS_REMOTE,'remote').then(ok=>{
     const lk=document.getElementById('rLink');
     if(!ok){lk.textContent='relay unreachable';lk.style.color='#e8402f';}
-    else{lk.textContent='joined '+relay.room+' — waiting for the stage';relaySend({t:'hello-remote'});}
+    else{lk.textContent='joined '+relay.room+' — waiting for the stage';relaySend({t:'hello-remote'});
+      setTimeout(remoteGrid,900);}
   });
 }
+/* ---- BAR IA: park the occasional tools in one ⋯ menu ---- */
+function collapseBar(ids){
+  const bar=document.getElementById('bar');if(!bar||IS_REMOTE)return;
+  const stat=bar.querySelector('.stat');
+  const more=document.createElement('button');more.id='moreBtn';more.textContent='⋯';more.title='more tools';
+  const panel=document.createElement('div');panel.id='morePanel';
+  panel.style.cssText='position:fixed;top:44px;right:10px;z-index:320;background:#101014;border:1px solid rgba(242,242,238,.3);border-radius:10px;padding:8px;display:none;flex-direction:column;gap:6px;min-width:160px;box-shadow:0 14px 40px rgba(0,0,0,.6)';
+  let moved=0;
+  ids.forEach(id=>{const b=document.getElementById(id);if(b){b.style.width='100%';b.style.textAlign='left';panel.appendChild(b);moved++;}});
+  if(!moved)return;
+  more.onclick=e=>{e.stopPropagation();panel.style.display=panel.style.display==='flex'?'none':'flex';};
+  document.addEventListener('pointerdown',e=>{if(!e.target.closest('#morePanel')&&e.target!==more)panel.style.display='none';},true);
+  if(stat)bar.insertBefore(more,stat);else bar.appendChild(more);
+  document.body.appendChild(panel);
+}
+collapseBar(['camBtn','theatreAll','addLane','saveScene','recBtn','exportBtn','importBtn']);
+/* ---- the puppeted stage shows no strings: dock starts hidden, chrome only on peek ---- */
+(function stageClean(){
+  if(IS_REMOTE)return;
+  const st=document.getElementById('stage');if(!st)return;
+  if(document.getElementById('sdock')&&typeof enterStage==='function'){
+    const __es1=enterStage;enterStage=function(){__es1();
+      const d=document.getElementById('sdock');if(d)d.classList.add('hidden');
+      const cb=document.getElementById('sChat');if(cb)cb.classList.remove('on');};
+  }
+  if(document.getElementById('shide')){
+    const cs=document.createElement('style');
+    cs.textContent='#shide,#exitStage{opacity:0!important;pointer-events:none!important;transition:opacity .3s}'
+      +'#stage.peek #shide,#stage.peek #exitStage{opacity:1!important;pointer-events:auto!important}';
+    document.head.appendChild(cs);
+    st.addEventListener('mousemove',e=>{st.classList.toggle('peek',e.clientY<70);});
+  }
+})();
 
 window.SCOREAPI={SCORE,TR,trGo,trHold,trJump,scoreRows,rowSpeaker,enterRow};   // console/testing handle
 })();
