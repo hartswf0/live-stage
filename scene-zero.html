@@ -3105,15 +3105,23 @@ document.getElementById('recBtn').onclick=async()=>{
    A wall clock advances rows; every lane hard-cuts together at
    the boundary. Works standalone; the DIRECTOR window just cues it.
    ================================================================ */
-const SCORE={rowDur:10,loop:true,spk:{}};
+const SCORE={rowDur:10,loop:true,spk:{},cell:{}};
 const TR={on:false,t0:0,row:-1,hold:null,timer:null};
 const SCOREKEY='sceneZeroScore';
 function loadScore(){try{const s=JSON.parse(localStorage.getItem(SCOREKEY)||'null');
-  if(s){SCORE.rowDur=s.rowDur||10;SCORE.loop=s.loop!==false;SCORE.spk=s.spk||{};}}catch(e){}
+  if(s){SCORE.rowDur=s.rowDur||10;SCORE.loop=s.loop!==false;SCORE.spk=s.spk||{};SCORE.cell=s.cell||{};}}catch(e){}
   const inp=document.getElementById('rowDur');if(inp)inp.value=SCORE.rowDur;}
 function saveScore(){try{localStorage.setItem(SCOREKEY,JSON.stringify(SCORE));}catch(e){}}
 function scoreRows(){let m=0;AI.forEach(p=>{m=Math.max(m,(LANES[p.id]||[]).length);});return Math.min(m,24);}
-function rowCell(pid,r){const l=LANES[pid]||[];return l.length?l[Math.min(r,l.length-1)]:null;}
+/* a PINNED cell wins over lane order — otherwise setting a take from the remote is
+   fake: the next row boundary recomputes from order and erases it. Keyed by index
+   (device-independent), carried in SCORE, so it persists, loops, and syncs. */
+function rowCell(pid,r){const l=LANES[pid]||[];if(!l.length)return null;
+  const ov=SCORE.cell&&SCORE.cell[r+'|'+pid];
+  if(ov!=null&&l[ov])return l[ov];
+  return l[Math.min(r,l.length-1)];}
+function pinCell(pid,r,idx){SCORE.cell=SCORE.cell||{};SCORE.cell[r+'|'+pid]=idx;}
+function unpinCell(pid,r){if(SCORE.cell)delete SCORE.cell[r+'|'+pid];}
 function rowFresh(pid,r){return r<((LANES[pid]||[]).length);}
 function rowSpeaker(r){
   const ids=AI.filter(p=>rowCell(p.id,r)).map(p=>p.id);if(!ids.length)return null;
@@ -3242,7 +3250,8 @@ function handleCue(m){
     case 'jump':trJump(m.row|0);break;
     case 'score':Object.assign(SCORE,m.score);saveScore();
       const inp=document.getElementById('rowDur');if(inp)inp.value=SCORE.rowDur;
-      if(TR.on)TR.t0=performance.now()-TR.row*SCORE.rowDur*1000;scoreHUD();break;
+      if(TR.on)TR.t0=performance.now()-TR.row*SCORE.rowDur*1000;
+      if(TR.row>=0)enterRow(TR.row);scoreHUD();break;
     case 'table':loadTable();buildTable();buildStage();scoreHUD();
       if(TR.on)enterRow(TR.row);break;
     case 'hear':stageHear(m.pid);break;
@@ -3458,6 +3467,42 @@ function remoteState(m){
     });
   }
 }
+/* every take for a lane, PLAYING — tap one and it is pinned to this row for real */
+function buildTakes(strip,pid,row){
+  strip.innerHTML='';
+  const lane=LANES[pid]||[],cur=rowCell(pid,row);
+  const pinned=SCORE.cell&&SCORE.cell[row+'|'+pid];
+  const nameOf=(typeof PMAP!=='undefined'&&PMAP[pid]&&PMAP[pid].name)||(typeof P!=='undefined'&&P[pid]&&P[pid].name)||pid;
+  lane.forEach((cid,idx)=>{
+    const c=CLIP[cid];if(!c)return;
+    const t=document.createElement('button');
+    t.className='rtake'+(cur===cid?' cur':'')+(pinned===idx?' pinned':'');
+    const th=document.createElement('span');th.className='rtth';
+    const el=(function(c){const v=document.createElement('video');v.muted=true;v.loop=true;v.autoplay=true;v.playsInline=true;v.preload='metadata';v.src=c.src;return v;})(c);if(el)th.appendChild(el);
+    const lb=document.createElement('span');lb.className='rtlb';lb.textContent=c.label;
+    t.append(th,lb);
+    t.onclick=()=>{
+      pinCell(pid,row,idx);
+      relaySend({t:'score',score:SCORE});
+      buildTakes(strip,pid,row);remoteGrid._row=-99;
+      toastR(nameOf+' \u2192 '+c.label+'  (row '+(row+1)+', set)');
+    };
+    strip.appendChild(t);
+  });
+  if(pinned!=null){
+    const a=document.createElement('button');a.className='rtake auto';
+    a.innerHTML='<span class="rtth ac">AUTO</span><span class="rtlb">follow score order</span>';
+    a.onclick=()=>{unpinCell(pid,row);relaySend({t:'score',score:SCORE});
+      buildTakes(strip,pid,row);toastR('row '+(row+1)+' back to score order');};
+    strip.appendChild(a);
+  }
+}
+function toastR(msg){
+  let t=document.getElementById('rtoast');
+  if(!t){t=document.createElement('div');t.id='rtoast';document.body.appendChild(t);}
+  t.textContent=msg;t.classList.add('on');clearTimeout(toastR._t);
+  toastR._t=setTimeout(()=>t.classList.remove('on'),1600);
+}
 function remoteGrid(){
   if(!IS_REMOTE)return;
   const m=remoteState._m||{row:-1,n:scoreRows(),auds:null,spkPid:null};
@@ -3504,12 +3549,24 @@ function remoteGrid(){
     const bM=document.createElement('button');bM.className='rmute';
     const on=!!(m.auds&&m.auds[p.id]);bM.innerHTML=on?ICO_SPK:ICO_MUT;bM.classList.toggle('on',on);
     bM.title='mute / unmute this lane';bM.onclick=()=>relaySend({t:'aud',pid:p.id,on:!bM.classList.contains('on')});
-    const bN=document.createElement('button');bN.textContent='TAKE ▸';
-    bN.title='advance this lane to its next clip';
-    bN.onclick=()=>relaySend({t:'nexttake',pid:p.id});
+    const nT=(LANES[p.id]||[]).length;
+    const bN=document.createElement('button');bN.className='rtk';
+    bN.innerHTML='TAKES <b>'+nT+'</b> ▾';
+    bN.title='see every take for this lane and set one';
     ct.append(bS,bM,bN);bx.appendChild(ct);
     card.appendChild(bx);
-    lanesEl.appendChild(card);
+    const wrap=document.createElement('div');wrap.className='rlwrap';
+    wrap.appendChild(card);
+    const strip=document.createElement('div');strip.className='rtakes';
+    wrap.appendChild(strip);
+    bN.onclick=()=>{
+      const open=strip.classList.contains('open');
+      document.querySelectorAll('.rtakes.open').forEach(s=>{s.classList.remove('open');s.innerHTML='';});
+      document.querySelectorAll('.rtk.on').forEach(b=>b.classList.remove('on'));
+      if(open)return;
+      strip.classList.add('open');bN.classList.add('on');buildTakes(strip,p.id,row);
+    };
+    lanesEl.appendChild(wrap);
   });
 }
 if(IS_REMOTE){
@@ -3551,6 +3608,24 @@ if(IS_REMOTE){
     +'.rct .rmute.on{background:#9fe7ff;color:#000;border-color:#9fe7ff}'
     +'.rct .rmute svg{width:13px;height:13px;fill:currentColor;display:block}'
     +'.rct .rmute{padding:6px 8px;display:flex;align-items:center}'
+    +'.rlwrap{display:flex;flex-direction:column}'
+    +'.rtakes{display:none;gap:6px;overflow-x:auto;padding:8px;background:#0b0b0f;'
+    +'border:1px solid rgba(242,242,238,.16);border-top:0;border-radius:0 0 12px 12px}'
+    +'.rtakes.open{display:flex}'
+    +'.rtake{flex:0 0 auto;width:100px;border:1px solid rgba(242,242,238,.2);border-radius:9px;'
+    +'background:#101014;padding:0;overflow:hidden;cursor:pointer;color:#dcdce0}'
+    +'.rtake.cur{border-color:#43c463;box-shadow:0 0 0 1px #43c463}'
+    +'.rtake.pinned{border-color:#9fe7ff;box-shadow:0 0 0 1px #9fe7ff}'
+    +'.rtth{display:block;width:100%;height:60px;background:#000}'
+    +'.rtth video{width:100%;height:100%;object-fit:cover;display:block}'
+    +'.rtth.ac{display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#9a9aa2}'
+    +'.rtlb{display:block;font-size:9px;padding:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left}'
+    +'.rtake.pinned .rtlb::after{content:\" SET\";color:#9fe7ff;font-weight:800}'
+    +'.rct .rtk{margin-left:auto}.rct .rtk b{color:#9fe7ff}.rct .rtk.on{background:#1a2a33;border-color:#9fe7ff}'
+    +'#rtoast{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:600;background:#141418;'
+    +'border:1px solid #9fe7ff;border-radius:9px;padding:9px 14px;font:600 11px ui-monospace,monospace;'
+    +'color:#9fe7ff;display:none;max-width:88vw;text-align:center}'
+    +'#rtoast.on{display:block}'
     +'#rpanel .ft{font-size:9px;color:#6a6a72;text-align:center;padding-bottom:8px}'
     +'</style>'
     +'<div class="hd"><b>MONTE REMOTE</b><span id="rLink">connecting…</span></div>'
@@ -3560,7 +3635,7 @@ if(IS_REMOTE){
     +'<div class="dur"><button id="rDurM">−</button><span id="rDurV">10s</span><button id="rDurP">+</button></div></div>'
     +'<div id="rChips"></div>'
     +'<div id="rLanes"></div>'
-    +'<div class="ft">cues travel via the relay — tap a row to cue it · badge = change speaker · SPEAK / mute / TAKE per lane</div>';
+    +'<div class="ft">cues travel via the relay — tap a row to cue it · badge = change speaker · TAKES = every take, tap to set</div>';
   document.body.appendChild(p);
   document.getElementById('rGo').onclick=()=>{const m=remoteState._m;relaySend({t:(m&&m.on)?'hold':'go'});};
   document.getElementById('rPrev').onclick=()=>{const m=remoteState._m||{row:1};relaySend({t:'jump',row:Math.max(0,(m.row|0)-1)});};
