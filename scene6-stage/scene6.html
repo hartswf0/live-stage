@@ -3116,6 +3116,7 @@ async function relayJoin(code,name){
     const d=await r.json();if(!d.peerId)return false;
     relay.peer=d.peerId;relay.after=d.seq||0;relay.on=true;
     clearInterval(relay.timer);relay.timer=setInterval(relayPoll,IS_REMOTE?700:900);
+    if(!IS_REMOTE)setTimeout(pullSnapshot,300);   // late joiner catches up from the room snapshot
     return true;
   }catch(e){return false;}
 }
@@ -3201,6 +3202,66 @@ if(ROOM_OVERRIDE&&!IS_REMOTE){
 /* director mode: casting a clip must CUE the stage, not just this hidden copy */
 if(IS_DIR){const __gl0=goLive;goLive=function(pid,cid){__gl0(pid,cid);
   const c=CLIP[cid];if(c&&c.file)sendCue({t:'clip',pid,file:c.file});};}
+
+/* ---- EDIT-SYNC: the table itself travels ----
+   Every table edit broadcasts a versioned payload (debounced) AND stores it as the
+   room snapshot on the relay; every joining window pulls the snapshot first. So a
+   phone or second computer that arrives late still gets the current lanes/clips,
+   and simultaneous edits resolve last-write-wins by version. Apply never
+   re-broadcasts (echo-proof); versions guard replays. */
+let lastAppliedVer=0,tableTimer=null;
+function broadcastTable(){
+  clearTimeout(tableTimer);
+  tableTimer=setTimeout(()=>{
+    const data=tableData();if(!data)return;
+    let s='';try{s=JSON.stringify(data);}catch(e){return;}
+    if(s.length>120000){toast('table too big to sync');return;}
+    const v=Date.now();lastAppliedVer=v;
+    sendCue({t:'table',v,data});
+    if(relay.on)fetch(RELAY+encodeURIComponent(relay.room)+'/snapshot',
+      {method:'POST',body:JSON.stringify({peerId:relay.peer,snapshot:{v,data}})}).catch(()=>{});
+  },400);
+}
+async function pullSnapshot(){
+  if(!relay.on||IS_REMOTE)return;
+  try{
+    const r=await fetch(RELAY+encodeURIComponent(relay.room)+'/snapshot',{cache:'no-store'});
+    const d=await r.json();const sn=d&&d.snapshot;
+    if(sn&&sn.data&&(sn.v||0)>lastAppliedVer)applyTableData(sn.v,sn.data);
+  }catch(e){}
+}
+const __save0=saveTable;saveTable=function(){__save0();broadcastTable();};
+const __hc1=handleCue;handleCue=function(m){
+  if(m&&m.t==='table'&&m.data){if(!IS_REMOTE)applyTableData(m.v||0,m.data);return;}
+  __hc1(m);
+};
+function tableData(){
+  const clips={};Object.values(CLIP).forEach(c=>{if(c.file)clips[c.id]={label:c.label,file:c.file};});
+  const lanes={};AI.forEach(p=>lanes[p.id]=(LANES[p.id]||[]).filter(id=>CLIP[id]&&CLIP[id].file));
+  return {people:AI.map(p=>({id:p.id,name:p.name,hue:p.hue,initials:p.initials})),clips,lanes,score:SCORE,cc:cCounter};
+}
+function applyTableData(v,data){
+  if(v&&v<=lastAppliedVer)return;lastAppliedVer=v||Date.now();
+  try{
+    CLIP={};AI.length=0;PEOPLE.length=1;
+    Object.keys(P).forEach(k=>{if(k!=='nat')delete P[k];});
+    Object.keys(LANES).forEach(k=>delete LANES[k]);
+    (data.people||[]).forEach(pp=>{const p={id:pp.id,name:pp.name,hue:pp.hue,initials:pp.initials};
+      PEOPLE.push(p);P[p.id]=p;AI.push(p);
+      ST.aud[p.id]=ST.aud[p.id]||{on:false,vol:1,solo:false,vo:null};
+      ST.flags[p.id]=ST.flags[p.id]||{spk:false,mut:false,gl:false};LANES[p.id]=[];});
+    Object.entries(data.clips||{}).forEach(([id,c])=>CLIP[id]={id,label:c.label,file:c.file,src:DIR+encodeURIComponent(c.file)});
+    Object.entries(data.lanes||{}).forEach(([pid,ids])=>{if(LANES[pid])LANES[pid]=ids.filter(id=>CLIP[id]);});
+    cCounter=Math.max(cCounter,(data.cc||0));
+    Object.keys(ST.live).forEach(pid=>{if(!CLIP[ST.live[pid]])delete ST.live[pid];});
+    if(data.score){Object.assign(SCORE,data.score);const i=document.getElementById('rowDur');if(i)i.value=SCORE.rowDur;saveScore();}
+    __save0();
+    buildTable();buildStage();scoreHUD();
+    if(TR.on)enterRow(TR.row);
+    toast('table synced');
+  }catch(e){toast('table sync failed');}
+}
+
 /* ---- the controller panel itself (?remote=CODE) — phone-sized, relay-only ---- */
 function remoteState(m){
   if(!IS_REMOTE||m.t!=='state')return;
