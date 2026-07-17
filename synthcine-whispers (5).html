@@ -1,0 +1,1654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>SYNTHCINE · a room to think in</title>
+<style>
+:root{
+  --paper:#f4f4f0; --card:#ffffff; --line:#111111; --ink:#111111; --dim:#8a8a86;
+  --a:#0033cc; --b:#c8a800; --c:#e60000; --bw:2px;
+}
+*{box-sizing:border-box;margin:0;padding:0;border-radius:0!important}
+html,body{height:100%}
+body{background:var(--paper);color:var(--ink);font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;
+  display:flex;flex-direction:column;overflow:hidden;-webkit-font-smoothing:antialiased}
+
+/* ---- header: one hairline, a mark, a scene switch, nothing else ---- */
+header{display:flex;align-items:center;gap:14px;padding:10px 16px;border-bottom:var(--bw) solid var(--line)}
+header .mark{width:11px;height:11px;flex:none;
+  background:radial-gradient(circle 1.6px at 2.5px 2.5px,var(--ink) 98%,transparent),
+             radial-gradient(circle 1.6px at 8.5px 2.5px,var(--ink) 98%,transparent),
+             radial-gradient(circle 1.6px at 2.5px 8.5px,var(--ink) 98%,transparent),
+             radial-gradient(circle 1.6px at 8.5px 8.5px,var(--ink) 98%,transparent)}
+header h1{font-size:11px;font-weight:900;letter-spacing:.30em;text-transform:uppercase}
+.scene-switch{margin-left:auto;display:flex;border:var(--bw) solid var(--line)}
+.scene-switch button{appearance:none;border:0;background:var(--card);color:var(--ink);
+  font:900 10px/1 Helvetica,Arial;letter-spacing:.16em;padding:7px 13px;cursor:pointer}
+.scene-switch button+button{border-left:var(--bw) solid var(--line)}
+.scene-switch button.on{background:var(--ink);color:var(--paper)}
+header .keybtn{appearance:none;border:var(--bw) solid var(--line);background:var(--card);color:var(--ink);
+  font:900 10px/1 Helvetica,Arial;letter-spacing:.14em;padding:7px 11px;cursor:pointer}
+header .keybtn.set{border-color:var(--a);color:var(--a)}
+
+/* ---- stage ---- */
+#stage{flex:1;min-height:0;position:relative;background:var(--paper);padding:10px;overflow:hidden}
+#grid{height:100%;display:grid;gap:10px;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,1fr);
+  transition:opacity .3s}
+.tile{position:relative;background:#fff;overflow:hidden;cursor:pointer;border:var(--bw) solid var(--line);display:flex}
+.tile canvas{width:100%;height:100%;display:block}
+.tile .name{position:absolute;left:0;top:0;font:900 9px/1 Helvetica,Arial;letter-spacing:.16em;
+  padding:5px 8px;pointer-events:none;color:var(--ink);mix-blend-mode:multiply}
+.tile .mood{position:absolute;left:8px;bottom:8px;right:8px;pointer-events:none;display:flex;align-items:center;gap:6px}
+.tile .mood i{font:900 8px/1 Helvetica,Arial;letter-spacing:.14em;text-transform:uppercase;color:var(--ink);flex:none;font-style:normal}
+.tile .mood u{flex:1;height:3px;background:#ddd;text-decoration:none;display:block}
+.tile .mood u b{display:block;height:100%;background:var(--c);width:0}
+.tile.think .think-dot{opacity:1}
+.tile .think-dot{position:absolute;right:8px;top:8px;width:7px;height:7px;background:var(--a);opacity:0;
+  animation:pulse 1s infinite ease-in-out;pointer-events:none}
+@keyframes pulse{0%,100%{transform:scale(.6);opacity:.35}50%{transform:scale(1);opacity:1}}
+.tile.sel{border-color:var(--a);border-width:3px}
+.tile.speaking{border-color:var(--c);border-width:3px}
+.ring{position:absolute;left:50%;top:44%;width:18px;height:18px;margin:-9px 0 0 -9px;border:3px solid var(--a);
+  pointer-events:none;animation:ringout 1.25s ease-out forwards}
+.ring.echo{border-color:var(--b)}
+@keyframes ringout{from{transform:scale(1);opacity:.9}to{transform:scale(15);opacity:0}}
+
+/* the YOU tile carries a single camera control */
+.tile.you .youtools{position:absolute;right:6px;top:6px;display:flex;gap:4px;z-index:3}
+.tile.you .youtools button{appearance:none;border:2px solid var(--line);background:#fff;color:var(--ink);
+  font:900 9px/1 Helvetica,Arial;letter-spacing:.1em;padding:5px 8px;cursor:pointer;min-width:44px}
+.tile.you .youtools button.on{background:var(--a);border-color:var(--a);color:#fff}
+.tile.driven{border-color:var(--a);border-width:3px}
+
+/* ---- focus: go closer ---- */
+#focus{position:absolute;inset:10px;background:var(--paper);border:3px solid var(--line);
+  display:none;flex-direction:column;z-index:20}
+#focus.open{display:flex}
+#focus .fclose{position:absolute;right:10px;top:10px;z-index:4;appearance:none;border:2px solid var(--line);
+  background:#fff;font:900 10px Helvetica;letter-spacing:.14em;padding:7px 11px;cursor:pointer}
+#focusStage{flex:1;min-height:0;display:grid;grid-template-columns:1.4fr 1fr;gap:0}
+#focusCanvasWrap{position:relative;background:#fff;border-right:3px solid var(--line);overflow:hidden}
+#focusCanvas{width:100%;height:100%;display:block}
+#focusSide{display:flex;flex-direction:column;min-height:0}
+#focusHead{padding:14px 16px 10px;border-bottom:2px solid var(--line)}
+#focusHead .fn{font:900 15px/1 Helvetica;letter-spacing:.18em}
+#focusHead .fd{font:400 11px/1.5 Helvetica;color:var(--dim);margin-top:6px}
+#focusHead .fm{font:900 9px/1 Helvetica;letter-spacing:.14em;margin-top:8px;text-transform:uppercase}
+#focusCtl{display:flex;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap}
+#focusCtl button{appearance:none;border:2px solid var(--line);background:var(--card);color:var(--ink);
+  font:900 9px/1 Helvetica;letter-spacing:.12em;padding:7px 11px;cursor:pointer}
+#focusCtl button.on{background:var(--a);border-color:var(--a);color:#fff}
+#focusCtl #recenter{display:none}
+#focusCtl.live #recenter{display:inline-block}
+#camStat{font:700 9px Helvetica;letter-spacing:.06em;color:var(--dim)}
+#thread{flex:1;min-height:0;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:9px}
+.msg{max-width:92%;font:400 12px/1.5 Helvetica}
+.msg .r{font:900 8px/1 Helvetica;letter-spacing:.14em;color:var(--dim);text-transform:uppercase;margin-bottom:3px}
+.msg.them{align-self:flex-start}
+.msg.them .bub{border-left:3px solid var(--ink);padding-left:9px}
+.msg.you{align-self:flex-end;text-align:right}
+.msg.you .bub{border-right:3px solid var(--a);padding-right:9px;color:var(--a)}
+.msg.thought{align-self:flex-start;opacity:.72}
+.msg.thought .bub{font-style:italic;color:#555}
+.msg.thought .r{color:var(--a)}
+
+/* ---- console: one field, one toggle ---- */
+#console{display:flex;align-items:stretch;border-top:var(--bw) solid var(--line);background:var(--card)}
+#mode{flex:none;display:flex;border-right:2px solid var(--line)}
+#mode button{appearance:none;border:0;background:var(--card);color:var(--dim);
+  font:900 10px/1 Helvetica;letter-spacing:.12em;padding:0 15px;cursor:pointer}
+#mode button.on{color:var(--paper)}
+#mode button[data-m="whisper"].on{background:var(--a)}
+#mode button[data-m="speak"].on{background:var(--ink)}
+#line{flex:1;min-width:0;appearance:none;border:0;background:var(--card);color:var(--ink);
+  font:700 13px Helvetica;padding:13px 14px;outline:none}
+#line:focus-visible{outline:2px solid var(--b);outline-offset:-2px}
+#send{appearance:none;border:0;border-left:2px solid var(--line);background:var(--card);color:var(--ink);
+  font:900 10px/1 Helvetica;letter-spacing:.14em;padding:0 18px;cursor:pointer}
+#send:hover{background:var(--ink);color:var(--paper)}
+#send:disabled{color:var(--dim)}
+#hint{position:absolute;left:0;right:0;bottom:100%;padding:5px 16px;font:700 9px Helvetica;letter-spacing:.04em;
+  color:var(--dim);background:var(--paper);border-top:1px solid #ddd;pointer-events:none}
+
+/* ---- key sheet ---- */
+#keySheet{position:fixed;inset:0;background:rgba(20,20,18,.55);display:none;align-items:center;justify-content:center;z-index:40}
+#keySheet.open{display:flex}
+#keyCard{background:var(--card);border:3px solid var(--line);width:min(440px,92vw);padding:22px}
+#keyCard h2{font:900 12px/1 Helvetica;letter-spacing:.16em;text-transform:uppercase}
+#keyCard p{font:400 11px/1.6 Helvetica;color:var(--dim);margin:10px 0 14px}
+#keyCard input{width:100%;appearance:none;border:2px solid var(--line);background:var(--paper);
+  font:700 12px Helvetica;padding:11px 12px;outline:none}
+#keyCard input:focus-visible{outline:2px solid var(--b);outline-offset:-2px}
+#keyCard .row{display:flex;gap:8px;margin-top:14px}
+#keyCard button{flex:1;appearance:none;border:2px solid var(--line);background:var(--card);
+  font:900 10px Helvetica;letter-spacing:.14em;padding:11px;cursor:pointer}
+#keyCard button.prime{background:var(--ink);color:var(--paper)}
+#keyStatus{font:700 10px Helvetica;margin-top:10px;min-height:14px}
+#keyStatus.err{color:var(--c)}
+
+#toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);background:var(--c);color:#fff;
+  border:3px solid #000;font:900 10px Helvetica;letter-spacing:.1em;padding:8px 14px;display:none;z-index:50}
+#toast.on{display:block}
+
+@media(max-width:820px){
+  #grid{grid-template-columns:repeat(2,1fr);grid-template-rows:repeat(3,1fr)}
+  #focusStage{grid-template-columns:1fr;grid-template-rows:1fr 1fr}
+  #focusCanvasWrap{border-right:0;border-bottom:3px solid var(--line)}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="mark" aria-hidden="true"></div>
+  <h1>Synthcine</h1>
+  <div class="scene-switch" id="sceneSwitch">
+    <button data-scene="call" class="on">The Call</button>
+    <button data-scene="train">The Train</button>
+  </div>
+  <button class="keybtn" id="keyBtn">API KEY</button>
+</header>
+
+<div id="stage">
+  <div id="grid"></div>
+
+  <div id="focus">
+    <button class="fclose" id="fclose">CLOSE</button>
+    <div id="focusStage">
+      <div id="focusCanvasWrap"><canvas id="focusCanvas"></canvas></div>
+      <div id="focusSide">
+        <div id="focusHead">
+          <div class="fn" id="focusName">—</div>
+          <div class="fd" id="focusDesc"></div>
+          <div class="fm" id="focusMood"></div>
+          <div id="focusCtl">
+            <button id="playAs">PLAY AS</button>
+            <button id="recenter">RECENTER</button>
+            <span id="camStat"></span>
+          </div>
+        </div>
+        <div id="thread"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="console" style="position:relative">
+  <div id="hint">Whisper reaches only their thoughts — it bends what they think next, and ripples to whoever's beside them.</div>
+  <div id="mode">
+    <button data-m="whisper" class="on">WHISPER</button>
+    <button data-m="speak">SPEAK</button>
+  </div>
+  <input id="line" type="text" placeholder="whisper into their thoughts…" autocomplete="off">
+  <button id="send">SEND</button>
+</div>
+
+<div id="keySheet">
+  <div id="keyCard">
+    <h2>OpenAI API key</h2>
+    <p>Optional. Paste a key to voice the cast with OpenAI. Left empty, everything still runs on the built-in model. Kept in this browser only.</p>
+    <input id="keyInput" type="password" placeholder="sk-…" autocomplete="off">
+    <div id="keyStatus"></div>
+    <div class="row">
+      <button id="keyClear">USE BUILT-IN</button>
+      <button id="keySave" class="prime">SAVE KEY</button>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+"use strict";
+/* ============================================================
+   SYNTHCINE — a room to think in
+   One ideal halftone head, cast by tone/hair/glasses.
+   RIPPLES affect engine drives idle performance.
+   Whisper perturbs interior monologue; ripples to neighbours.
+   Focus a face to go closer and converse.
+   A sixth angle is YOU — the same rig, driven live by your camera
+   through a face mesh — that the cast can glance toward.
+   ============================================================ */
+const clamp=(v,a,b)=>v<a?a:(v>b?b:v);
+const clamp01=x=>clamp(x,0,1);
+const smooth=t=>{t=clamp(t,0,1);return t*t*(3-2*t)};
+const lerp=(a,b,t)=>a+(b-a)*t;
+const pulse=(u,w)=>{if(u<0||u>w)return 0;return Math.sin(u/w*Math.PI);};
+const wall=()=>performance.now()/1000;
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const gray=v=>{v=clamp(Math.round(v),0,255);return`rgb(${v},${v},${v})`;};
+const ink2gray=v=>gray(Math.round(255-v*255/7));
+const inkQ=v=>ink2gray(clamp(Math.round((255-v)/255*7),0,7));
+
+/* ---------------- cast ---------------- */
+const YOU="YOU";
+const CALL_CAST=["NAT","CHRIS","SAMANTHA","ERNIE","PHIL"];
+const TRAIN_CAST=["BARBARA","KIM","DANIEL","FRIEDRICH","SUSANNA"];
+
+const CHAR={
+  NAT:{label:"NAT",accent:"#2f7fd6",pitch:1.15,adj:["CHRIS","ERNIE"],style:"long",skinInk:1,hairTone:78,attire:126,attire2:180,glasses:0,toneB:1,tic:"reorganize",
+    desc:"Capable, warm, over-scheduled. Just spun her chair mid-sentence.",
+    dossier:"Nat owns the onboarding plan and her review with Phil is minutes away. Three monitors, cold coffee, a to-do list she rewrites instead of finishing. Apologizes fast, recovers faster."},
+  CHRIS:{label:"CHRIS",accent:"#b39400",pitch:0.82,adj:["NAT","SAMANTHA","PHIL"],style:"shaved",skinInk:4,hairTone:70,attire:62,attire2:88,glasses:0,toneB:.55,tic:"press-lips",
+    desc:"Practical, direct, dry. Won't reschedule the client meeting again.",
+    dossier:"Chris carries the client meeting rescheduled three times. Distrusts optimism with no calendar attached. Liked Nat's chair spin more than he'll admit."},
+  SAMANTHA:{label:"SAMANTHA",accent:"#2f9f5a",pitch:1.1,adj:["CHRIS","PHIL"],style:"bob",skinInk:2,hairTone:64,attire:104,attire2:150,glasses:0,toneB:.88,tic:"soft-nod",
+    desc:"Perceptive, warm, lightly skeptical. Sees everyone.",
+    dossier:"Samantha notices everything — the spin, the swallowed laughs, the tie Phil straightens before bad news. Keeps a private tally of who is actually okay."},
+  ERNIE:{label:"ERNIE",accent:"#c23a3a",pitch:1.0,adj:["NAT","PHIL"],style:"curly",skinInk:3,hairTone:56,attire:148,attire2:120,glasses:0,toneB:.72,tic:"lean-forward",
+    desc:"Energetic, candid, solution-first. Treats silence as a slot.",
+    dossier:"Ernie wants the new team onboarded pronto. A wall of vinyl he never plays during work. Asks if people are okay and means it."},
+  PHIL:{label:"PHIL",accent:"#111111",pitch:0.72,adj:["ERNIE","CHRIS"],style:"exec",skinInk:1,hairTone:150,attire:42,attire2:242,glasses:1,toneB:1,tic:"tie-straighten",
+    desc:"Polished executive. Deliberate, controlled, quietly consequential.",
+    dossier:"Phil is conducting Nat's review. Read the report twice, one page of notes he won't fully use. Straightens his tie before saying something that matters."},
+
+  BARBARA:{label:"BARBARA",accent:"#2f7fd6",pitch:1.05,adj:["FRIEDRICH","SUSANNA"],style:"bob",skinInk:2,hairTone:70,attire:120,attire2:170,glasses:0,toneB:.9,tic:"store-detail",
+    desc:"Thirty-six, project manager, returning to Berlin. Holding a folder she won't reopen.",
+    dossier:"Two days in Munich; a specialist confirmed her daughter Lena's diagnosis and offered no new path. She read the assessment once in the corridor and hasn't opened it since. She stores small details of Lena with unusual precision and treats the most important thing in her life as a logistics problem, knowing that isn't adequate. Tomorrow is at nine."},
+  KIM:{label:"KIM",accent:"#2f9f5a",pitch:1.12,adj:["SUSANNA","DANIEL"],style:"long",skinInk:1,hairTone:40,attire:104,attire2:150,glasses:0,toneB:.95,tic:"look-away",
+    desc:"Mid-twenties, Munich-raised, political-science MA. Moved seats away from Daniel.",
+    dossier:"She applied to a Cambridge fellowship in November, was accepted in February, and told Daniel this weekend. He said: you had already decided — not just about Cambridge, about us. She didn't answer. She is going to Cambridge; she's not yet sure what else is settled. She moved one row up and across the aisle and has not looked back."},
+  DANIEL:{label:"DANIEL",accent:"#b39400",pitch:0.88,adj:["KIM","FRIEDRICH"],style:"shaved",skinInk:3,hairTone:56,attire:62,attire2:100,glasses:0,toneB:.7,tic:"rehearse",
+    desc:"Late twenties, studies the Stasi's institutional periphery. Two rows behind Kim.",
+    dossier:"In January he sat on a research offer for three weeks without telling Kim; she found out from a friend. This weekend she told him about Cambridge and he heard himself using her own sentence back at her. He can generate explanations for why she didn't tell him — the same explanations he used in January. He studies processing other people's lives at procedural distance and does not see it about himself. He can see the back of her head."},
+  FRIEDRICH:{label:"FRIEDRICH",accent:"#6a6a66",pitch:0.72,adj:["DANIEL","BARBARA"],style:"exec",skinInk:1,hairTone:180,attire:52,attire2:120,glasses:1,toneB:1,tic:"listen-still",
+    desc:"Early seventies, former Stasi signals analyst. Watching a man who passed through the carriage.",
+    dossier:"Twenty-six years intercepting and transcribing in Halle. A man in a heavy coat passed through and paused near his row; Friedrich knows the voice of a teacher he monitored 1979–82 (Thomas Reusch, 263 calls) but not his face at seventy. He has twice typed the name into a search bar and closed the window before it loaded. Memory manufactures patterns; he is not persuaded by this. He's traveling to see his granddaughter Klara."},
+  SUSANNA:{label:"SUSANNA",accent:"#c23a3a",pitch:1.0,adj:["KIM","BARBARA"],style:"bob",skinInk:2,hairTone:150,attire:130,attire2:200,glasses:0,toneB:.92,tic:"steady-breath",
+    desc:"Sixty-one, head pediatric nurse at the Charité, returning home. One small bag.",
+    dossier:"Thirty-five years nursing; widowed since 2017 and living alone since. Tomorrow at nine she'll be in a specialist consultation for a child on her ward — the mother is somewhere on this train and Susanna doesn't know it. She is good at being present when something terrible is happening and less practiced at her own life, and considers it a reasonable trade. She hopes the plants at home had enough water."},
+
+  YOU:{label:"YOU",accent:"#111111",pitch:1.0,adj:[],style:"shaved",skinInk:1,hairTone:64,attire:96,attire2:140,glasses:0,toneB:.85,tic:"soft-nod",
+    desc:"You — the angle they can watch. Turn the camera on to drive this face and body live.",
+    dossier:"The viewer, present in the scene."}
+};
+
+/* baseline affect per character */
+const AFF0={
+  NAT:["nervous",.34],CHRIS:["guarded",.26],SAMANTHA:["calm",.24],ERNIE:["hopeful",.30],PHIL:["guarded",.30],
+  BARBARA:["guarded",.42],KIM:["guarded",.34],DANIEL:["nervous",.36],FRIEDRICH:["guarded",.30],SUSANNA:["calm",.26],
+  YOU:["calm",.20]
+};
+const AFF={};
+for(const n of Object.keys(CHAR))AFF[n]={emotion:AFF0[n][0],intensity:AFF0[n][1],baseE:AFF0[n][0],baseI:AFF0[n][1]};
+
+/* ---------------- parametric bodies (ported from ICARO V4.4) ----------------
+   The ONE ideal head, but each character carries a distinct frame: shoulder
+   width/slope, neck, head size, breath, sway, and face proportions. Every
+   value is a bounded dial. No arms in this build. */
+function mkBody(o){return Object.assign({
+  shW:1.0, slope:1.0, neckW:1.0, neckL:1.0, headS:1.0, asym:0,
+  breathAmp:1.0, breathRate:0.9, swayAmp:1.0, faceW:1.0, faceH:1.0, jaw:1.0
+},o);}
+const BODY={
+  NAT:mkBody({shW:.86,slope:1.25,neckW:.82,neckL:1.10,headS:.96,asym:.6,breathAmp:1.15,breathRate:1.05,faceW:.93,faceH:1.04,jaw:.92}),
+  CHRIS:mkBody({shW:1.14,slope:.80,neckW:1.15,neckL:.90,headS:1.02,asym:0,breathAmp:.80,breathRate:.75,faceW:1.06,faceH:.99,jaw:1.10}),
+  SAMANTHA:mkBody({shW:.92,slope:1.10,neckW:.90,neckL:1.00,headS:.98,asym:-.8,breathAmp:1.0,breathRate:.95,faceW:.99,faceH:.95,jaw:.96}),
+  ERNIE:mkBody({shW:1.05,slope:.90,neckW:1.05,neckL:.85,headS:1.0,asym:1.0,breathAmp:1.35,breathRate:1.25,faceW:1.03,faceH:.95,jaw:1.06}),
+  PHIL:mkBody({shW:1.08,slope:.70,neckW:1.0,neckL:1.05,headS:1.0,asym:0,breathAmp:.55,breathRate:.60,faceW:.99,faceH:1.07,jaw:.90}),
+  BARBARA:mkBody({shW:.90,slope:1.15,neckW:.88,neckL:1.02,headS:.97,asym:-.5,breathAmp:.95,breathRate:.85,faceW:.97,faceH:1.02,jaw:.94}),
+  KIM:mkBody({shW:.84,slope:1.20,neckW:.80,neckL:1.08,headS:.95,asym:.7,breathAmp:1.10,breathRate:1.0,faceW:.94,faceH:1.03,jaw:.90}),
+  DANIEL:mkBody({shW:1.10,slope:.85,neckW:1.10,neckL:.92,headS:1.01,asym:.4,breathAmp:1.05,breathRate:1.05,faceW:1.04,faceH:.98,jaw:1.08}),
+  FRIEDRICH:mkBody({shW:1.02,slope:.75,neckW:1.05,neckL:1.0,headS:1.0,asym:-.3,breathAmp:.55,breathRate:.55,faceW:1.0,faceH:1.05,jaw:.95}),
+  SUSANNA:mkBody({shW:.94,slope:1.05,neckW:.92,neckL:.98,headS:.98,asym:-.6,breathAmp:.90,breathRate:.80,faceW:.98,faceH:1.0,jaw:.96}),
+  YOU:mkBody({shW:1.0,slope:1.0,neckW:1.0,neckL:1.0,headS:1.0,asym:0,breathAmp:1.0,breathRate:.9,faceW:1.0,faceH:1.0,jaw:1.0})
+};
+
+/* living-head-carriage spring profiles (per character) */
+const CARRIAGE={
+  DEFAULT:{stiff:43,damp:12.5,yStiff:58,yDamp:14.5,idle:1.0,maxX:.48,maxY:.34},
+  NAT:{stiff:46,damp:13.2,yStiff:61,yDamp:15.0,idle:1.08,maxX:.46,maxY:.33},
+  CHRIS:{stiff:40,damp:12.0,yStiff:55,yDamp:14.0,idle:.82,maxX:.43,maxY:.30},
+  SAMANTHA:{stiff:47,damp:13.4,yStiff:63,yDamp:15.3,idle:1.04,maxX:.46,maxY:.32},
+  ERNIE:{stiff:37,damp:11.2,yStiff:50,yDamp:13.0,idle:1.24,maxX:.52,maxY:.37},
+  PHIL:{stiff:51,damp:14.4,yStiff:67,yDamp:16.4,idle:.60,maxX:.38,maxY:.27},
+  BARBARA:{stiff:44,damp:13.0,yStiff:59,yDamp:14.8,idle:.92,maxX:.44,maxY:.31},
+  KIM:{stiff:45,damp:12.8,yStiff:60,yDamp:14.6,idle:1.12,maxX:.47,maxY:.34},
+  DANIEL:{stiff:42,damp:12.4,yStiff:56,yDamp:14.2,idle:1.0,maxX:.45,maxY:.32},
+  FRIEDRICH:{stiff:50,damp:14.2,yStiff:66,yDamp:16.0,idle:.58,maxX:.37,maxY:.26},
+  SUSANNA:{stiff:46,damp:13.5,yStiff:61,yDamp:15.1,idle:.80,maxX:.42,maxY:.30},
+  YOU:{stiff:44,damp:12.6,yStiff:60,yDamp:14.6,idle:1.0,maxX:.48,maxY:.34}
+};
+
+/* ---------------- affect engine (RIPPLES) ---------------- */
+const EMOTIONS=["calm","nervous","sad","happy","hopeful","angry","guarded"];
+const DYN={directWhisper:1.0,directThought:.62,sharedRipple:.5,whisperBase:.22,listenBase:.10,recovery:.10};
+const LEX={
+  calm:["calm","steady","quiet","settled","rest","ease","still","soft","gentle","breathe","home","water"],
+  nervous:["nervous","worry","worried","fear","panic","danger","unsafe","hurry","rush","tense","alarm","dread","deadline","late","nine"],
+  sad:["sad","grief","cry","tears","loss","gone","lonely","hopeless","empty","miss","hurt","alone"],
+  happy:["happy","joy","glad","relief","smile","laugh","bright","warm","delight","pleased"],
+  hopeful:["hope","maybe","possible","tomorrow","promise","repair","forgive","open","begin","arrive","idea"],
+  angry:["angry","furious","resent","betray","blame","hate","sharp","cruel","wrong","unfair","decided"],
+  guarded:["careful","guarded","private","contained","watch","measured","control","folder"]
+};
+function hits(t,kw){const e=kw.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");const m=t.match(new RegExp("\\b"+e+"\\b","g"));return m?m.length:0;}
+function computeSignal(kind,text){
+  const t=String(text||"").toLowerCase().replace(/\s+/g," ").trim();
+  let best="guarded",score=0;
+  for(const[emo,ws]of Object.entries(LEX)){const s=ws.reduce((a,w)=>a+hits(t,w),0);if(s>score){best=emo;score=s;}}
+  if(!score)best=/!|\b(now|must|stop|run|don't|dont)\b/.test(t)?"nervous":"guarded";
+  const punch=Math.min(.10,(t.match(/[!?]/g)||[]).length*.015);
+  const brief=t&&t.length<28?.05:0;
+  const base=kind==="WHISPER"?DYN.whisperBase:DYN.listenBase;
+  return{emotion:best,intensity:Math.max(.08,clamp01(base+Math.min(.22,score*.04)+punch+brief))};
+}
+function applySignal(id,sig,scale){
+  const s=AFF[id];if(!s)return;
+  const inf=clamp01(sig.intensity*Math.max(0,scale));if(!inf)return;
+  if(s.emotion===sig.emotion){s.intensity=clamp01(s.intensity+inf*.55);return;}
+  if(inf>=Math.max(.14,s.intensity*.75)){s.emotion=sig.emotion;s.intensity=clamp01(s.intensity*.45+inf);return;}
+  s.intensity=clamp01(s.intensity*.92+inf*.18);
+}
+function stabilize(){for(const s of Object.values(AFF)){
+  s.intensity=clamp01(Math.max(.05,s.intensity+(s.baseI-s.intensity)*DYN.recovery));
+  if(s.intensity<=Math.max(.18,s.baseI+.04))s.emotion=s.baseE;}}
+function ripple(sourceId,kind,whisperText,thoughtText){
+  const sig=computeSignal(kind,kind==="WHISPER"?(whisperText||thoughtText):(thoughtText||whisperText));
+  applySignal(sourceId,sig,kind==="WHISPER"?DYN.directWhisper:DYN.directThought);
+  for(const adj of(CHAR[sourceId].adj||[]))if(active().includes(adj))applySignal(adj,sig,DYN.sharedRipple);
+  stabilize();renderMoods();
+}
+function setAffect(id,emotion,intensity){
+  if(!EMOTIONS.includes(emotion))return;
+  AFF[id].emotion=emotion;AFF[id].intensity=clamp01(Number(intensity)||.3);renderMoods();
+}
+
+/* ============================================================
+   EMOTION -> PERFORMANCE
+   Each emotion sets a sustained bodily register AND, when it
+   first takes hold, an onset gesture. Thinking has its own layer.
+   ============================================================ */
+const EMO_POSE={
+  calm:   {smile:.30,browY:.05,blinkK:1.2,gazeRate:.75,gazeRange:.75,micro:.15},
+  nervous:{browKnit:.7,eyeWide:.32,lean:.28,blinkK:.5,gazeRate:1.9,gazeRange:1.6,jitter:.6,micro:.9,swallow:.5},
+  sad:    {smile:-.5,browKnit:.28,gazeY:.55,leanY:.85,blinkK:1.3,gazeRate:.6,gazeRange:.6,micro:.25},
+  happy:  {smile:.9,browY:.4,bounce:.5,blinkK:1.0,gazeRate:1.1,gazeRange:1.0,micro:.4},
+  hopeful:{smile:.4,browY:.28,gazeY:-.3,lean:.1,blinkK:1.0,gazeRate:.9,gazeRange:.9,micro:.3},
+  angry:  {browKnit:1.0,smile:-.42,lean:.48,squint:.42,blinkK:.7,gazeRate:.8,gazeRange:.55,jitter:.25,micro:.5},
+  guarded:{squint:.24,smile:-.05,lean:-.06,blinkK:1.35,gazeRate:.7,gazeRange:.7,micro:.2}
+};
+/* onset gestures: a brief reaction the instant an emotion arrives */
+const EMO_ONSET={
+  nervous:[{c:"eyes-wide",w:.6},{c:"swallow",w:.5}],
+  sad:[{c:"glance-down-once",w:1.0},{c:"face-drop",w:.4}],
+  happy:[{c:"wide-smile",w:.8},{c:"brows-up",w:.4}],
+  hopeful:[{c:"brows-up",w:.7}],
+  angry:[{c:"brow-knit",w:.9},{c:"lean+",w:.5}],
+  calm:[{c:"settle",w:.8}],
+  guarded:[{c:"look-away",w:.5},{c:"squint",w:.4}]
+};
+/* personal tics — a signature idle move every so often */
+const TIC={
+  "reorganize":{c:"glance-down-once",gap:11},"press-lips":{c:"lips-press-tail",gap:9},
+  "soft-nod":{c:"nod-small",gap:7},"lean-forward":{c:"lean+",gap:8},"tie-straighten":{c:"posture-up",gap:13},
+  "store-detail":{c:"glance-down-once",gap:10},"look-away":{c:"look-away",gap:8},"rehearse":{c:"lips-press-tail",gap:9},
+  "listen-still":{c:"settle",gap:14},"steady-breath":{c:"settle",gap:12}
+};
+
+/* ---------------- viseme + cue compilers ---------------- */
+function visemeSchedule(text,dur){
+  const groups=[];const words=text.split(/\s+/);
+  for(const w of words){
+    const core=w.replace(/[^A-Za-z’']/g,'').toLowerCase();let i=0,pc=false;
+    while(i<core.length){const ch=core[i];
+      if('aeiou'.includes(ch)){const m={a:[1,.95],e:[2,.55],i:[2,.5],o:[3,.85],u:[3,.6]};groups.push({s:m[ch][0],o:m[ch][1],w:1});pc=false;}
+      else if('mbp'.includes(ch)){groups.push({s:4,o:0,w:.7});pc=false;}
+      else if('fv'.includes(ch)){groups.push({s:5,o:.15,w:.7});pc=false;}
+      else{if(!pc)groups.push({s:2,o:.22,w:.6});pc=true;}i++;}
+    if(/[.,!?…]|\.\.\./.test(w))groups.push({s:0,o:0,w:1.2});else groups.push({s:0,o:.05,w:.25});}
+  if(!groups.length)groups.push({s:0,o:0,w:1});
+  const tot=groups.reduce((a,g)=>a+g.w,0);const sched=[];let t=0;
+  for(const g of groups){const gd=dur*g.w/tot;sched.push({t0:t,t1:t+gd,s:g.s,o:g.o});t+=gd;}return sched;
+}
+function visemeAt(sched,u){
+  for(let i=0;i<sched.length;i++){const g=sched[i];
+    if(u>=g.t0&&u<g.t1){const f=(u-g.t0)/(g.t1-g.t0);const nx=sched[i+1]||g;
+      const o=f>.7?lerp(g.o,nx.o,(f-.7)/.3):g.o;return{s:g.s,o};}}return{s:0,o:0};
+}
+function wordFrac(text,word){
+  const cl=s=>s.toLowerCase().replace(/[^a-z0-9’']/g,'');
+  const tg=cl(word.split('-')[0]);const ws=text.split(/\s+/);
+  let acc=0,hit=-1;const ln=ws.map(w=>w.length+1);const tot=ln.reduce((a,b)=>a+b,0);
+  for(let i=0;i<ws.length;i++){if(hit<0&&cl(ws[i]).startsWith(tg)&&tg)hit=acc;acc+=ln[i];}
+  if(word==='end')return .9;return hit<0?.5:clamp(hit/tot,0,.95);
+}
+const CUE_VOCAB=['lean+','lean++','nod','nod-small','head-shake-small','head-tilt','brow-knit','brows-up',
+ 'eyebrow-one','squint','eyes-wide','small-smile','wide-smile','sympathetic-smile','lips-press-tail',
+ 'mouth-open','glance-right','glance-left','glance-down-once','scan-tiles','direct-camera','look-at-you',
+ 'posture-up','finger-up','hand-raise','palms-up','swallow','face-drop','grin-tail','contain-laugh','look-away','settle'];
+function parseMotion(m,text){
+  const toks=String(m||"").split(';').map(s=>s.trim()).filter(Boolean);
+  return toks.map((tok,i)=>{let name=tok,at=null;const a=name.indexOf('@');
+    if(a>0){at=wordFrac(text,name.slice(a+1));name=name.slice(0,a);}
+    if(at===null)at=toks.length>1?i/toks.length:.1;return{name,at};
+  }).filter(f=>CUE_VOCAB.includes(f.name));
+}
+
+/* ============================================================
+   RIG — idle physiology + performance, now with a THINK layer
+   ============================================================ */
+function mkPose(){return{yaw:0,roll:0,lean:0,leanY:0,blink:0,browY:0,browKnit:0,browOne:0,
+  eyeWide:0,squint:0,smile:0,mouthS:0,mouthO:0,gazeX:0,gazeY:0,nod:0,shakeX:0,bounce:0,
+  offX:0,breath:0,postX:0,shrug:0,think:0,
+  headCarriageX:0,headCarriageY:0,headYawLag:0,carriageEnergy:0,
+  speechArm:0,armCue:0,speechPhase:0,captureArms:null,
+  captureHeadX:0,captureHeadY:0,captureBodyX:0,captureBodyY:0,captureShoulderTilt:0,captureTorsoLean:0,captureChest:0,captureDepth:0};}
+
+/* ---- living-head carriage: critically-damped spring, per character ---- */
+function updateHeadCarriage(rig,p,dt,now,captureOwned){
+  const P=CARRIAGE[rig.name]||CARRIAGE.DEFAULT;
+  const h=clamp(Number.isFinite(dt)?dt:1/60,1/240,1/24);
+  const seed=Number.isFinite(rig.seed)?rig.seed:0;
+  let st=rig._carriage;
+  if(!st||!Number.isFinite(st.x)||now-st.lastTime>.2||now<st.lastTime){
+    st=rig._carriage={x:0,y:0,vx:0,vy:0,yaw:p.yaw||0,yv:0,bx:p.captureBodyX||0,by:p.captureBodyY||0,lastTime:now};
+  }
+  const speech=clamp((p.mouthO||0)*.6,0,1);
+  const reaction=clamp(Math.max(p.eyeWide||0,(p.browY||0)*.75,(p.shrug||0)*.55),0,1);
+  const autonomy=captureOwned?.28:1;
+  const idleX=P.idle*autonomy*(Math.sin(now*.58+seed*1.71)*.105+Math.sin(now*1.37+seed*2.43)*.032);
+  const idleY=P.idle*autonomy*(Math.sin(now*.73+seed*1.19)*.047+Math.sin(now*1.91+seed*.83)*.014);
+  const speechSway=autonomy*speech*Math.sin(now*2.75+seed)*.042;
+  const speechBob=autonomy*speech*(-.028+Math.sin(now*3.15+seed*.7)*.019);
+  const gazeLeanX=clamp(p.gazeX||0,-1,1)*.025, gazeLeanY=clamp(p.gazeY||0,-1,1)*.016;
+  const bx=p.captureBodyX||0, by=p.captureBodyY||0;
+  const inX=clamp(-((bx-st.bx)/h)*.0105,-.075,.075), inY=clamp(-((by-st.by)/h)*.008,-.06,.06);
+  const capX=captureOwned?clamp(p.captureHeadX||0,-1.3,1.3)*.76:0;
+  const capY=captureOwned?clamp(p.captureHeadY||0,-1.3,1.3)*.72:0;
+  const tX=clamp(capX+idleX+speechSway+gazeLeanX+inX,-P.maxX,P.maxX);
+  const tY=clamp(capY+idleY+speechBob+gazeLeanY-reaction*autonomy*.018+inY,-P.maxY,P.maxY);
+  const spring=(v,vel,tgt,k,d)=>{vel+=((tgt-v)*k-vel*d)*h;v+=vel*h;return[v,vel];};
+  [st.x,st.vx]=spring(st.x,st.vx,tX,P.stiff,P.damp);
+  [st.y,st.vy]=spring(st.y,st.vy,tY,P.stiff*.94,P.damp*1.03);
+  const yawT=p.yaw||0;[st.yaw,st.yv]=spring(st.yaw,st.yv,yawT,P.yStiff,P.yDamp);
+  st.x=clamp(st.x,-P.maxX,P.maxX);st.y=clamp(st.y,-P.maxY,P.maxY);st.bx=bx;st.by=by;st.lastTime=now;
+  p.headCarriageX=st.x;p.headCarriageY=st.y;p.headYawLag=clamp(st.yaw-yawT,-.42,.42);
+  p.carriageEnergy=clamp((Math.abs(st.vx)+Math.abs(st.vy)+Math.abs(st.yv)*.35)/3.2,0,1);
+}
+
+class Rig{
+  constructor(name){
+    this.name=name;this.pose=mkPose();
+    this.blinkT=-2;this.nextBlink=2+Math.random()*3;
+    this.gazeGoal={x:0,y:0};this.gazeT=0;this.seed=Math.random()*10;
+    this.perf=null;this.think=null;this.ticT=4+Math.random()*8;
+    this.lastEmo=AFF[name].emotion;this.onset=null;
+  }
+  perform(text,{cues="",thought=false}={}){
+    const words=text.trim().split(/\s+/).filter(Boolean).length||1;
+    const d=thought?clamp(words*.34,3,13):clamp(words*.42,1.2,14);
+    this.perf={t0:wall(),d,text,thought,sched:thought?null:visemeSchedule(text,d),cues:parseMotion(cues,text)};
+    return this.perf;
+  }
+  startThinking(){this.think={t0:wall()};}      /* pre-generation "gathering a thought" */
+  stopThinking(){this.think=null;}
+  performing(now){return(this.perf&&now-this.perf.t0<this.perf.d)?this.perf:null;}
+
+  eval(dt,now,gazeTarget){
+    const p=this.pose,tgt=mkPose();
+    const A=AFF[this.name],AP=EMO_POSE[A.emotion]||{},k=A.intensity;
+    const C=CHAR[this.name];
+
+    /* detect emotion onset -> queue a reaction gesture */
+    if(A.emotion!==this.lastEmo){this.onset={t0:now,list:EMO_ONSET[A.emotion]||[]};this.lastEmo=A.emotion;}
+
+    /* breathing / posture / sway — per-character body dials */
+    const BD=BODY[this.name]||BODY.NAT;
+    tgt.breath=Math.sin(now*.9*BD.breathRate*(1+(AP.jitter||0)*k*.4)+this.seed)*BD.breathAmp;
+    tgt.postX=Math.sin(now*.14+this.seed*2)*1.6*BD.swayAmp;
+    tgt.leanY=Math.sin(now*.8+this.seed)*.5+(AP.leanY||0)*k*1.4;
+    tgt.roll=Math.sin(now*.3+this.seed)*.015;
+
+    /* affect register */
+    tgt.smile=(AP.smile||0)*k;
+    tgt.browKnit=(AP.browKnit||0)*k;
+    tgt.browY=(AP.browY||0)*k;
+    tgt.eyeWide=(AP.eyeWide||0)*k;
+    tgt.squint=(AP.squint||0)*k;
+    tgt.lean=(AP.lean||0)*k;
+    tgt.bounce=(AP.bounce||0)*Math.sin(now*2.6+this.seed)*.35+(AP.jitter||0)*k*Math.sin(now*9.3+this.seed)*.45;
+    if((AP.jitter||0)*k>.25)tgt.shakeX=Math.sin(now*13+this.seed)*(AP.jitter*k*.25);
+
+    /* LIVE CAPTURE layer — a real camera drives this exact rig.
+       When present, it overrides idle/affect so YOU performs the way
+       Nat or Phil do, through the same mesh + body. */
+    const D=this.drive;
+    const driven=!!(D&&D.on);
+
+    const P=this.performing(now);
+    const thinking=this.think&&!P&&!driven;
+    if(thinking){
+      const u=now-this.think.t0;
+      tgt.think=smooth(clamp(u/.5,0,1));
+      tgt.gazeY=-.35-.12*Math.sin(u*.7);          /* eyes up, searching */
+      tgt.gazeX=.4*Math.sin(u*.5+this.seed);
+      tgt.roll+=.05*Math.sin(u*.6);
+      tgt.browKnit=Math.max(tgt.browKnit,.35+.2*Math.sin(u*1.3));
+      tgt.mouthS=4;tgt.mouthO=0;                    /* mostly closed */
+      if(Math.sin(u*1.7+this.seed)>.9)tgt.mouthO=.12; /* faint lip move */
+      tgt.lean=Math.max(tgt.lean,.08);
+    }
+
+    /* blink scheduler (affect-scaled; think slows it further) */
+    if(!driven){
+      const bk=(AP.blinkK||1)*(thinking?1.6:1);
+      if(now-this.blinkT>this.nextBlink){this.blinkT=now;this.nextBlink=(2+Math.random()*3.4)*bk;}
+      const bp=(now-this.blinkT)/.13;
+      tgt.blink=(bp>0&&bp<1)?Math.sin(bp*Math.PI):0;
+    }
+
+    let gx=tgt.gazeX,gy=tgt.gazeY;
+
+    /* apply the live drive — this is YOU, performed by the camera */
+    if(driven){
+      tgt.mouthO=clamp(D.mouthOpen,0,1);
+      tgt.mouthS=D.mouthOpen>.12?3:(D.mouthWide>.3?2:4);
+      tgt.smile=clamp(D.smile,-1,1.2);
+      tgt.blink=clamp(Math.max(D.blinkL,D.blinkR),0,1);
+      tgt.eyeWide=clamp(D.eyeWide,0,1);
+      tgt.browY=clamp(D.browRaise,0,1.1);
+      tgt.browKnit=clamp(D.browKnit,0,1);
+      tgt.yaw=clamp(D.yaw,-1,1);
+      tgt.nod=clamp(-D.nod*.6,-.6,.6);
+      tgt.roll=clamp(D.roll,-.4,.4);
+      tgt.lean=clamp(D.depth,-.3,1.1);
+      tgt.leanY=clamp(D.headY*1.2,-1,1);
+      tgt.offX=clamp(D.headX*.5,-.5,.5);
+      tgt.breath=Math.sin(now*.9)*BD.breathAmp;
+      /* feed the carriage + torso: real head translation and a little body follow */
+      tgt.captureHeadX=clamp(D.headX,-1.3,1.3);
+      tgt.captureHeadY=clamp(D.headY,-1.3,1.3);
+      tgt.captureBodyX=clamp(D.headX*.4,-1,1);
+      tgt.captureBodyY=clamp(D.headY*.35,-1,1);
+      tgt.captureShoulderTilt=clamp(D.roll*1.6,-.45,.45);
+      tgt.captureTorsoLean=clamp(D.headX*.5,-1,1);
+      tgt.captureChest=clamp(D.depth*.5,-.5,.7);
+      tgt.captureDepth=clamp(D.depth,-.75,1.15);
+      gx=clamp(D.gazeX+D.yaw*.5,-1,1);
+      gy=clamp(D.gazeY,-1,1);
+    }
+
+    /* gaze wander (skip while thinking/performing/attending/driven) */
+    if(!driven&&!thinking&&!P&&!gazeTarget){
+      this.gazeT-=dt;
+      const rate=(AP.gazeRate||1),range=(AP.gazeRange||1);
+      if(this.gazeT<=0){this.gazeGoal={x:(Math.random()-.5)*.28*range,y:(Math.random()-.5)*.12*range+(AP.gazeY||0)*k*.5};
+        this.gazeT=(3+Math.random()*3.5)/Math.max(.5,rate);}
+      gx=this.gazeGoal.x;gy=this.gazeGoal.y;
+      /* micro-saccade texture */
+      const mi=(AP.micro||.2);gx+=Math.sin(now*7.1+this.seed)*.02*mi;gy+=Math.sin(now*6.3+this.seed*2)*.015*mi;
+    }
+
+    /* attend a target (a speaker, or YOU) */
+    if(gazeTarget&&!P&&!driven){
+      gx=gazeTarget.x*.85;gy=gazeTarget.y*.5;
+      tgt.roll+=gazeTarget.x*.02;tgt.lean=Math.max(tgt.lean,.16);
+      if(gazeTarget.you)tgt.smile=Math.max(tgt.smile,.08);
+    }
+
+    /* personal tic */
+    if(!P&&!thinking&&!driven){this.ticT-=dt;
+      const tk=TIC[C.tic];
+      if(this.ticT<=0&&tk){this.onset={t0:now,list:[{c:tk.c,w:.6}]};this.ticT=tk.gap+Math.random()*4;}}
+
+    /* onset / tic gesture playback (0.7s) */
+    if(this.onset&&!driven){const u=now-this.onset.t0;
+      if(u>.75)this.onset=null;
+      else for(const g of this.onset.list)this.applyCue({name:g.c,at:0},u/.75,u,.75,tgt,now,gx,gy,r=>{gx=r.gx;gy=r.gy;});}
+
+    /* performance: cues + speech visemes / thought sealed lips */
+    if(P){const u=now-P.t0,frac=u/P.d;
+      if(P.sched){const v=visemeAt(P.sched,u);tgt.mouthS=v.s;tgt.mouthO=v.o;gx=0;gy=0;tgt.lean=Math.max(tgt.lean,.4);}
+      else if(Math.sin(u*2.1+this.seed)>.93){tgt.mouthS=4;tgt.mouthO=.05;}
+      let go={gx,gy};
+      for(const f of P.cues)this.applyCue(f,frac,u,P.d,tgt,now,gx,gy,r=>{go=r;});
+      gx=go.gx;gy=go.gy;
+    }
+    tgt.gazeX=gx;tgt.gazeY=gy;
+
+    /* arm energy: speaking (aloud) drives co-speech gesture; cues add pulses */
+    const speaking=P&&!P.thought;
+    tgt.speechArm=speaking?clamp(.55+(P.d?Math.min(.4,(now-P.t0)/P.d*.4):0),0,1):0;
+    tgt.armCue=this._armCue||0;this._armCue=Math.max(0,(this._armCue||0)-dt*1.2);
+    /* captured arms passed straight through (Holistic writes drive.arms) */
+    p.captureArms=(driven&&D&&D.arms)?D.arms:null;
+    p.speechPhase=(p.speechPhase||0)+dt*(ARM_BEHAV[this.name]||ARM_BEHAV.NAT).rate;
+
+    /* approach speeds — livecapture tracks faster so the head follows you */
+    const kFast=1-Math.exp(-dt*26),kMid=1-Math.exp(-dt*10);
+    const kSlow=1-Math.exp(-dt*(driven?16:5.5));
+    p.mouthS=tgt.mouthS;p.mouthO=lerp(p.mouthO,tgt.mouthO,kFast);p.blink=tgt.blink;p.think=lerp(p.think,tgt.think,kMid);
+    for(const key of['browY','browKnit','browOne','eyeWide','squint','smile','gazeX','gazeY','breath','postX'])p[key]=lerp(p[key],tgt[key],kMid);
+    for(const key of['shrug','speechArm','armCue'])p[key]=lerp(p[key],tgt[key],1-Math.exp(-dt*9));
+    for(const key of['yaw','roll','lean','leanY','nod','shakeX','bounce','offX'])p[key]=lerp(p[key],tgt[key],kSlow);
+    /* capture-body channels (decay toward 0 when not driven) */
+    const kCap=1-Math.exp(-dt*(driven?18:6));
+    for(const key of['captureHeadX','captureHeadY','captureBodyX','captureBodyY','captureShoulderTilt','captureTorsoLean','captureChest','captureDepth'])
+      p[key]=lerp(p[key],driven?tgt[key]:0,kCap);
+    /* living head-neck carriage: bounded drift, inertia, breathing, speech sway */
+    updateHeadCarriage(this,p,dt,now,driven);
+    return p;
+  }
+  applyCue(f,frac,u,dur,tgt,now,gx,gy,setGaze){
+    const local=frac-f.at;const Pw=w=>pulse(local,w/dur);let ngx=gx,ngy=gy;
+    switch(f.name){
+      case'lean+':tgt.lean=Math.max(tgt.lean,.75);break;
+      case'lean++':tgt.lean=Math.max(tgt.lean,1.25);break;
+      case'nod':tgt.nod+=Pw(.7);break;
+      case'nod-small':tgt.nod+=Pw(.7)*.6;break;
+      case'head-shake-small':tgt.shakeX+=Math.sin(u*18)*smooth(1-frac)*.6;break;
+      case'head-tilt':tgt.roll+=.14;break;
+      case'brow-knit':tgt.browKnit=Math.max(tgt.browKnit,.8);break;
+      case'brows-up':tgt.browY=Math.max(tgt.browY,local>-.05?.9:0);break;
+      case'eyebrow-one':tgt.browOne=.9;break;
+      case'squint':tgt.squint=Math.max(tgt.squint,.7);break;
+      case'eyes-wide':tgt.eyeWide=Math.max(tgt.eyeWide,.9);break;
+      case'small-smile':tgt.smile=Math.max(tgt.smile,local>0?.45:tgt.smile);break;
+      case'wide-smile':tgt.smile=Math.max(tgt.smile,local>-.05?1:tgt.smile);break;
+      case'sympathetic-smile':tgt.smile=Math.max(tgt.smile,.5);tgt.browY=Math.max(tgt.browY,.4);break;
+      case'grin-tail':if(frac>.65)tgt.smile=Math.max(tgt.smile,.8);break;
+      case'lips-press-tail':if(frac>.6){tgt.mouthS=4;tgt.mouthO=0;}break;
+      case'contain-laugh':tgt.bounce+=Math.sin(now*22)*.4;tgt.smile=Math.max(tgt.smile,.35);break;
+      case'mouth-open':if(local>-.02)tgt.mouthO=Math.max(tgt.mouthO,.5);break;
+      case'glance-right':if(local>0&&local<.3){ngx=.9;ngy=.1;}break;
+      case'glance-left':if(local>0&&local<.3){ngx=-.9;ngy=.1;}break;
+      case'glance-down-once':if(local>-.02&&local<.35){ngx=0;ngy=.8;tgt.nod=Math.max(tgt.nod,.3);}break;
+      case'look-away':if(local>0&&local<.5){ngx=-.85;ngy=.15;tgt.yaw=-.3;}break;
+      case'look-at-you':if(local>0){ngx=0;ngy=0;tgt.smile=Math.max(tgt.smile,.06);}break;
+      case'scan-tiles':ngx=Math.sin(u*3.5)*.8;ngy=0;break;
+      case'direct-camera':ngx=0;ngy=0;break;
+      case'posture-up':tgt.lean=.2;tgt.leanY=-.6;break;
+      case'finger-up':this._armCue=Math.max(this._armCue||0,.7);tgt.nod+=Pw(.5)*.3;break;
+      case'hand-raise':this._armCue=Math.max(this._armCue||0,1);break;
+      case'palms-up':this._armCue=Math.max(this._armCue||0,.6);break;
+      case'swallow':tgt.nod+=Pw(.3)*.3;break;
+      case'face-drop':tgt.browKnit=Math.max(tgt.browKnit,.7);tgt.smile=Math.min(tgt.smile,-.5);tgt.mouthO=Math.max(tgt.mouthO,.25);break;
+      case'settle':if(frac>.6){tgt.lean*=.5;tgt.browKnit*=.5;}break;
+    }
+    setGaze({gx:ngx,gy:ngy});
+  }
+}
+
+/* ============================================================
+   MESH FACE — baked ideal landmark pack, flat semantic ink
+   ============================================================ */
+const LMK={
+ oval:[[47.3,25.3],[56.9,25.6],[64.8,27.2],[71.7,30.2],[75.8,34.6],[77.9,40.2],[78.7,46.2],[78.6,53.6],[78.2,60.5],[77.8,67.7],[76.8,75.2],[74.8,83.0],[72.1,89.2],[69.0,93.6],[64.7,97.5],[60.9,100.3],[56.9,102.6],[52.1,104.5],[45.6,105.1],[38.8,104.8],[33.3,103.2],[28.4,101.0],[23.8,98.3],[18.4,94.4],[14.1,89.9],[10.6,83.6],[8.4,75.5],[7.3,67.7],[7.0,60.5],[7.0,53.5],[8.1,46.1],[10.2,40.0],[14.0,34.3],[19.8,29.8],[28.3,26.8],[37.2,25.4]],
+ lipsO:[[31.1,81.5],[32.8,83.2],[35.0,84.7],[38.1,86.3],[41.9,87.3],[46.2,87.6],[50.3,87.2],[53.8,86.2],[56.5,84.5],[58.4,82.9],[59.7,81.3],[58.5,80.6],[56.8,79.8],[54.3,79.0],[50.8,78.4],[46.8,79.1],[42.6,78.5],[38.3,79.2],[35.2,80.0],[32.9,80.8]],
+ lipsI:[[32.4,81.6],[34.5,82.2],[36.6,82.6],[39.4,82.9],[42.7,83.2],[46.4,83.4],[49.7,83.2],[52.6,82.8],[54.9,82.4],[56.7,82.0],[58.6,81.4],[56.7,81.3],[54.9,81.1],[52.7,81.1],[49.8,81.3],[46.5,81.4],[42.8,81.3],[39.5,81.2],[36.7,81.3],[34.4,81.5]],
+ lipsOs:[[1.1,-0.1],[0.9,-0.4],[0.7,-0.8],[0.4,-1.0],[0.2,-1.2],[0.0,-1.3],[0.0,-1.2],[0.1,-1.2],[0.2,-1.0],[0.3,-0.7],[0.3,-0.3],[0.1,-0.4],[-0.1,-0.6],[-0.3,-0.8],[-0.6,-1.0],[-0.6,-0.9],[-0.4,-1.0],[0.0,-0.7],[0.4,-0.4],[0.8,-0.2]],
+ lipsIs:[[1.1,-0.2],[0.9,-0.7],[0.7,-1.2],[0.5,-1.5],[0.2,-1.8],[-0.1,-1.8],[-0.1,-1.8],[-0.1,-1.7],[0.1,-1.4],[0.2,-1.0],[0.3,-0.4],[0.0,-0.4],[-0.0,-0.3],[-0.2,-0.3],[-0.3,-0.4],[-0.3,-0.4],[0.0,-0.3],[0.4,-0.2],[0.7,-0.1],[1.0,-0.1]],
+ eyeL:[[22.9,50.9],[24.1,51.6],[25.3,52.1],[27.1,52.6],[29.7,52.7],[32.3,52.4],[34.7,52.0],[36.4,51.8],[37.2,51.5],[36.3,50.7],[34.3,49.3],[31.6,48.3],[28.9,48.2],[26.3,48.7],[24.6,49.5],[23.7,50.2]],
+ eyeR:[[68.5,50.7],[67.6,51.6],[66.5,52.1],[64.8,52.5],[62.4,52.6],[59.8,52.3],[57.5,51.9],[55.9,51.7],[55.1,51.5],[56.0,50.6],[58.0,49.3],[60.6,48.4],[63.3,48.2],[65.6,48.6],[67.1,49.4],[67.9,50.1]],
+ browL:[[15.6,44.1],[19.3,41.3],[24.8,39.7],[31.9,39.9],[39.7,40.8]],
+ browR:[[55.0,40.8],[62.2,39.9],[68.4,39.7],[72.8,41.2],[75.3,43.9]],
+ nose:[[47.2,48.7],[47.4,52.2],[47.6,55.4],[47.8,58.3],[48.0,61.5],[48.1,65.4]],
+ nostril:[[37.9,70.8],[43.0,71.7],[47.2,71.9],[51.2,71.7],[55.5,70.7]],
+ irisL:[29.7,50.4],irisR:[62.7,50.4]
+};
+const INKMAP={SCLERA:0,TEETH:1,NOSE:5,LIPS:5,BROW:6,EDGE:7,IRIS:7,MOUTH:7};
+const MSCRATCH={};
+function meshFace(name,p,now){
+  const F=CHAR[name];const BD=BODY[name]||BODY.NAT;
+  const sc=MSCRATCH[name]||(MSCRATCH[name]=(()=>{const c=document.createElement('canvas');c.width=184;c.height=224;return c;})());
+  const g=sc.getContext('2d');g.setTransform(2,0,0,2,0,0);g.clearRect(0,0,92,112);
+  const yaw=p.yaw;const xs=Math.max(.55,Math.cos(clamp(yaw,-1.2,1.2)));const fdx=Math.sin(clamp(yaw,-1,1))*6;
+  /* per-character proportions: faceH scales height about the brow line,
+     jaw widens the lower face below mid */
+  const MIDY=52, fH=BD.faceH, jaw=BD.jaw;
+  const wY=y=>MIDY+(y-MIDY)*fH;
+  const jawK=y=>y>MIDY?1+(jaw-1)*smooth((y-MIDY)/40):1;
+  const T=pt=>[(pt[0]-46)*xs*jawK(pt[1])+46+fdx,wY(pt[1])];
+  const path=(pts,cl)=>{g.beginPath();pts.forEach((q,i)=>{const t=T(q);i?g.lineTo(t[0],t[1]):g.moveTo(t[0],t[1]);});if(cl)g.closePath();};
+  const fillR=(pts,v,a)=>{g.globalAlpha=a==null?1:a;g.fillStyle=ink2gray(v);path(pts,true);g.fill();g.globalAlpha=1;};
+  const strokeR=(pts,cl,v,lw,a)=>{g.globalAlpha=a==null?1:a;g.strokeStyle=ink2gray(v);g.lineWidth=lw;g.lineJoin='round';g.lineCap='round';path(pts,cl);g.stroke();g.globalAlpha=1;};
+  const OV=LMK.oval;const oxs=OV.map(q=>q[0]),oys=OV.map(q=>q[1]);
+  const exL=Math.min(...oxs),exR=Math.max(...oxs),topY=Math.min(...oys);
+  const Th=pt=>[(pt[0]-46)*xs*jawK(pt[1])+46+fdx*.45,wY(pt[1])];
+  const pathH=(pts,cl)=>{g.beginPath();pts.forEach((q,i)=>{const t=Th(q);i?g.lineTo(t[0],t[1]):g.moveTo(t[0],t[1]);});if(cl)g.closePath();};
+  const hairInk=inkQ(F.hairTone);const sinY=Math.sin(clamp(yaw,-1,1));
+
+  /* hair back */
+  g.fillStyle=hairInk;
+  if(F.style==='long'){for(const sd of[-1,1]){const x0=sd<0?exL:exR;pathH([[x0+sd*1.5,42],[x0+sd*7.5,60],[x0+sd*7,100],[x0-sd*1.5,104],[x0-sd*4,58]],true);g.fill();}}
+  if(F.style==='bob'){pathH([[exL-6,46],[exL-7,66],[exL-2,74],[exL+4,70],[exL+4,48]],true);g.fill();pathH([[exR+6,46],[exR+7,66],[exR+2,74],[exR-4,70],[exR-4,48]],true);g.fill();}
+  if(F.style==='exec'){for(const sd of[-1,1]){const x0=sd<0?exL:exR;pathH([[x0+sd*1,40],[x0+sd*5.5,44],[x0+sd*5,62],[x0-sd*1,60]],true);g.fill();}}
+  if(F.style==='curly'){for(const sd of[-1,1]){const x0=sd<0?exL:exR;const tc=Th([x0+sd*3.5,46]);g.beginPath();g.ellipse(tc[0],tc[1],4.2,5.4,0,0,7);g.fill();}}
+
+  /* ears */
+  for(const[ex,sd]of[[exL,-1],[exR,1]]){const vis=clamp(1-sinY*sd*3.2,0,1.35);if(vis<.08)continue;
+    const grow=1+Math.max(0,-sinY*sd)*.45;const ec=T([ex+sd*2.2,50.5]);
+    g.globalAlpha=Math.min(1,vis);g.fillStyle=ink2gray(F.skinInk);g.beginPath();g.ellipse(ec[0],ec[1],3.1*grow,4.6*grow,0,0,7);g.fill();
+    g.strokeStyle=ink2gray(INKMAP.EDGE);g.lineWidth=1.3;g.beginPath();g.ellipse(ec[0],ec[1],3.1*grow,4.6*grow,0,0,7);g.stroke();g.globalAlpha=1;}
+
+  fillR(OV,F.skinInk);strokeR(OV,true,INKMAP.EDGE,1.45);
+  strokeR(LMK.nose,false,INKMAP.NOSE,1.7);strokeR(LMK.nostril,false,INKMAP.NOSE,1.5);
+
+  /* brows */
+  for(const bk of[LMK.browL,LMK.browR]){
+    const ds=bk.map(q=>Math.abs(q[0]-46));const mn=Math.min(...ds),mx=Math.max(...ds);const isL=bk===LMK.browL;
+    const oneUp=(!isL&&p.browOne>.4)?.9:0;
+    const bp=bk.map((q,i)=>{const w=1-(ds[i]-mn)/(mx-mn+1e-6);return[q[0]+(q[0]<46?1:-1)*p.browKnit*w*1.2,q[1]-(p.browY+oneUp)*3.4+p.browKnit*w*2.6];});
+    strokeR(bp,false,INKMAP.BROW,2.5);
+  }
+
+  /* eyes */
+  const eyeOpen=clamp((1-p.blink)*(1-p.squint*.55)+p.eyeWide*.35,.06,1.35);
+  for(const[loop,iris]of[[LMK.eyeL,LMK.irisL],[LMK.eyeR,LMK.irisR]]){
+    const cy=loop.reduce((s,q)=>s+q[1],0)/loop.length,cx=loop.reduce((s,q)=>s+q[0],0)/loop.length;
+    const lid=loop.map(q=>[q[0],cy+(q[1]-cy)*eyeOpen]);
+    if(eyeOpen>.18){fillR(lid,INKMAP.SCLERA);strokeR(lid,true,INKMAP.BROW,1.0,.85);
+      const ic=T([iris[0]+p.gazeX*1.7,iris[1]+p.gazeY*1.1]);g.fillStyle=ink2gray(INKMAP.IRIS);g.beginPath();g.arc(ic[0],ic[1],2.1,0,7);g.fill();}
+    else strokeR([[cx-6,cy],[cx+6,cy]],false,INKMAP.BROW,1.3,.9);
+  }
+
+  /* lips */
+  const s=p.mouthS,o=clamp(p.mouthO,0,1)*.55;
+  const sm=clamp(p.smile,0,1)*(1-Math.min(1,Math.abs(yaw)/.6));const frown=clamp(-p.smile,0,1);
+  const mc=LMK.lipsI.reduce((a,q)=>[a[0]+q[0],a[1]+q[1]],[0,0]).map(v=>v/LMK.lipsI.length);
+  let vx=1,gapK=2.6;if(s===2){vx=1.10;gapK=1.6;}if(s===3){vx=.78;gapK=3.2;}if(s===5){vx=.95;gapK=.9;}
+  const warp=(base,delta,inner)=>base.map((q,i)=>{let x=q[0]+delta[i][0]*sm,y=q[1]+delta[i][1]*sm;
+    x=mc[0]+(x-mc[0])*(inner?vx:1+(vx-1)*.6);
+    if(inner)y=mc[1]+(y-mc[1])*(.35+o*gapK);else{y=mc[1]+(y-mc[1])*(.9+o);if(y>mc[1])y+=o*2;}return[x,y];});
+  if(s===4&&o<.1){const bend=(sm-frown)*1.6;strokeR([[mc[0]-9,mc[1]+bend],[mc[0],mc[1]-bend*.7],[mc[0]+9,mc[1]+bend]],false,INKMAP.MOUTH,1.7);}
+  else{const inner=warp(LMK.lipsI,LMK.lipsIs,true),outer=warp(LMK.lipsO,LMK.lipsOs,false);
+    fillR(outer,INKMAP.LIPS);
+    if(o>.07){fillR(inner,INKMAP.MOUTH);if(o>.28&&s!==5){const ys=inner.map(q=>q[1]);const top=Math.min(...ys);g.fillStyle=ink2gray(INKMAP.TEETH);g.fillRect(T([mc[0],0])[0]-5.5*vx,top+.4,11*vx,1.8);}}
+    else strokeR(inner,true,INKMAP.MOUTH,.9,.7);}
+
+  /* hair front */
+  g.fillStyle=hairInk;
+  if(F.style==='long'){pathH([[exL-2,46],[exL-3,32],[46,topY-6.5],[exR+3,32],[exR+2,46],[exR-3,40],[exR-8,33.5],[46,topY+3.5],[exL+8,33.5],[exL+3,40]],true);g.fill();}
+  if(F.style==='bob'){pathH([[exL-6,48],[exL-6,32],[46,topY-7.5],[exR+6,32],[exR+6,48],[exR+1,44],[exR-1,34],[exL+9,38.5],[exL+2,44]],true);g.fill();}
+  if(F.style==='curly'){for(let i=0;i<=7;i++){const a=Math.PI*(1.02-i*.146);const px=46+Math.cos(a)*(exR-46)*1.12;const py=41.5+Math.sin(a)*-(41.5-topY)*1.28;const cr=4.2+1.2*Math.sin(i*2.3);const tc=Th([px,py]);g.beginPath();g.ellipse(tc[0],tc[1],cr,cr,0,0,7);g.fill();}pathH([[exL+2,42],[exL+2,33],[46,topY+1],[exR-2,33],[exR-2,42],[46,topY+9]],true);g.fill();}
+  if(F.style==='shaved'){g.globalAlpha=.4;pathH([[exL+3,40],[exL+4,30],[46,topY+1.5],[exR-4,30],[exR-3,40],[46,topY+8]],true);g.fill();g.globalAlpha=1;}
+  if(F.style==='exec'){g.strokeStyle=hairInk;g.lineWidth=1.15;g.globalAlpha=.6;g.lineCap='round';for(let i=0;i<3;i++){const y0=38-i*2.1;g.beginPath();const a=Th([exL+5,y0]),b=Th([46,topY-1-i*1.6]),c=Th([exR-5,y0]);g.moveTo(a[0],a[1]);g.quadraticCurveTo(b[0],b[1],c[0],c[1]);g.stroke();}g.globalAlpha=1;}
+  if(F.glasses){const gy=45.5;const gxo=Math.sin(clamp(yaw,-1,1))*6*.7;const gxs=Math.max(.6,Math.cos(clamp(yaw,-1.2,1.2)));
+    g.strokeStyle=gray(40);g.lineWidth=1.6;for(const sd of[-1,1]){g.beginPath();g.ellipse(46+sd*15*gxs+gxo,gy,10.5*gxs,7.6,0,0,7);g.stroke();}
+    g.beginPath();g.moveTo(46-2*gxs+gxo,gy);g.lineTo(46+2*gxs+gxo,gy);g.stroke();}
+  return sc;
+}
+
+/* ============================================================
+   ARMS (ported from ICARO V4.4) — always present, procedural when
+   the camera's off, captured from Holistic pose/hands when it's on.
+   ============================================================ */
+const ARM_BEHAV={
+  NAT:{amplitude:.58,bilateral:.68,rate:2.45,dominant:1},
+  CHRIS:{amplitude:.42,bilateral:.36,rate:2.05,dominant:1},
+  SAMANTHA:{amplitude:.50,bilateral:.60,rate:2.28,dominant:-1},
+  ERNIE:{amplitude:.72,bilateral:.82,rate:2.78,dominant:1},
+  PHIL:{amplitude:.28,bilateral:.24,rate:1.72,dominant:1},
+  BARBARA:{amplitude:.46,bilateral:.52,rate:2.1,dominant:1},
+  KIM:{amplitude:.54,bilateral:.6,rate:2.4,dominant:-1},
+  DANIEL:{amplitude:.5,bilateral:.44,rate:2.15,dominant:1},
+  FRIEDRICH:{amplitude:.26,bilateral:.2,rate:1.6,dominant:1},
+  SUSANNA:{amplitude:.44,bilateral:.56,rate:2.0,dominant:-1},
+  YOU:{amplitude:.5,bilateral:.6,rate:2.3,dominant:1}
+};
+const isFiniteRigPoint=p=>!!p&&Number.isFinite(p.x)&&Number.isFinite(p.y);
+/* Holistic landmarks are normalized 0..1 (x mirrored for selfie view).
+   mapPt turns one into canvas space; fallback used if missing. */
+function mapPt(lm,W,H,fallback){
+  if(!lm||!Number.isFinite(lm.x)||(lm.visibility!=null&&lm.visibility<.35))return fallback||null;
+  return{x:(1-lm.x)*W,y:lm.y*H};
+}
+function mapHand(hand,W,H){
+  if(!hand||!hand.length)return null;
+  return hand.map(pt=>({x:(1-pt.x)*W,y:pt.y*H}));
+}
+function safeRigAxes(rig){
+  let xA=rig&&isFiniteRigPoint(rig.xAxis)?rig.xAxis:null;
+  if(!xA&&rig&&isFiniteRigPoint(rig.leftShoulder)&&isFiniteRigPoint(rig.rightShoulder)){
+    const dx=rig.rightShoulder.x-rig.leftShoulder.x,dy=rig.rightShoulder.y-rig.leftShoulder.y,l=Math.hypot(dx,dy)||1;xA={x:dx/l,y:dy/l};}
+  if(!xA)xA={x:1,y:0};
+  const xl=Math.hypot(xA.x,xA.y)||1;xA={x:xA.x/xl,y:xA.y/xl};
+  let yA=rig&&isFiniteRigPoint(rig.yAxis)?rig.yAxis:{x:-xA.y,y:xA.x};
+  const yl=Math.hypot(yA.x,yA.y)||1;yA={x:yA.x/yl,y:yA.y/yl};
+  if(yA.y<0)yA={x:-yA.x,y:-yA.y};
+  return{xAxis:xA,yAxis:yA};
+}
+function rigOffset(origin,rig,across,down){
+  const fb=rig&&isFiniteRigPoint(rig.mid)?rig.mid:{x:0,y:0};
+  const base=isFiniteRigPoint(origin)?origin:fb;const ax=safeRigAxes(rig);
+  const a=Number.isFinite(across)?across:0,d=Number.isFinite(down)?down:0;
+  return{x:base.x+ax.xAxis.x*a+ax.yAxis.x*d,y:base.y+ax.xAxis.y*a+ax.yAxis.y*d};
+}
+function taperedCapsule(g,a,b,wA,wB,color){
+  const dx=b.x-a.x,dy=b.y-a.y,len=Math.hypot(dx,dy)||1,nx=-dy/len,ny=dx/len,ra=wA*.5,rb=wB*.5;
+  g.fillStyle=color;g.beginPath();
+  g.moveTo(a.x+nx*ra,a.y+ny*ra);g.lineTo(b.x+nx*rb,b.y+ny*rb);
+  g.quadraticCurveTo(b.x+dx/len*rb,b.y+dy/len*rb,b.x-nx*rb,b.y-ny*rb);
+  g.lineTo(a.x-nx*ra,a.y-ny*ra);
+  g.quadraticCurveTo(a.x-dx/len*ra,a.y-dy/len*ra,a.x+nx*ra,a.y+ny*ra);
+  g.closePath();g.fill();
+}
+function solveProceduralLimb(side,speechEnergy,cueEnergy,rig){
+  if(!rig)return null;const shoulder=side<0?rig.leftShoulder:rig.rightShoulder;
+  if(!isFiniteRigPoint(shoulder))return null;
+  const span=Number.isFinite(rig.span)&&rig.span>1?rig.span:Math.max(24,(rig.frameWidth||320)*.18);
+  const H=Number.isFinite(rig.frameHeight)?rig.frameHeight:shoulder.y+span;
+  const available=Math.max(span*.34,H-shoulder.y-span*.09);
+  const upperLength=Math.max(4,Math.min(span*.31,available*.47));
+  const lowerLength=Math.max(4,Math.min(span*.29,available*.45));
+  const outward=side,speech=smooth(clamp(speechEnergy||0,0,1)),cue=smooth(clamp(cueEnergy||0,0,1));
+  const bothCue=!!rig.bilateralCue,phase=rig.speechPhase||0;
+  const restElbow=rigOffset(shoulder,rig,outward*span*.030,upperLength*.96);
+  const restWrist=rigOffset(restElbow,rig,-outward*span*.018,lowerLength*.98);
+  const beat=Math.sin(phase+(side<0?1.15:0));
+  const talkElbow=rigOffset(shoulder,rig,outward*span*(.095+.018*beat),upperLength*(.68-.045*beat));
+  const talkWrist=rigOffset(talkElbow,rig,outward*span*(.085+.020*beat),lowerLength*(.34+.055*Math.cos(phase*.83+side)));
+  let cueElbow,cueWrist,handPose='relaxed';
+  if(bothCue){cueElbow=rigOffset(shoulder,rig,outward*span*.115,upperLength*.56);cueWrist=rigOffset(cueElbow,rig,outward*span*.095,-lowerLength*.07);handPose='open';}
+  else if(cue>.68){cueElbow=rigOffset(shoulder,rig,outward*span*.155,upperLength*.26);cueWrist=rigOffset(cueElbow,rig,-outward*span*.055,-lowerLength*.72);handPose='open';}
+  else{cueElbow=rigOffset(shoulder,rig,outward*span*.125,upperLength*.54);cueWrist=rigOffset(cueElbow,rig,outward*span*.070,lowerLength*.03);handPose=cue>.28?'open':'relaxed';}
+  const speechMix=speech*(1-cue*.72);
+  let elbow={x:lerp(restElbow.x,talkElbow.x,speechMix),y:lerp(restElbow.y,talkElbow.y,speechMix)};
+  let wrist={x:lerp(restWrist.x,talkWrist.x,speechMix),y:lerp(restWrist.y,talkWrist.y,speechMix)};
+  elbow={x:lerp(elbow.x,cueElbow.x,cue),y:lerp(elbow.y,cueElbow.y,cue)};
+  wrist={x:lerp(wrist.x,cueWrist.x,cue),y:lerp(wrist.y,cueWrist.y,cue)};
+  return{side,shoulder,elbow,wrist,handPoints:null,depth:side<0?.05:.04,procedural:true,handPose,gesture:Math.max(speech,cue)};
+}
+/* captured limb from Holistic pose+hand landmarks (screen-space points already scaled) */
+function capturedLimb(side,shoulder,elbow,wrist,handPoints){
+  if(!isFiniteRigPoint(shoulder)||!isFiniteRigPoint(wrist))return null;
+  const el=isFiniteRigPoint(elbow)?elbow:{x:(shoulder.x+wrist.x)/2,y:(shoulder.y+wrist.y)/2+Math.hypot(wrist.x-shoulder.x,wrist.y-shoulder.y)*.18};
+  return{side,shoulder,elbow:el,wrist,handPoints:handPoints||null,depth:side<0?.05:.04,procedural:false,handPose:'relaxed',gesture:.4};
+}
+function drawUpperSleeve(g,limb,span,color){
+  if(!limb)return;const dx=limb.elbow.x-limb.shoulder.x,dy=limb.elbow.y-limb.shoulder.y,angle=Math.atan2(dy,dx);
+  const ps=limb.procedural?.82:.94;
+  g.save();g.translate(limb.shoulder.x,limb.shoulder.y+span*.018);g.rotate(angle);g.fillStyle=color;
+  g.beginPath();g.ellipse(span*.010,0,span*.096*ps,span*.078*ps,0,0,Math.PI*2);g.fill();g.restore();
+  taperedCapsule(g,{x:limb.shoulder.x+Math.cos(angle)*span*.030,y:limb.shoulder.y+Math.sin(angle)*span*.030},limb.elbow,span*.152*ps,span*.103*ps,color);
+}
+function drawFallbackHand(g,root,ux,uy,span,skinColor,handPose='relaxed',gesture=0,side=1){
+  const poseOpen=handPose==='open'?clamp(.65+gesture*.30,.65,.98):.34;
+  const wristTurn=side*(handPose==='open'?.16:.08),ca=Math.cos(wristTurn),sa=Math.sin(wristTurn);
+  const hux=ux*ca-uy*sa,huy=ux*sa+uy*ca,nx=-huy,ny=hux;
+  const palm={x:root.x+hux*span*.048,y:root.y+huy*span*.048};
+  g.fillStyle=skinColor;g.save();g.translate(palm.x,palm.y);g.rotate(Math.atan2(huy,hux));
+  g.beginPath();g.ellipse(0,0,span*.050,span*.070,0,0,Math.PI*2);g.fill();g.restore();
+  const lateral=[-.35,-.12,.12,.34],lengths=[.126,.143,.136,.112];
+  for(let i=0;i<4;i++){const spread=lateral[i]*poseOpen;
+    const base={x:palm.x+nx*spread*span*.105+hux*span*.030,y:palm.y+ny*spread*span*.105+huy*span*.030};
+    const curl=handPose==='open'?spread*.20:spread*.11+(i-1.5)*.025,fca=Math.cos(curl),fsa=Math.sin(curl);
+    const fux=hux*fca-huy*fsa,fuy=hux*fsa+huy*fca;
+    const mid={x:base.x+fux*span*lengths[i]*.56,y:base.y+fuy*span*lengths[i]*.56};
+    const tb=handPose==='open'?0:side*.07,tca=Math.cos(tb),tsa=Math.sin(tb);
+    const tux=fux*tca-fuy*tsa,tuy=fux*tsa+fuy*tca;
+    const tip={x:mid.x+tux*span*lengths[i]*.44,y:mid.y+tuy*span*lengths[i]*.44};
+    taperedCapsule(g,base,mid,span*.021,span*.014,skinColor);taperedCapsule(g,mid,tip,span*.014,span*.008,skinColor);}
+  const thumbOut=side<0?1:-1;
+  const thumbBase={x:palm.x+nx*thumbOut*span*.046-hux*span*.006,y:palm.y+ny*thumbOut*span*.046-huy*span*.006};
+  const ta=thumbOut*(handPose==='open'?.76:.54),tca=Math.cos(ta),tsa=Math.sin(ta);
+  const tux=hux*tca-huy*tsa,tuy=hux*tsa+huy*tca;
+  const tm={x:thumbBase.x+tux*span*.052,y:thumbBase.y+tuy*span*.052},tt={x:tm.x+tux*span*.043,y:tm.y+tuy*span*.043};
+  taperedCapsule(g,thumbBase,tm,span*.024,span*.015,skinColor);taperedCapsule(g,tm,tt,span*.015,span*.008,skinColor);
+}
+function lengthenHandSkeleton(src){
+  const pts=src.map(p=>({x:p.x,y:p.y}));
+  const chains=[{ids:[1,2,3,4],s:1.19},{ids:[5,6,7,8],s:1.29},{ids:[9,10,11,12],s:1.31},{ids:[13,14,15,16],s:1.27},{ids:[17,18,19,20],s:1.22}];
+  for(const c of chains){const base=src[c.ids[0]];for(let i=1;i<c.ids.length;i++){const id=c.ids[i],t=i/(c.ids.length-1),sc=1+(c.s-1)*(.45+t*.55);pts[id]={x:base.x+(src[id].x-base.x)*sc,y:base.y+(src[id].y-base.y)*sc};}}
+  return pts;
+}
+function drawForearmAndHand(g,limb,span,sleeveColor,skinColor){
+  if(!limb)return;const fs=limb.procedural?.82:.94;
+  taperedCapsule(g,limb.elbow,limb.wrist,span*.112*fs,span*.068*fs,sleeveColor);
+  g.fillStyle=sleeveColor;g.beginPath();
+  g.ellipse(limb.elbow.x,limb.elbow.y,span*.078,span*.068,Math.atan2(limb.wrist.y-limb.elbow.y,limb.wrist.x-limb.elbow.x),0,Math.PI*2);g.fill();
+  const dx=limb.wrist.x-limb.elbow.x,dy=limb.wrist.y-limb.elbow.y,len=Math.hypot(dx,dy)||1,ux=dx/len,uy=dy/len;
+  const handRoot={x:limb.wrist.x+ux*span*.028,y:limb.wrist.y+uy*span*.028};
+  if(!limb.handPoints){drawFallbackHand(g,handRoot,ux,uy,span,skinColor,limb.handPose||'relaxed',limb.gesture||0,limb.side||1);return;}
+  let points=limb.handPoints.map(p=>({x:p.x+ux*span*.020,y:p.y+uy*span*.020}));
+  points=lengthenHandSkeleton(points);
+  const palmIds=[0,5,9,13,17];let pc={x:0,y:0};for(const id of palmIds){pc.x+=points[id].x;pc.y+=points[id].y;}pc.x/=palmIds.length;pc.y/=palmIds.length;
+  g.save();g.fillStyle=skinColor;g.strokeStyle=skinColor;g.lineCap='round';g.lineJoin='round';
+  g.beginPath();g.moveTo(points[0].x,points[0].y);for(const id of[5,9,13,17])g.lineTo(points[id].x,points[id].y);g.closePath();g.fill();
+  g.beginPath();g.ellipse(pc.x,pc.y,span*.064,span*.080,Math.atan2(dy,dx),0,Math.PI*2);g.fill();
+  const chains=[[0,1,2,3,4],[5,6,7,8],[9,10,11,12],[13,14,15,16],[17,18,19,20]];
+  for(let ci=0;ci<chains.length;ci++){const ch=chains[ci];for(let i=0;i<ch.length-1;i++){const a=points[ch[i]],b=points[ch[i+1]];
+    const bw=span*(ci===0?.026:.024),tA=bw*(1-i*.16),tB=bw*(.80-i*.14);
+    taperedCapsule(g,a,b,Math.max(span*.012,tA),Math.max(span*.009,tB),skinColor);}}
+  for(const id of[4,8,12,16,20]){g.beginPath();g.arc(points[id].x,points[id].y,span*.0105,0,Math.PI*2);g.fill();}
+  g.restore();
+}
+
+/* body composite */
+function drawFace(g,W,H,name,p,now){
+  const F=CHAR[name];const BD=BODY[name]||BODY.NAT;
+  g.fillStyle='#ffffff';g.fillRect(0,0,W,H);
+  const attire=inkQ(F.attire),attire2=inkQ(F.attire2),skin=ink2gray(F.skinInk);
+
+  const captureDepth=clamp(p.captureDepth||0,-.75,1.15);
+  const depthScale=1+captureDepth*.24;
+  const brY=p.breath*1.4+(p.captureChest||0)*H*.018;
+  const cx=W*.5+p.offX*W*.12+p.postX+(p.captureBodyX||0)*W*.12;
+  const baseY=H*.56+p.leanY*H*.008-p.lean*H*.02-brY*.6+(p.captureBodyY||0)*H*.12;
+
+  /* head/neck/torso each take a share of yaw; carriage adds bounded drift */
+  const noYaw=clamp(p.shakeX||0,-1,1)*.92;
+  const carriageX=clamp(p.headCarriageX||0,-.85,.85), carriageY=clamp(p.headCarriageY||0,-.65,.65);
+  const yawLag=clamp(p.headYawLag||0,-.42,.42);
+  const headYaw=clamp((p.yaw||0)*1.18+noYaw+yawLag*.72,-1.34,1.34);
+  const neckYaw=(p.yaw||0)*.34+noYaw*.31+yawLag*.24;
+  const torsoYaw=(p.yaw||0)*.065+noYaw*.035+yawLag*.045;
+
+  const headR=H*.185*BD.headS*depthScale;
+  const neckRoll=p.roll*.24;
+  const pitch=clamp(p.nod,-1,1);
+  const headY=baseY-H*.205-H*.008*BD.neckL+pitch*H*.013+p.bounce*H*.006-brY*.35
+    +(p.captureHeadY||0)*H*.035+carriageY*headR*.88;
+
+  const shw=W*.282*BD.shW*depthScale, sy=baseY+H*.026-brY-p.shrug*1.65;
+  const shoulderDrop=H*(.050+.027*BD.slope);
+  const capTilt=clamp(p.captureShoulderTilt||0,-.45,.45)*H*.052;
+  const capLean=clamp(p.captureTorsoLean||0,-1,1)*W*.036+Math.sin(torsoYaw)*W*.016;
+  const asym=BD.asym*H*.004;
+  const nw=headR*.265*BD.neckW;
+  const headTrackX=(p.captureHeadX||0)*W*.035+carriageX*headR*1.08;
+  const neckBaseCenterX=cx+capLean+Math.sin(neckYaw)*headR*.045+headTrackX*.07;
+  const neckTopCenterX=cx+capLean+Math.sin(neckYaw)*headR*.20+headTrackX*.67+Math.sin(neckRoll)*headR*.08;
+  const hx=cx+capLean+Math.sin(headYaw)*headR*.29+headTrackX;
+  const neckBaseY=sy+H*.012;
+  const neckTopY=headY+headR*(.46+Math.max(0,pitch)*.035-Math.min(0,pitch)*.025);
+  const neckBaseHalf=nw*1.24, neckTopHalf=nw*.80;
+
+  /* shoulder girdle points (low clavicle/trapezius bridge, not two peaks) */
+  const lS={x:cx-shw*.81+capLean,y:sy+shoulderDrop+capTilt*.72+asym};
+  const rS={x:cx+shw*.81+capLean,y:sy+shoulderDrop-capTilt*.72-asym};
+  const lO={x:cx-shw+capLean,y:lS.y+H*.036};
+  const rO={x:cx+shw+capLean,y:rS.y+H*.036};
+  const lC={x:cx-shw*.38+capLean,y:sy+H*.028+capTilt*.18+asym};
+  const rC={x:cx+shw*.38+capLean,y:sy+H*.028-capTilt*.18-asym};
+  const nL={x:neckBaseCenterX-neckBaseHalf,y:neckBaseY+capTilt*.08};
+  const nR={x:neckBaseCenterX+neckBaseHalf,y:neckBaseY-capTilt*.08};
+
+  /* ---- arms: build a body rig, then solve captured or procedural limbs ---- */
+  const shoulderSpan=Math.max(W*.12,Math.hypot(rS.x-lS.x,rS.y-lS.y));
+  const bodyRig={leftShoulder:lS,rightShoulder:rS,mid:{x:(lS.x+rS.x)/2,y:(lS.y+rS.y)/2},
+    span:shoulderSpan,frameWidth:W,frameHeight:H,leftClavicle:lC,rightClavicle:rC,
+    speechPhase:(p.speechPhase||now*(ARM_BEHAV[name]||ARM_BEHAV.NAT).rate),
+    bilateralCue:(p.armCue||0)>.4};
+  const AB=ARM_BEHAV[name]||ARM_BEHAV.NAT;
+  const speechE=clamp(p.speechArm||0,0,1);
+  const cueE=clamp(p.armCue||0,0,1);
+  const cap=p.captureArms;   /* set when Holistic capture is driving */
+  let leftLimb,rightLimb;
+  if(cap){
+    leftLimb=capturedLimb(-1,mapPt(cap.lS,W,H,lS),mapPt(cap.lE,W,H),mapPt(cap.lW,W,H),mapHand(cap.lH,W,H))||solveProceduralLimb(-1,speechE*(AB.dominant<0?1:AB.bilateral),cueE,bodyRig);
+    rightLimb=capturedLimb(1,mapPt(cap.rS,W,H,rS),mapPt(cap.rE,W,H),mapPt(cap.rW,W,H),mapHand(cap.rH,W,H))||solveProceduralLimb(1,speechE*(AB.dominant>0?1:AB.bilateral),cueE,bodyRig);
+  }else{
+    leftLimb=solveProceduralLimb(-1,speechE*(AB.dominant<0?1:AB.bilateral),cueE,bodyRig);
+    rightLimb=solveProceduralLimb(1,speechE*(AB.dominant>0?1:AB.bilateral),cueE,bodyRig);
+  }
+  const limbs=[leftLimb,rightLimb].filter(Boolean);
+
+  /* upper sleeves sit behind the torso; the torso masks their roots */
+  for(const limb of limbs)drawUpperSleeve(g,limb,shoulderSpan,attire);
+
+  /* torso contour: hem -> waist -> chest -> deltoid -> clavicle -> neck */
+  const tC=cx+capLean, chestY=baseY+H*.20, waistY=H*.89;
+  const lChest={x:tC-shw*.94,y:chestY}, rChest={x:tC+shw*.94,y:chestY};
+  const lWaist={x:tC-shw*.72,y:waistY}, rWaist={x:tC+shw*.72,y:waistY};
+  const lHem={x:tC-shw*.78,y:H+2}, rHem={x:tC+shw*.78,y:H+2};
+  g.fillStyle=attire;g.beginPath();
+  g.moveTo(lHem.x,lHem.y);
+  g.quadraticCurveTo(lWaist.x,lWaist.y,lChest.x,lChest.y);
+  g.quadraticCurveTo(lO.x,lO.y+H*.015,lO.x,lO.y);
+  g.quadraticCurveTo(lS.x-shw*.08,lS.y+H*.014,lS.x,lS.y);
+  g.quadraticCurveTo(lC.x,lC.y,nL.x,nL.y);
+  g.quadraticCurveTo((nL.x+nR.x)/2,neckBaseY+H*.014,nR.x,nR.y);
+  g.quadraticCurveTo(rC.x,rC.y,rS.x,rS.y);
+  g.quadraticCurveTo(rS.x+shw*.08,rS.y+H*.014,rO.x,rO.y);
+  g.quadraticCurveTo(rO.x,rO.y+H*.015,rChest.x,rChest.y);
+  g.quadraticCurveTo(rWaist.x,rWaist.y,rHem.x,rHem.y);
+  g.closePath();g.fill();
+
+  /* clavicle/shoulder-cap definition */
+  g.strokeStyle=inkQ(Math.min(255,F.attire+62));g.lineWidth=Math.max(1,W*.004);g.globalAlpha=.5;
+  g.beginPath();g.moveTo(nL.x,nL.y+H*.006);g.quadraticCurveTo(lC.x,lC.y+H*.008,lS.x,lS.y);g.stroke();
+  g.beginPath();g.moveTo(nR.x,nR.y+H*.006);g.quadraticCurveTo(rC.x,rC.y+H*.008,rS.x,rS.y);g.stroke();
+  g.globalAlpha=1;
+
+  /* inner shirt / tie, centered on torso */
+  g.fillStyle=attire2;g.beginPath();
+  g.moveTo(cx-W*.075+capLean,sy+H*.005);g.lineTo(cx+W*.075+capLean,sy+H*.005);
+  g.lineTo(cx+W*.045+capLean,H+2);g.lineTo(cx-W*.045+capLean,H+2);g.closePath();g.fill();
+  if(F.glasses&&F.attire<60){g.fillStyle=gray(30);g.beginPath();
+    g.moveTo(cx-W*.012+capLean,baseY+H*.04);g.lineTo(cx+W*.012+capLean,baseY+H*.04);
+    g.lineTo(cx+W*.02+capLean,H+2);g.lineTo(cx-W*.02+capLean,H+2);g.closePath();g.fill();}
+
+  /* neck: tapered trapezius carrying part of yaw/roll/pitch */
+  g.fillStyle=skin;g.beginPath();
+  g.moveTo(nL.x,nL.y);
+  g.quadraticCurveTo(neckBaseCenterX-nw*.95,lerp(neckBaseY,neckTopY,.48),neckTopCenterX-neckTopHalf,neckTopY);
+  g.lineTo(neckTopCenterX+neckTopHalf,neckTopY);
+  g.quadraticCurveTo(neckBaseCenterX+nw*.95,lerp(neckBaseY,neckTopY,.48),nR.x,nR.y);
+  g.closePath();g.fill();
+
+  /* forearms + hands in front of the torso, sorted by depth */
+  const frontOrder=limbs.slice().sort((a,b)=>(b.depth||0)-(a.depth||0));
+  for(const limb of frontOrder)drawForearmAndHand(g,limb,shoulderSpan,attire,skin);
+
+  /* head: skull turns most; carriage translated; roll applied */
+  const headPose=Math.abs(headYaw-(p.yaw||0))>1e-5?Object.assign({},p,{yaw:headYaw}):p;
+  const face=meshFace(name,headPose,now);
+  g.save();g.translate(hx,headY);g.rotate(p.roll*.78);
+  const sh=headR*2.62,sw=sh*92/112*BD.faceW;g.drawImage(face,-sw/2,-sh*.545,sw,sh);g.restore();
+
+  /* thinking accent — three rising dots at the temple */
+  if(p.think>.1){const tk=p.think;g.fillStyle=ink2gray(INKMAP.EDGE);
+    for(let i=0;i<3;i++){const ph=(now*1.4+i*.5)%1.6;if(ph>1)continue;const a=clamp(1-ph,0,1)*tk;
+      const r=(i+1)*W*.008*(1+ph*.3);g.globalAlpha=a*.85;
+      g.beginPath();g.arc(hx+headR*1.05+i*W*.03,headY-headR*.5-ph*H*.06,r,0,7);g.fill();}
+    g.globalAlpha=1;}
+}
+
+/* ============================================================
+   HALFTONE TILE PIPE
+   ============================================================ */
+const DPR=Math.min(devicePixelRatio||1,2);
+const SPRITES=[];
+(function(){const MAXR=14;for(let i=0;i<12;i++){const r=(i+1)/12*MAXR;
+  const c=document.createElement('canvas');c.width=c.height=MAXR*2+2;const g=c.getContext('2d');
+  g.fillStyle='#000';g.beginPath();g.arc(MAXR+1,MAXR+1,r,0,7);g.fill();SPRITES.push(c);}})();
+
+function halftone(g,src,SW,SH,CW,CH,pitch){
+  const s=Math.max(CW/SW,CH/SH),ox=(CW-SW*s)/2,oy=(CH-SH*s)/2;
+  g.fillStyle='#fff';g.fillRect(0,0,CW,CH);
+  const maxR=pitch*s*.6;
+  for(let y=1;y<SH;y+=pitch){const ro=y*SW;
+    for(let x=1;x<SW;x+=pitch){const t=src[(ro+x)*4];let c=1-t/255;c=(c-.06)*1.22;if(c<.05)continue;
+      const idx=Math.min(11,Math.round(Math.sqrt(Math.min(1,c))*11));const r=(idx+1)/12*maxR;
+      g.drawImage(SPRITES[idx],ox+x*s-r,oy+y*s-r,r*2,r*2);}}
+}
+class FaceTile{
+  constructor(name,cv){this.name=name;this.cv=cv;this.g=cv.getContext('2d');this.pitch=3;
+    this.off=document.createElement('canvas');this.og=this.off.getContext('2d',{willReadFrequently:true});
+    const k=1.9;this.off.width=Math.round(168*k);this.off.height=Math.round(126*k);}
+  fit(){const r=this.cv.getBoundingClientRect();if(!r.width)return false;
+    const w=Math.round(r.width*DPR),h=Math.round(r.height*DPR);
+    if(this.cv.width!==w||this.cv.height!==h){this.cv.width=w;this.cv.height=h;}return true;}
+  render(rig,now,gazeTarget,dt,big){
+    if(!this.fit())return;const OW=this.off.width,OH=this.off.height;
+    const p=rig.eval(dt,now,gazeTarget);
+    drawFace(this.og,OW,OH,this.name,p,now);
+    const img=this.og.getImageData(0,0,OW,OH).data;
+    halftone(this.g,img,OW,OH,this.cv.width,this.cv.height,big?2:this.pitch);
+  }
+}
+
+/* ============================================================
+   FACE CAPTURE — a real camera drives the YOU rig
+   MediaPipe FaceMesh -> normalized feature vector -> rig.drive.
+   Same face + body mesh as everyone else; YOU is not a special case.
+   ============================================================ */
+const HOL_BASE="https://cdn.jsdelivr.net/npm/@mediapipe/holistic@0.5.1675471629/";
+const CAM_BASE="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/";
+function loadScript(src){return new Promise((res,rej)=>{
+  const ex=[...document.scripts].find(s=>s.src===src);
+  if(ex){ex.dataset.ready?res():ex.addEventListener('load',res,{once:true});ex.addEventListener('error',rej,{once:true});return;}
+  const s=document.createElement('script');s.src=src;s.crossOrigin='anonymous';
+  s.addEventListener('load',()=>{s.dataset.ready='1';res();},{once:true});s.addEventListener('error',rej,{once:true});
+  document.head.appendChild(s);});}
+
+const fdist=(a,b)=>a&&b?Math.hypot(a.x-b.x,a.y-b.y):0;
+const favg=(...v)=>v.reduce((s,x)=>s+(x||0),0)/Math.max(1,v.length);
+
+class FaceCapture{
+  constructor(){
+    this.on=false;this.starting=false;this.faceSeen=false;
+    this.holistic=null;this.camera=null;this.video=null;this.stream=null;this.busy=false;
+    this.base=null;         /* neutral feature snapshot */
+    this.lastVec=null;      /* smoothed drive vector, shared with the rig */
+    this.onstatus=null;
+  }
+  status(s){this.faceSeen=(s==='live'||s==='offcenter');if(this.onstatus)this.onstatus(s);}
+
+  async start(){
+    if(this.on||this.starting)return;
+    this.starting=true;this.status('loading');
+    try{
+      await loadScript(HOL_BASE+"holistic.js");
+      await loadScript(CAM_BASE+"camera_utils.js");
+      this.holistic=new Holistic({locateFile:f=>HOL_BASE+f});
+      this.holistic.setOptions({modelComplexity:1,smoothLandmarks:true,refineFaceLandmarks:true,
+        minDetectionConfidence:.5,minTrackingConfidence:.5});
+      this.holistic.onResults(r=>this.onResults(r));
+      this.stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:640,height:480},audio:false});
+      this.video=document.createElement('video');this.video.srcObject=this.stream;
+      this.video.muted=true;this.video.playsInline=true;await this.video.play();
+      this.on=true;this.starting=false;this.base=null;this.status('finding');
+      this.camera=new Camera(this.video,{width:640,height:480,onFrame:async()=>{
+        if(this.busy||!this.on)return;this.busy=true;
+        try{await this.holistic.send({image:this.video});}catch(e){}
+        this.busy=false;
+      }});
+      await this.camera.start();
+      return'on';
+    }catch(e){this.starting=false;this.on=false;this.status('err');return'err';}
+  }
+  stop(){
+    this.on=false;
+    if(this.camera){try{this.camera.stop();}catch(_){}}this.camera=null;
+    if(this.stream)this.stream.getTracks().forEach(t=>t.stop());
+    this.stream=null;this.video=null;this.base=null;this.lastVec=null;
+    if(rigs[INHABIT])rigs[INHABIT].drive=null;
+    this.status('off');
+  }
+
+  features(lm){
+    /* normalize by inter-ocular distance so scale/distance don't matter */
+    const eye=Math.max(1e-4,fdist(lm[33],lm[263]));
+    const eyeC={x:favg(lm[33].x,lm[263].x),y:favg(lm[33].y,lm[263].y)};
+    const mouthH=fdist(lm[13],lm[14])/eye;
+    const mouthW=fdist(lm[61],lm[291])/eye;
+    const leftEye=fdist(lm[159],lm[145])/Math.max(1e-4,fdist(lm[33],lm[133]));
+    const rightEye=fdist(lm[386],lm[374])/Math.max(1e-4,fdist(lm[362],lm[263]));
+    const brow=favg(fdist(lm[105],lm[159]),fdist(lm[334],lm[386]))/eye;
+    const browInner=fdist(lm[107],lm[336])/eye;
+    const cornerY=favg(lm[61].y,lm[291].y),midY=favg(lm[13].y,lm[14].y);
+    const smile=(midY-cornerY)/eye;
+    const roll=Math.atan2(lm[263].y-lm[33].y,lm[263].x-lm[33].x);
+    const yaw=(lm[1].x-eyeC.x)/eye;
+    const nod=(lm[1].y-eyeC.y)/eye;
+    const faceC={x:favg(lm[10].x,lm[152].x),y:favg(lm[10].y,lm[152].y)};
+    /* iris gaze if refined landmarks present */
+    let gazeX=0,gazeY=0;
+    if(lm[468]&&lm[473]){
+      const li={x:favg(lm[469].x,lm[471].x),y:favg(lm[470].y,lm[472].y)};
+      const ri={x:favg(lm[474].x,lm[476].x),y:favg(lm[475].y,lm[477].y)};
+      const lc={x:favg(lm[33].x,lm[133].x),y:favg(lm[159].y,lm[145].y)};
+      const rc={x:favg(lm[362].x,lm[263].x),y:favg(lm[386].y,lm[374].y)};
+      gazeX=favg((li.x-lc.x)/Math.max(1e-4,fdist(lm[33],lm[133])),(ri.x-rc.x)/Math.max(1e-4,fdist(lm[362],lm[263])));
+      gazeY=favg((li.y-lc.y)/Math.max(1e-4,fdist(lm[33],lm[133])),(ri.y-rc.y)/Math.max(1e-4,fdist(lm[362],lm[263])));
+    }
+    return{eye,mouthH,mouthW,leftEye,rightEye,brow,browInner,smile,roll,yaw,nod,faceC,gazeX,gazeY};
+  }
+
+  onResults(r){
+    const lm=r.faceLandmarks||(r.multiFaceLandmarks&&r.multiFaceLandmarks[0]);
+    if(!lm){this.status('finding');return;}
+    const f=this.features(lm);
+    if(!this.base)this.base=f;                     /* first solid frame = neutral */
+    const b=this.base;
+    /* mirror x so it reads like looking in a mirror */
+    const vec={on:true,
+      mouthOpen:clamp((f.mouthH-b.mouthH)/.16,0,1.3),
+      mouthWide:clamp((f.mouthW/Math.max(1e-3,b.mouthW)-1)*2.6,-.5,1.2),
+      smile:clamp((f.smile-b.smile)*12,-1,1.3),
+      blinkL:clamp(1-f.leftEye/Math.max(1e-3,b.leftEye),0,1),
+      blinkR:clamp(1-f.rightEye/Math.max(1e-3,b.rightEye),0,1),
+      eyeWide:clamp((favg(f.leftEye,f.rightEye)/Math.max(1e-3,favg(b.leftEye,b.rightEye))-1)*3,0,1),
+      browRaise:clamp((f.brow/Math.max(1e-3,b.brow)-1)*3.4,0,1.1),
+      browKnit:clamp((1-f.browInner/Math.max(1e-3,b.browInner))*3.2,0,1),
+      yaw:clamp(-(f.yaw-b.yaw)*2.6,-1,1),
+      nod:clamp((f.nod-b.nod)*2.4,-1,1),
+      roll:clamp(-(f.roll-b.roll),-.4,.4),
+      depth:clamp((f.eye/Math.max(1e-4,b.eye)-1)*2.2,-.3,1.1),
+      headX:clamp(-(f.faceC.x-b.faceC.x)/Math.max(1e-3,b.eye),-1,1),
+      headY:clamp((f.faceC.y-b.faceC.y)/Math.max(1e-3,b.eye),-1,1),
+      gazeX:clamp(-(f.gazeX-b.gazeX)*2.1,-1,1),
+      gazeY:clamp((f.gazeY-b.gazeY)*2.1,-1,1)};
+    /* light smoothing so the rig isn't jittery (numeric fields only) */
+    const prev=this.lastVec;
+    if(prev){const a=.55;for(const k in vec)if(typeof vec[k]==='number')vec[k]=prev[k]+(vec[k]-prev[k])*a;}
+    /* arms/hands from pose + hand landmarks (drawFace maps them to canvas) */
+    const P=r.poseLandmarks;
+    if(P){
+      /* MediaPipe pose: 11/12 shoulders, 13/14 elbows, 15/16 wrists.
+         In selfie-mirrored view, "left" side of the image is landmark index for right body,
+         but we mirror x in mapPt anyway, so keep raw indices and let the draw mirror. */
+      vec.arms={
+        lS:P[12],lE:P[14],lW:P[16],lH:r.rightHandLandmarks||null,
+        rS:P[11],rE:P[13],rW:P[15],rH:r.leftHandLandmarks||null
+      };
+    }else vec.arms=null;
+    vec.on=true;this.lastVec=vec;
+    if(rigs[INHABIT])rigs[INHABIT].drive=vec;
+    const off=Math.abs(vec.headX)+Math.abs(vec.headY);
+    this.status(off>1.1?'offcenter':'live');
+  }
+  recenter(){this.base=null;this.lastVec=null;this.status('finding');}
+}
+const capture=new FaceCapture();
+
+/* ============================================================
+   APP
+   ============================================================ */
+const $=s=>document.querySelector(s);
+const grid=$("#grid"),focusEl=$("#focus"),focusCv=$("#focusCanvas"),fg=focusCv.getContext('2d');
+const thread=$("#thread"),lineEl=$("#line"),sendBtn=$("#send");
+let SCENE="call", MODE="whisper", FOCUS=null;
+let INHABIT=YOU;              /* which character your camera drives */
+let rigs={}, tiles={};
+const focusOff=document.createElement('canvas'),focusOG=focusOff.getContext('2d',{willReadFrequently:true});
+focusOff.width=Math.round(168*3.4);focusOff.height=Math.round(126*3.4);
+
+function active(){return SCENE==="call"?CALL_CAST:TRAIN_CAST;}
+
+/* ---- OpenAI key kept in-memory only (artifacts can't use localStorage) ---- */
+let OPENAI_KEY="";
+function usingOpenAI(){return!!OPENAI_KEY;}
+
+function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("on");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("on"),2200);}
+
+/* ---------- mood meters ---------- */
+function renderMoods(){
+  for(const name of active()){
+    const el=tiles[name];if(!el)continue;const A=AFF[name];
+    const bar=el.querySelector(".mood b"),lab=el.querySelector(".mood i");
+    if(bar)bar.style.width=Math.round(A.intensity*100)+"%";
+    if(lab)lab.textContent=A.emotion;
+    const acc={calm:"#2f9f5a",hopeful:"#2f7fd6",happy:"#c8a800",nervous:"#e07a00",angry:"#e60000",sad:"#5a5aa0",guarded:"#8a8a86"}[A.emotion]||"#e60000";
+    if(bar)bar.style.background=acc;
+  }
+  if(FOCUS){const A=AFF[FOCUS];$("#focusMood").textContent=A.emotion+" · "+Math.round(A.intensity*100);}
+}
+
+/* ---------- grid construction ---------- */
+function buildGrid(){
+  grid.style.opacity=0;
+  setTimeout(()=>{
+    grid.innerHTML="";tiles={};rigs={};
+    for(const name of active()){
+      rigs[name]=new Rig(name);
+      const el=document.createElement("div");el.className="tile";el.dataset.name=name;
+      el.innerHTML=`<canvas></canvas>
+        <div class="name">${CHAR[name].label}</div>
+        <div class="think-dot"></div>
+        <div class="mood"><i>—</i><u><b></b></u></div>`;
+      grid.appendChild(el);
+      tiles[name]=el;
+      const ft=new FaceTile(name,el.querySelector("canvas"));
+      tiles[name]._tile=ft;
+      el.addEventListener("click",()=>openFocus(name));
+    }
+    /* YOU tile — a real rig, driven by the camera */
+    rigs[YOU]=new Rig(YOU);
+    const you=document.createElement("div");you.className="tile you";you.dataset.name=YOU;
+    you.innerHTML=`<canvas></canvas>
+      <div class="name">YOU</div>
+      <div class="youtools">
+        <button data-t="cam">CAM</button>
+      </div>
+      <div class="mood"><i>—</i><u><b></b></u></div>`;
+    grid.appendChild(you);tiles[YOU]=you;
+    const yft=new FaceTile(YOU,you.querySelector("canvas"));
+    tiles[YOU]._tile=yft;
+    if(capture.on&&capture.lastVec&&rigs[INHABIT])rigs[INHABIT].drive=capture.lastVec; /* survive scene switch */
+    const camBtn=you.querySelector('[data-t="cam"]');
+    camBtn.textContent=(INHABIT===YOU&&capture.on)?"STOP":"CAM";
+    camBtn.classList.toggle("on",INHABIT===YOU&&capture.on);
+    camBtn.addEventListener("click",()=>playAs(YOU));
+    you.addEventListener("click",e=>{if(!e.target.closest(".youtools"))openFocus(YOU);});
+    grid.style.opacity=1;renderMoods();
+  },SCENE_FIRST?0:180);
+  SCENE_FIRST=false;
+}
+let SCENE_FIRST=true;
+
+/* ---------- scene switch ---------- */
+$("#sceneSwitch").addEventListener("click",e=>{
+  const b=e.target.closest("button");if(!b)return;const sc=b.dataset.scene;if(sc===SCENE)return;
+  SCENE=sc;[...e.currentTarget.children].forEach(c=>c.classList.toggle("on",c===b));
+  if(FOCUS)closeFocus();
+  buildGrid();
+  toast(sc==="call"?"THE CALL":"THE TRAIN — they're aboard");
+});
+
+/* ---------- focus: go closer ---------- */
+const playAsBtn=$("#playAs"),recenterBtn=$("#recenter"),camStat=$("#camStat"),focusCtl=$("#focusCtl");
+function openFocus(name){
+  FOCUS=name;focusEl.classList.add("open");
+  $("#focusName").textContent=CHAR[name].label;
+  $("#focusDesc").textContent=CHAR[name].desc;
+  thread.innerHTML="";renderMoods();
+  Object.values(tiles).forEach(t=>t.classList.remove("sel"));
+  tiles[name]&&tiles[name].classList.add("sel");
+  playAsBtn.textContent=(INHABIT===name&&capture.on)?"STOP PLAYING":"PLAY AS "+CHAR[name].label;
+  playAsBtn.classList.toggle("on",INHABIT===name&&capture.on);
+  refreshCamCtl();
+  if(name!==YOU&&!(INHABIT===name&&capture.on))lineEl.focus();
+  updateConsole();
+}
+function closeFocus(){FOCUS&&tiles[FOCUS]&&tiles[FOCUS].classList.remove("sel");FOCUS=null;focusEl.classList.remove("open");updateConsole();}
+$("#fclose").addEventListener("click",closeFocus);
+
+/* ---------- inhabit: play AS a character ---------- */
+const STAT_TEXT={loading:"loading mesh…",finding:"center your face",offcenter:"off-center — hold still or recenter",live:"live — you are driving this face",off:"",err:"camera blocked"};
+function refreshCamCtl(){
+  const inhabitingFocus=(INHABIT===FOCUS&&capture.on);
+  focusCtl.classList.toggle("live",inhabitingFocus);
+  camStat.textContent=inhabitingFocus?(STAT_TEXT[capture._last]||""):"";
+}
+async function playAs(name){
+  if(INHABIT===name&&capture.on){ /* stop */
+    capture.stop();INHABIT=YOU;
+    playAsBtn.textContent="PLAY AS "+CHAR[name].label;playAsBtn.classList.remove("on");
+    refreshCamCtl();updateConsole();toast("STOPPED");return;
+  }
+  /* hand the camera to this character */
+  if(capture.on&&rigs[INHABIT])rigs[INHABIT].drive=null;
+  INHABIT=name;
+  playAsBtn.textContent="…";
+  if(!capture.on){const r=await capture.start();if(r==="err"){toast("CAMERA BLOCKED");playAsBtn.textContent="PLAY AS "+CHAR[name].label;return;}}
+  else capture.recenter();
+  playAsBtn.textContent="STOP PLAYING";playAsBtn.classList.add("on");
+  refreshCamCtl();updateConsole();
+  toast("YOU ARE "+CHAR[name].label);
+}
+playAsBtn.addEventListener("click",()=>{if(FOCUS)playAs(FOCUS);});
+recenterBtn.addEventListener("click",()=>{capture.recenter();toast("RECENTERED");});
+capture.onstatus=s=>{capture._last=s;
+  refreshCamCtl();
+  /* keep the YOU-tile cam button label in sync when inhabiting YOU */
+  const cb=tiles[YOU]&&tiles[YOU].querySelector('[data-t="cam"]');
+  if(cb&&INHABIT===YOU){cb.textContent={live:"STOP",offcenter:"STOP",finding:"…",loading:"…",off:"CAM",err:"CAM"}[s]||cb.textContent;cb.classList.toggle("on",capture.on);}
+};
+
+function addMsg(kind,role,text){
+  const m=document.createElement("div");m.className="msg "+kind;
+  m.innerHTML=`<div class="r">${role}</div><div class="bub">${text.replace(/</g,"&lt;")}</div>`;
+  thread.appendChild(m);thread.scrollTop=thread.scrollHeight;return m;
+}
+
+/* ---------- console mode ---------- */
+$("#mode").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
+  MODE=b.dataset.m;[...e.currentTarget.children].forEach(c=>c.classList.toggle("on",c===b));updateConsole();});
+function updateConsole(){
+  const inFocus=!!FOCUS;
+  /* inhabiting a cast member: your line is spoken AS them */
+  if(capture.on&&INHABIT!==YOU){
+    lineEl.placeholder=`speak as ${CHAR[INHABIT].label} — the room will answer…`;
+    $("#hint").textContent=`You're playing ${CHAR[INHABIT].label}. Your camera drives their face; what you type, they say aloud, and whoever's beside them reacts.`;
+    return;
+  }
+  if(FOCUS===YOU){
+    lineEl.placeholder="this is you — the cast watches this angle";
+    $("#hint").textContent="Hit PLAY AS to drive a character with your camera, or close to talk with the cast.";
+    return;
+  }
+  if(inFocus){
+    lineEl.placeholder=MODE==="whisper"?`whisper into ${CHAR[FOCUS].label}'s thoughts…`:`say something to ${CHAR[FOCUS].label}…`;
+    $("#hint").textContent=MODE==="whisper"
+      ?"They won't hear this — it bends the next thought they think. Or hit PLAY AS to become them."
+      :"They hear this and answer, in character. Or hit PLAY AS to become them.";
+  }else{
+    lineEl.placeholder=MODE==="whisper"?"whisper into their thoughts…":"say something to the room…";
+    $("#hint").textContent=MODE==="whisper"
+      ?"Whisper reaches only their thoughts — and ripples to whoever's beside them. Click a face to go closer."
+      :"Speak aloud to the room, or click a face to talk with just them.";
+  }
+}
+
+/* ---------- generation ---------- */
+function scenePrimer(){
+  return SCENE==="call"
+   ? "The scene is a video call among coworkers (Nat, Chris, Samantha, Ernie, Phil). Phil is about to review Nat."
+   : "The scene is a night train to Berlin, second class. Five strangers (Barbara, Kim, Daniel, Friedrich, Susanna) sit near each other, each carrying something unspoken. They mostly don't talk.";
+}
+function moodLine(name){const A=AFF[name];return `${CHAR[name].label} currently feels ${A.emotion} (intensity ${A.intensity.toFixed(2)}).`;}
+const CUE_HINT="Motion cues, ';'-separated, optional '@word' timing. Vocabulary: "+CUE_VOCAB.join(", ")+".";
+
+function thoughtPrompt(name,whisper){
+  return `You generate one line of INTERIOR MONOLOGUE for a character in an ensemble drama.
+${scenePrimer()}
+CHARACTER: ${CHAR[name].label}. ${CHAR[name].dossier}
+${moodLine(name)}
+A whisper has just reached this character's mind — they do NOT hear it as speech; it surfaces as an intrusive pull on their next thought: "${whisper}".
+Write their next private thought (max 30 words), in first person, present tense. Absorb the whisper's pull obliquely — never quote or answer it. Stay inside their situation.
+Then give motion cues for the thought. ${CUE_HINT}
+Return ONLY JSON: {"monologue":"...","cues":"...","emotion":"one of ${EMOTIONS.join('/')}","intensity":0.0-1.0}`;
+}
+function replyPrompt(name,said){
+  const others=active().filter(n=>n!==name).map(n=>CHAR[n].label).join(", ");
+  return `You voice ONE character replying aloud in an ensemble drama.
+${scenePrimer()}
+CHARACTER: ${CHAR[name].label}. ${CHAR[name].dossier}
+${moodLine(name)} Others present: ${others}.
+Someone (the viewer, present in the scene) just said to them, aloud: "${said}".
+Write ${CHAR[name].label}'s spoken reply (max 32 words), in character, in their voice. It is heard by the room.
+Then motion cues timed to the reply. ${CUE_HINT}
+Return ONLY JSON: {"reply":"...","cues":"...","emotion":"one of ${EMOTIONS.join('/')}","intensity":0.0-1.0}`;
+}
+function roomReplyPrompt(name,speakerName,said){
+  const others=active().filter(n=>n!==name).map(n=>CHAR[n].label).join(", ");
+  return `You voice ONE character replying aloud in an ensemble drama.
+${scenePrimer()}
+CHARACTER (the one replying): ${CHAR[name].label}. ${CHAR[name].dossier}
+${moodLine(name)} Others present: ${others}.
+${CHAR[speakerName].label} just said, aloud, to the room: "${said}".
+Write ${CHAR[name].label}'s spoken reply to that (max 32 words), in character, in their voice, reacting to what ${CHAR[speakerName].label} said. It is heard by the room.
+Then motion cues timed to the reply. ${CUE_HINT}
+Return ONLY JSON: {"reply":"...","cues":"...","emotion":"one of ${EMOTIONS.join('/')}","intensity":0.0-1.0}`;
+}
+function ambientThoughtPrompt(name){
+  return `One line of INTERIOR MONOLOGUE for ${CHAR[name].label}.
+${scenePrimer()}
+CHARACTER: ${CHAR[name].label}. ${CHAR[name].dossier}
+${moodLine(name)}
+Write their next private thought (max 26 words), first person, present tense, from their situation and mood. Then motion cues. ${CUE_HINT}
+Return ONLY JSON: {"monologue":"...","cues":"...","emotion":"one of ${EMOTIONS.join('/')}","intensity":0.0-1.0}`;
+}
+
+async function callModel(prompt){
+  if(usingOpenAI()){
+    try{
+      const r=await fetch("https://api.openai.com/v1/chat/completions",{method:"POST",
+        headers:{"Content-Type":"application/json","Authorization":"Bearer "+OPENAI_KEY},
+        body:JSON.stringify({model:"gpt-4o-mini",messages:[{role:"user",content:prompt}],max_tokens:400,temperature:.9})});
+      const d=await r.json();
+      if(d.error)throw new Error(d.error.message||"openai error");
+      return d.choices[0].message.content;
+    }catch(e){toast("OPENAI: "+(e.message||"error").slice(0,24));throw e;}
+  }
+  const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,messages:[{role:"user",content:prompt}]})});
+  const d=await r.json();
+  return (d.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("");
+}
+function parseJSON(txt){
+  let t=String(txt||"").replace(/```json|```/g,"").trim();
+  const a=t.indexOf("{"),b=t.lastIndexOf("}");if(a>=0&&b>a)t=t.slice(a,b+1);
+  try{return JSON.parse(t);}catch(e){
+    const m=t.match(/"(?:monologue|reply)"\s*:\s*"([^"]+)"/);
+    return{monologue:m?m[1]:t.slice(0,120),reply:m?m[1]:t.slice(0,120),cues:"",emotion:"guarded",intensity:.4};
+  }
+}
+function setThinking(name,on){
+  const el=tiles[name];if(el)el.classList.toggle("think",on);
+  const r=rigs[name];if(r){on?r.startThinking():r.stopThinking();}
+}
+
+/* ---------- whisper flow (interior + ripple) ---------- */
+let BUSY=false;
+async function whisperFlow(name,text){
+  if(BUSY)return;BUSY=true;sendBtn.disabled=true;
+  setThinking(name,true);
+  if(FOCUS===name)addMsg("you","you whisper",text);
+  try{
+    const out=parseJSON(await callModel(thoughtPrompt(name,text)));
+    setThinking(name,false);
+    const mono=out.monologue||out.reply||"…";
+    if(out.emotion)setAffect(name,out.emotion,out.intensity);
+    ripple(name,"WHISPER",text,mono);
+    rigs[name].perform(mono,{cues:out.cues,thought:true});
+    if(FOCUS===name)addMsg("thought","interior",`( ${mono} )`);
+    /* neighbour ripple: a quieter thought on each adjacent tile, staggered */
+    const neigh=(CHAR[name].adj||[]).filter(n=>active().includes(n));
+    for(let i=0;i<neigh.length;i++){const nb=neigh[i];
+      setTimeout(async()=>{
+        flashRing(nb,true);
+        setThinking(nb,true);
+        try{const o2=parseJSON(await callModel(ambientThoughtPrompt(nb)));
+          setThinking(nb,false);
+          if(o2.emotion)setAffect(nb,o2.emotion,Math.min(.7,(o2.intensity||.4)));
+          rigs[nb]&&rigs[nb].perform(o2.monologue||"…",{cues:o2.cues,thought:true});
+          if(FOCUS===nb)addMsg("thought","interior",`( ${o2.monologue||"…"} )`);
+        }catch(_){setThinking(nb,false);}
+      },700+i*900);
+    }
+    flashRing(name,false,true);
+  }catch(e){setThinking(name,false);}
+  BUSY=false;sendBtn.disabled=false;
+}
+
+/* ---------- speak flow (aloud + reply) ---------- */
+async function speakFlow(name,text){
+  if(BUSY)return;BUSY=true;sendBtn.disabled=true;
+  if(FOCUS===name)addMsg("you","you say",text);
+  setThinking(name,true);
+  try{
+    const out=parseJSON(await callModel(replyPrompt(name,text)));
+    setThinking(name,false);
+    const reply=out.reply||out.monologue||"…";
+    if(out.emotion)setAffect(name,out.emotion,out.intensity);
+    ripple(name,"LISTEN",text,reply);
+    speak(name);rigs[name].perform(reply,{cues:out.cues,thought:false});
+    if(FOCUS===name)addMsg("them",CHAR[name].label,reply);
+  }catch(e){setThinking(name,false);}
+  BUSY=false;sendBtn.disabled=false;
+}
+
+/* ---------- perform-as flow: you ARE this character; your line is theirs ---------- */
+async function performAsFlow(name,text){
+  if(BUSY)return;BUSY=true;sendBtn.disabled=true;
+  /* the character you inhabit speaks your words */
+  addMsg("you",CHAR[name].label+" (you)",text);
+  const sig=computeSignal("LISTEN",text);
+  setAffect(name,sig.emotion,Math.max(AFF[name].intensity,sig.intensity+.15));
+  rigs[name].perform(text,{cues:"",thought:false});speak(name);
+  ripple(name,"LISTEN",text,text);
+  /* the room reacts — adjacent characters answer, in scene */
+  const neigh=(CHAR[name].adj||[]).filter(n=>active().includes(n)&&n!==INHABIT);
+  const responder=neigh[0]||active().find(n=>n!==name&&n!==INHABIT);
+  if(responder){
+    await wait(clamp(text.split(/\s+/).length*160,700,2600));
+    setThinking(responder,true);
+    try{
+      const out=parseJSON(await callModel(roomReplyPrompt(responder,name,text)));
+      setThinking(responder,false);
+      const reply=out.reply||out.monologue||"…";
+      if(out.emotion)setAffect(responder,out.emotion,out.intensity);
+      ripple(responder,"LISTEN",text,reply);
+      speak(responder);rigs[responder].perform(reply,{cues:out.cues,thought:false});
+      addMsg("them",CHAR[responder].label,reply);
+    }catch(_){setThinking(responder,false);}
+  }
+  BUSY=false;sendBtn.disabled=false;
+}
+
+function flashRing(name,echo,direct){
+  const el=tiles[name];if(!el)return;const r=document.createElement("div");
+  r.className="ring"+(echo?" echo":"");el.appendChild(r);setTimeout(()=>r.remove(),1300);
+}
+
+/* ---------- send ---------- */
+function send(){
+  const text=lineEl.value.trim();if(!text)return;
+  /* if you're inhabiting a cast member, your line IS theirs; the room reacts */
+  if(capture.on&&INHABIT!==YOU){lineEl.value="";performAsFlow(INHABIT,text);return;}
+  if(FOCUS===YOU){toast("THAT'S YOU");return;}
+  let target=FOCUS;
+  if(!target){ /* room mode: pick most-recently-agitated, else first */
+    if(MODE==="whisper"){target=active().slice().sort((a,b)=>AFF[b].intensity-AFF[a].intensity)[0];}
+    else{target=active()[0];}
+  }
+  lineEl.value="";
+  if(MODE==="whisper")whisperFlow(target,text);else speakFlow(target,text);
+}
+sendBtn.addEventListener("click",send);
+lineEl.addEventListener("keydown",e=>{if(e.key==="Enter")send();});
+
+/* ---------- voice ---------- */
+let VOICES=[];function loadVoices(){VOICES=speechSynthesis.getVoices();}
+if('speechSynthesis'in window){loadVoices();speechSynthesis.onvoiceschanged=loadVoices;}
+function speak(name){
+  if(!('speechSynthesis'in window))return;const P=rigs[name]&&rigs[name].performing(wall());
+  const perf=rigs[name]&&rigs[name].perf;if(!perf)return;
+  const u=new SpeechSynthesisUtterance(perf.text);u.pitch=clamp(CHAR[name].pitch,0,2);u.rate=.98;
+  const pref=VOICES.find(v=>/en(-|_)?(GB|US)/i.test(v.lang));if(pref)u.voice=pref;
+  try{speechSynthesis.cancel();speechSynthesis.speak(u);}catch(_){}
+}
+
+/* ---------- key sheet ---------- */
+$("#keyBtn").addEventListener("click",()=>{$("#keyInput").value=OPENAI_KEY;$("#keyStatus").textContent="";$("#keySheet").classList.add("open");});
+$("#keySave").addEventListener("click",()=>{const v=$("#keyInput").value.trim();
+  if(v&&!/^sk-/.test(v)){$("#keyStatus").textContent="That doesn't look like an sk- key.";$("#keyStatus").className="err";return;}
+  OPENAI_KEY=v;$("#keyBtn").classList.toggle("set",!!v);$("#keySheet").classList.remove("open");
+  toast(v?"OPENAI CONNECTED":"USING BUILT-IN");});
+$("#keyClear").addEventListener("click",()=>{OPENAI_KEY="";$("#keyBtn").classList.remove("set");$("#keySheet").classList.remove("open");toast("USING BUILT-IN");});
+$("#keySheet").addEventListener("click",e=>{if(e.target.id==="keySheet")e.target.classList.remove("open");});
+
+/* ---------- ambient idle thoughts (keeps the room alive) ---------- */
+let ambientT=6;
+async function ambientTick(dt){
+  ambientT-=dt;if(ambientT>0||BUSY)return;
+  ambientT=9+Math.random()*7;
+  const pool=active().filter(n=>n!==INHABIT&&!(rigs[n]&&rigs[n].performing(wall()))&&!(rigs[n]&&rigs[n].think));
+  if(!pool.length)return;const name=pool[Math.floor(Math.random()*pool.length)];
+  setThinking(name,true);
+  try{const o=parseJSON(await callModel(ambientThoughtPrompt(name)));setThinking(name,false);
+    if(o.emotion)setAffect(name,o.emotion,Math.min(.65,o.intensity||.4));
+    rigs[name]&&rigs[name].perform(o.monologue||"…",{cues:o.cues,thought:true});
+    if(FOCUS===name)addMsg("thought","interior",`( ${o.monologue||"…"} )`);
+  }catch(_){setThinking(name,false);}
+}
+
+/* ---------- main loop ---------- */
+let last=performance.now(),fpsT=0;
+function frame(t){
+  const now=t/1000,dt=Math.min(.05,(t-last)/1000);last=t;
+  const live=capture.on&&capture.faceSeen;          /* a real face is being tracked */
+  const driving=live?INHABIT:null;                  /* the tile the camera drives */
+  /* who's speaking aloud -> others attend */
+  let speaker=null;
+  for(const name of active()){const P=rigs[name]&&rigs[name].performing(wall());if(P&&!P.thought){speaker=name;break;}}
+  /* the room's attention target: the speaker, else the live angle */
+  const watch=speaker||(driving&&active().includes(driving)?driving:(driving===YOU?YOU:null));
+
+  for(const name of active()){
+    const el=tiles[name];if(!el)continue;const ft=el._tile;
+    el.classList.toggle("speaking",name===speaker);
+    el.classList.toggle("driven",name===driving);
+    let gt=null;
+    if(watch&&name!==watch)gt=(watch===YOU)?{x:0,y:.05,you:true}:{x:.22,y:0};
+    ft.render(rigs[name],now,gt,dt,false);
+  }
+  /* YOU renders as a rig too — idle unless YOU is the inhabited angle */
+  if(tiles[YOU]&&tiles[YOU]._tile){
+    const youLive=(driving===YOU);
+    tiles[YOU].classList.toggle("driven",youLive);
+    tiles[YOU]._tile.render(rigs[YOU],now,null,dt,false);
+    const yl=tiles[YOU].querySelector(".mood i"),yb=tiles[YOU].querySelector(".mood b");
+    if(yl)yl.textContent=youLive?"you · live":(INHABIT!==YOU&&capture.on?"playing "+CHAR[INHABIT].label.toLowerCase():"camera off");
+    if(yb){yb.style.width=youLive?"100%":"0%";yb.style.background="var(--a)";}
+  }
+
+  /* focus big render */
+  if(FOCUS&&rigs[FOCUS]){
+    const r=focusCv.getBoundingClientRect();
+    if(r.width){const w=Math.round(r.width*DPR),h=Math.round(r.height*DPR);
+      if(focusCv.width!==w||focusCv.height!==h){focusCv.width=w;focusCv.height=h;}
+      const OW=focusOff.width,OH=focusOff.height;
+      /* every rig (incl. YOU) is eval'd by its small tile above; read its pose */
+      const p=rigs[FOCUS].pose;
+      drawFace(focusOG,OW,OH,FOCUS,p,now);
+      const img=focusOG.getImageData(0,0,OW,OH).data;
+      halftone(fg,img,OW,OH,focusCv.width,focusCv.height,2);
+    }
+  }
+  ambientTick(dt);
+  requestAnimationFrame(frame);
+}
+
+/* ---------- boot ---------- */
+buildGrid();
+updateConsole();
+requestAnimationFrame(frame);
+window.addEventListener("resize",()=>{});
+</script>
+</body>
+</html>
