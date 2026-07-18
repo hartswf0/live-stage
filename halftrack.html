@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>HALFTRACK — dot-matrix tracking rig</title>
+<style>
+  :root{
+    --bg:#050805;
+    --panel:#0a0f0a;
+    --grid:#0f1a0f;
+    --green:#4dff6a;      /* pose phosphor */
+    --green-dim:#1f6b2e;
+    --amber:#ffb347;      /* hand phosphor */
+    --white:#d8f0ff;      /* face phosphor */
+    --text:#8fd39a;
+    --text-dim:#3f6b47;
+    --err:#ff5d5d;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;background:var(--bg);color:var(--text);
+    font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+    overflow:hidden;user-select:none;-webkit-user-select:none}
+
+  /* ---------- layout ---------- */
+  #app{height:100%;display:flex;flex-direction:column}
+
+  header{
+    display:flex;align-items:center;gap:10px;
+    padding:8px 12px;background:var(--panel);
+    border-bottom:1px solid var(--grid);flex-shrink:0}
+  .wordmark{font-size:13px;letter-spacing:.22em;color:var(--green);font-weight:700}
+  .wordmark .half{color:var(--text-dim)}
+  #fps{margin-left:auto;font-size:12px;color:var(--text-dim);
+    font-variant-numeric:tabular-nums;letter-spacing:.05em}
+  #fps b{color:var(--green);font-weight:700}
+
+  #stage{position:relative;flex:1;min-height:0;
+    display:flex;align-items:center;justify-content:center;background:var(--bg)}
+  canvas#out{max-width:100%;max-height:100%;display:block;
+    image-rendering:pixelated}
+  video{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+
+  /* scanline film over the whole stage */
+  #stage::after{content:'';position:absolute;inset:0;pointer-events:none;
+    background:repeating-linear-gradient(0deg,
+      rgba(0,0,0,.22) 0px, rgba(0,0,0,.22) 1px,
+      transparent 1px, transparent 3px)}
+
+  /* ---------- start overlay ---------- */
+  #gate{position:absolute;inset:0;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:22px;z-index:10;
+    background:var(--bg);padding:24px;text-align:center}
+  #gate .brief{font-size:12px;line-height:1.8;color:var(--text-dim);max-width:300px}
+  #gate .brief em{color:var(--text);font-style:normal}
+  #startBtn{
+    background:none;border:1px solid var(--green-dim);color:var(--green);
+    font:inherit;font-size:13px;letter-spacing:.2em;
+    padding:16px 30px;cursor:pointer;position:relative}
+  #startBtn:active{background:var(--green-dim)}
+  /* drawn shutter mark: ring + center dot, no glyphs */
+  .shutter{display:inline-block;width:14px;height:14px;border:2px solid currentColor;
+    border-radius:50%;position:relative;vertical-align:-2px;margin-right:10px}
+  .shutter::after{content:'';position:absolute;inset:3px;background:currentColor;border-radius:50%}
+  #gateStatus{font-size:11px;color:var(--text-dim);min-height:3.2em;line-height:1.6;
+    letter-spacing:.05em;white-space:pre-line}
+  #gateStatus.err{color:var(--err)}
+
+  /* ---------- control bar ---------- */
+  footer{flex-shrink:0;background:var(--panel);border-top:1px solid var(--grid);
+    padding:8px 10px;display:flex;flex-direction:column;gap:8px}
+  #toggles{display:flex;gap:8px}
+  .tg{flex:1;border:1px solid var(--grid);background:none;color:var(--text-dim);
+    font:inherit;font-size:11px;letter-spacing:.14em;padding:10px 4px;
+    cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;
+    font-variant-numeric:tabular-nums}
+  .tg .lamp{width:8px;height:8px;border-radius:50%;
+    border:1px solid currentColor;flex-shrink:0}
+  .tg.on{color:var(--tgc);border-color:var(--tgc)}
+  .tg.on .lamp{background:var(--tgc);box-shadow:0 0 6px var(--tgc)}
+  .tg.loading .lamp{animation:pulse .7s infinite alternate}
+  @keyframes pulse{from{opacity:.2}to{opacity:1}}
+  .tg .ms{font-size:10px;opacity:.75}
+
+  #shapes{display:flex;gap:12px;justify-content:space-between;
+    font-size:10px;letter-spacing:.08em;color:var(--text-dim);min-height:26px}
+  .shape{flex:1;display:flex;flex-direction:column;gap:4px;align-items:stretch}
+  .shape .dots{display:flex;gap:3px;height:6px}
+  .shape .dots i{flex:1;border-radius:50%;background:var(--grid)}
+  .shape .dots i.lit{background:var(--white);box-shadow:0 0 4px var(--white)}
+  .shape label{text-align:center}
+
+  @media (prefers-reduced-motion: reduce){
+    .tg.loading .lamp{animation:none;opacity:.6}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <span class="wordmark"><span class="half">HALF</span>TRACK</span>
+    <span id="fps">— fps</span>
+  </header>
+
+  <div id="stage">
+    <canvas id="out"></canvas>
+    <video id="cam" playsinline muted autoplay></video>
+
+    <div id="gate">
+      <span class="wordmark" style="font-size:18px"><span class="half">HALF</span>TRACK</span>
+      <p class="brief">camera in, dots out.<br>
+        pose <em>33</em> · hands <em>2×21</em> · face <em>478 + blendshapes</em><br>
+        all inference on-device, nothing leaves the phone.</p>
+      <button id="startBtn"><span class="shutter"></span>OPEN CAMERA</button>
+      <div id="gateStatus"></div>
+    </div>
+  </div>
+
+  <footer>
+    <div id="toggles">
+      <button class="tg" id="tgBody"  style="--tgc:var(--green)"><span class="lamp"></span>BODY<span class="ms"></span></button>
+      <button class="tg" id="tgHands" style="--tgc:var(--amber)"><span class="lamp"></span>HANDS<span class="ms"></span></button>
+      <button class="tg" id="tgFace"  style="--tgc:var(--white)"><span class="lamp"></span>FACE<span class="ms"></span></button>
+    </div>
+    <div id="shapes">
+      <div class="shape" data-key="jawOpen"><div class="dots"></div><label>jaw</label></div>
+      <div class="shape" data-key="smile"><div class="dots"></div><label>smile</label></div>
+      <div class="shape" data-key="browInnerUp"><div class="dots"></div><label>brow</label></div>
+      <div class="shape" data-key="blink"><div class="dots"></div><label>blink</label></div>
+    </div>
+  </footer>
+</div>
+
+<script type="module">
+import { FilesetResolver, PoseLandmarker, HandLandmarker, FaceLandmarker }
+  from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
+
+const MODELS = {
+  body : "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
+  hands: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+  face : "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
+};
+
+const $ = id => document.getElementById(id);
+const video = $("cam"), canvas = $("out"), ctx = canvas.getContext("2d");
+const gate = $("gate"), gateStatus = $("gateStatus");
+const fpsEl = $("fps");
+
+// build dot meters (8 dots each)
+document.querySelectorAll(".shape .dots").forEach(d=>{
+  for(let i=0;i<8;i++) d.appendChild(document.createElement("i"));
+});
+
+const mods = {
+  body : { btn:$("tgBody"),  on:true, model:null, ms:0 },
+  hands: { btn:$("tgHands"), on:true, model:null, ms:0 },
+  face : { btn:$("tgFace"),  on:true, model:null, ms:0 },
+};
+for (const k in mods){
+  mods[k].btn.addEventListener("click", ()=>{
+    mods[k].on = !mods[k].on;
+    mods[k].btn.classList.toggle("on", mods[k].on);
+  });
+}
+
+let fileset = null, running = false;
+let lastVideoTime = -1;
+let results = { body:null, hands:null, face:null };
+let fpsEMA = 0, lastFrame = performance.now();
+
+// halftone sampling buffer
+const samp = document.createElement("canvas");
+const sctx = samp.getContext("2d", { willReadFrequently:true });
+const GRID_W = 96;
+
+function say(msg, err=false){
+  gateStatus.textContent = msg;
+  gateStatus.classList.toggle("err", err);
+}
+
+async function loadModule(key){
+  const m = mods[key];
+  m.btn.classList.add("loading");
+  const common = {
+    baseOptions:{ modelAssetPath: MODELS[key], delegate:"GPU" },
+    runningMode:"VIDEO",
+  };
+  try{
+    if (key==="body")
+      m.model = await PoseLandmarker.createFromOptions(fileset, { ...common, numPoses:1 });
+    if (key==="hands")
+      m.model = await HandLandmarker.createFromOptions(fileset, { ...common, numHands:2 });
+    if (key==="face")
+      m.model = await FaceLandmarker.createFromOptions(fileset, { ...common, numFaces:1, outputFaceBlendshapes:true });
+  } catch(e){
+    // GPU delegate can fail on some mobile browsers — retry on CPU
+    common.baseOptions.delegate = "CPU";
+    if (key==="body")  m.model = await PoseLandmarker.createFromOptions(fileset, { ...common, numPoses:1 });
+    if (key==="hands") m.model = await HandLandmarker.createFromOptions(fileset, { ...common, numHands:2 });
+    if (key==="face")  m.model = await FaceLandmarker.createFromOptions(fileset, { ...common, numFaces:1, outputFaceBlendshapes:true });
+  }
+  m.btn.classList.remove("loading");
+  m.btn.classList.add("on");
+}
+
+$("startBtn").addEventListener("click", start);
+
+async function start(){
+  $("startBtn").style.display = "none";
+  try{
+    say("requesting camera…");
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video:{ facingMode:"user", width:{ideal:640}, height:{ideal:480} },
+      audio:false
+    });
+    video.srcObject = stream;
+    await new Promise(res => video.onloadedmetadata = res);
+    await video.play();
+
+    canvas.width  = video.videoWidth;
+    canvas.height = video.videoHeight;
+    samp.width  = GRID_W;
+    samp.height = Math.round(GRID_W * video.videoHeight / video.videoWidth);
+
+    say("loading wasm runtime…");
+    fileset = await FilesetResolver.forVisionTasks(
+      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
+
+    say("loading models —\nbody · hands · face");
+    for (const k of ["body","hands","face"]){
+      mods[k].btn.classList.add("loading");
+    }
+    await Promise.all(["body","hands","face"].map(loadModule));
+
+    gate.style.display = "none";
+    running = true;
+    requestAnimationFrame(loop);
+  } catch(e){
+    $("startBtn").style.display = "";
+    say("could not start: " + (e.message || e) +
+        "\ncheck camera permission and reload", true);
+  }
+}
+
+function loop(){
+  if (!running) return;
+
+  const now = performance.now();
+
+  // run inference only on new video frames
+  if (video.currentTime !== lastVideoTime){
+    lastVideoTime = video.currentTime;
+    for (const k of ["body","hands","face"]){
+      const m = mods[k];
+      if (m.on && m.model){
+        const t0 = performance.now();
+        try{
+          results[k] = m.model.detectForVideo(video, now);
+        } catch(e){ results[k] = null; }
+        m.ms = m.ms*0.8 + (performance.now()-t0)*0.2;
+      } else {
+        results[k] = null;
+      }
+    }
+  }
+
+  draw();
+
+  // fps + per-module ms readout
+  const dt = now - lastFrame; lastFrame = now;
+  fpsEMA = fpsEMA ? fpsEMA*0.9 + (1000/dt)*0.1 : 1000/dt;
+  fpsEl.innerHTML = `<b>${fpsEMA.toFixed(0)}</b> fps`;
+  for (const k in mods){
+    mods[k].btn.querySelector(".ms").textContent =
+      mods[k].on && mods[k].model ? mods[k].ms.toFixed(0)+"ms" : "";
+  }
+
+  requestAnimationFrame(loop);
+}
+
+/* ---------- rendering ---------- */
+
+// mirror helper: normalized landmark -> canvas px (front cam mirrored)
+const px = l => ({ x:(1 - l.x) * canvas.width, y: l.y * canvas.height });
+
+function dot(p, r, color, glow=0){
+  if (glow){ ctx.shadowColor = color; ctx.shadowBlur = glow; }
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.arc(p.x, p.y, r, 0, 6.2832);
+  ctx.fill();
+  if (glow) ctx.shadowBlur = 0;
+}
+
+function bones(landmarks, pairs, color){
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1;
+  ctx.setLineDash([2,4]);
+  ctx.beginPath();
+  for (const [a,b] of pairs){
+    if (!landmarks[a] || !landmarks[b]) continue;
+    const p = px(landmarks[a]), q = px(landmarks[b]);
+    ctx.moveTo(p.x,p.y); ctx.lineTo(q.x,q.y);
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+const POSE_PAIRS = [[11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],
+  [23,24],[23,25],[25,27],[24,26],[26,28],[27,31],[28,32]];
+const HAND_PAIRS = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],
+  [9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],
+  [18,19],[19,20],[0,17]];
+
+function draw(){
+  ctx.fillStyle = "#050805";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  // 1 — the world as halftone: sample the mirrored camera, dot size = luminance
+  sctx.save();
+  sctx.scale(-1,1);
+  sctx.drawImage(video, -samp.width, 0, samp.width, samp.height);
+  sctx.restore();
+  const img = sctx.getImageData(0,0,samp.width,samp.height).data;
+  const cell = canvas.width / samp.width;
+  ctx.fillStyle = "#1c3322";
+  for (let y=0; y<samp.height; y++){
+    for (let x=0; x<samp.width; x++){
+      const i = (y*samp.width + x)*4;
+      const lum = (img[i]*0.299 + img[i+1]*0.587 + img[i+2]*0.114) / 255;
+      if (lum < 0.06) continue;
+      const r = lum * cell * 0.48;
+      ctx.beginPath();
+      ctx.arc((x+0.5)*cell, (y+0.5)*cell, r, 0, 6.2832);
+      ctx.fill();
+    }
+  }
+
+  // 2 — face mesh: fine white phosphor dust
+  const face = results.face;
+  if (face && face.faceLandmarks && face.faceLandmarks[0]){
+    const lm = face.faceLandmarks[0];
+    for (let i=0; i<lm.length; i+=2)
+      dot(px(lm[i]), 1.1, "rgba(216,240,255,0.85)");
+    updateShapes(face.faceBlendshapes && face.faceBlendshapes[0]);
+  } else {
+    updateShapes(null);
+  }
+
+  // 3 — hands: amber constellations
+  const hands = results.hands;
+  if (hands && hands.landmarks){
+    for (const lm of hands.landmarks){
+      bones(lm, HAND_PAIRS, "rgba(255,179,71,0.45)");
+      for (let i=0;i<lm.length;i++)
+        dot(px(lm[i]), i%4===0 ? 3.4 : 2.2, "#ffb347", 6);
+    }
+  }
+
+  // 4 — body: green armature on top
+  const body = results.body;
+  if (body && body.landmarks && body.landmarks[0]){
+    const lm = body.landmarks[0];
+    bones(lm, POSE_PAIRS, "rgba(77,255,106,0.4)");
+    for (let i=11;i<lm.length;i++)   // skip face points, face module owns those
+      dot(px(lm[i]), 4, "#4dff6a", 8);
+  }
+}
+
+/* ---------- blendshape dot-meters ---------- */
+const shapeEls = {};
+document.querySelectorAll(".shape").forEach(el=>{
+  shapeEls[el.dataset.key] = el.querySelectorAll(".dots i");
+});
+function setMeter(key, v){
+  const dots = shapeEls[key];
+  const lit = Math.round(Math.min(1, Math.max(0, v)) * dots.length);
+  dots.forEach((d,i)=> d.classList.toggle("lit", i < lit));
+}
+function updateShapes(bs){
+  if (!bs){ for (const k in shapeEls) setMeter(k, 0); return; }
+  const get = name => {
+    const c = bs.categories.find(c => c.categoryName === name);
+    return c ? c.score : 0;
+  };
+  setMeter("jawOpen", get("jawOpen"));
+  setMeter("smile", (get("mouthSmileLeft") + get("mouthSmileRight")) / 2);
+  setMeter("browInnerUp", get("browInnerUp"));
+  setMeter("blink", (get("eyeBlinkLeft") + get("eyeBlinkRight")) / 2);
+}
+</script>
+</body>
+</html>
