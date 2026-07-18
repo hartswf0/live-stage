@@ -1,0 +1,2312 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+  <meta name="theme-color" content="#08090b" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Live Avatar Capture</title>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/",
+      "@pixiv/three-vrm": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3.5.5/lib/three-vrm.module.min.js"
+    }
+  }
+  </script>
+
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #f4f4ef;
+      --muted: #9ea19a;
+      --line: rgba(255,255,255,.14);
+      --panel: rgba(12,13,16,.82);
+      --panel-solid: #101216;
+      --ok: #b8ffbf;
+      --warn: #ffe49a;
+      --bad: #ffaca8;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-right: env(safe-area-inset-right, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-left: env(safe-area-inset-left, 0px);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #08090b; }
+    body {
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--ink);
+      overscroll-behavior: none;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    button, input, select { font: inherit; }
+    button { color: inherit; }
+
+    #app, #stage {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    #stage { display: block; outline: none; }
+
+    #camera-shell {
+      position: fixed;
+      top: calc(var(--safe-top) + 54px);
+      right: calc(var(--safe-right) + 12px);
+      width: min(30vw, 142px);
+      aspect-ratio: 3 / 4;
+      overflow: hidden;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: #111;
+      box-shadow: 0 12px 38px rgba(0,0,0,.38);
+      transition: opacity .2s ease, transform .2s ease;
+      z-index: 5;
+    }
+
+    #camera-shell.hidden {
+      opacity: 0;
+      pointer-events: none;
+      transform: scale(.94);
+    }
+
+    #camera-video, #camera-overlay {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    #camera-shell.mirrored #camera-video,
+    #camera-shell.mirrored #camera-overlay { transform: scaleX(-1); }
+
+    #camera-overlay { pointer-events: none; }
+
+    #topbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      min-height: calc(46px + var(--safe-top));
+      padding: calc(8px + var(--safe-top)) calc(12px + var(--safe-right)) 8px calc(12px + var(--safe-left));
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      z-index: 8;
+      pointer-events: none;
+      background: linear-gradient(to bottom, rgba(8,9,11,.78), rgba(8,9,11,0));
+    }
+
+    #status {
+      min-width: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(8,9,11,.62);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      font-size: 12px;
+      letter-spacing: .02em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    #status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--muted);
+      box-shadow: 0 0 0 3px rgba(255,255,255,.05);
+      flex: 0 0 auto;
+    }
+
+    #status[data-tone="ok"] #status-dot { background: var(--ok); }
+    #status[data-tone="warn"] #status-dot { background: var(--warn); }
+    #status[data-tone="bad"] #status-dot { background: var(--bad); }
+
+    #quality-badge {
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(8,9,11,.62);
+      color: var(--muted);
+      font-size: 11px;
+      pointer-events: auto;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+
+    #dock {
+      position: fixed;
+      left: 50%;
+      bottom: calc(10px + var(--safe-bottom));
+      transform: translateX(-50%);
+      width: min(calc(100% - var(--safe-left) - var(--safe-right) - 20px), 620px);
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 7px;
+      padding: 8px;
+      border-radius: 22px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      backdrop-filter: blur(18px) saturate(1.2);
+      -webkit-backdrop-filter: blur(18px) saturate(1.2);
+      z-index: 10;
+      box-shadow: 0 18px 50px rgba(0,0,0,.36);
+    }
+
+    .dock-button {
+      min-width: 0;
+      min-height: 52px;
+      padding: 7px 4px;
+      border: 0;
+      border-radius: 15px;
+      background: transparent;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      cursor: pointer;
+      color: var(--muted);
+    }
+
+    .dock-button:active { background: rgba(255,255,255,.08); transform: translateY(1px); }
+    .dock-button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+    .dock-button[disabled] { opacity: .36; cursor: not-allowed; }
+    .dock-button.active { color: var(--ink); background: rgba(255,255,255,.08); }
+    .dock-button.recording { color: var(--bad); background: rgba(255,70,70,.09); }
+
+    .dock-icon {
+      width: 21px;
+      height: 21px;
+      display: grid;
+      place-items: center;
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .dock-label {
+      max-width: 100%;
+      font-size: 9px;
+      line-height: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      letter-spacing: .025em;
+    }
+
+    #start-layer {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      display: grid;
+      place-items: center;
+      padding: calc(24px + var(--safe-top)) calc(20px + var(--safe-right)) calc(90px + var(--safe-bottom)) calc(20px + var(--safe-left));
+      background:
+        radial-gradient(circle at 50% 30%, rgba(78,92,110,.16), transparent 38%),
+        linear-gradient(180deg, rgba(8,9,11,.3), rgba(8,9,11,.9));
+      transition: opacity .22s ease, visibility .22s ease;
+    }
+
+    #start-layer.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+
+    #start-card {
+      width: min(100%, 430px);
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      background: rgba(12,13,16,.78);
+      backdrop-filter: blur(22px);
+      -webkit-backdrop-filter: blur(22px);
+      box-shadow: 0 28px 90px rgba(0,0,0,.42);
+    }
+
+    #start-card h1 {
+      margin: 0 0 8px;
+      font-size: clamp(28px, 8vw, 46px);
+      line-height: .94;
+      letter-spacing: -.055em;
+      font-weight: 650;
+    }
+
+    #start-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    #start-actions { display: grid; gap: 9px; margin-top: 22px; }
+
+    .primary-action, .secondary-action {
+      width: 100%;
+      min-height: 54px;
+      border-radius: 17px;
+      cursor: pointer;
+    }
+
+    .primary-action {
+      border: 0;
+      color: #0b0c0f;
+      background: var(--ink);
+      font-weight: 700;
+    }
+
+    .secondary-action {
+      border: 1px solid var(--line);
+      color: var(--ink);
+      background: rgba(255,255,255,.04);
+    }
+
+    #privacy-note {
+      margin-top: 16px !important;
+      font-size: 11px !important;
+      color: #7d817b !important;
+    }
+
+    #drawer {
+      position: fixed;
+      left: calc(10px + var(--safe-left));
+      right: calc(10px + var(--safe-right));
+      bottom: calc(86px + var(--safe-bottom));
+      max-height: min(54vh, 420px);
+      overflow: auto;
+      z-index: 12;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: rgba(12,13,16,.94);
+      box-shadow: 0 16px 60px rgba(0,0,0,.48);
+      transform: translateY(16px);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity .16s ease, transform .16s ease, visibility .16s ease;
+    }
+
+    #drawer.open { transform: none; opacity: 1; visibility: visible; }
+
+    #drawer h2 { margin: 0 0 10px; font-size: 15px; }
+    #drawer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+    .metric {
+      padding: 11px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255,255,255,.025);
+    }
+
+    .metric-label { display: block; color: var(--muted); font-size: 10px; margin-bottom: 4px; }
+    .metric-value { display: block; font-size: 14px; overflow-wrap: anywhere; }
+
+    #drawer-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+    #drawer-actions button, #quality-select {
+      min-height: 44px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255,255,255,.04);
+      color: var(--ink);
+      padding: 0 12px;
+    }
+
+    #toast {
+      position: fixed;
+      left: 50%;
+      top: calc(54px + var(--safe-top));
+      transform: translate(-50%, -8px);
+      width: min(calc(100% - 30px), 480px);
+      z-index: 30;
+      padding: 11px 14px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(12,13,16,.94);
+      color: var(--ink);
+      font-size: 12px;
+      text-align: center;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity .16s ease, transform .16s ease, visibility .16s ease;
+      pointer-events: none;
+    }
+
+    #toast.show { opacity: 1; visibility: visible; transform: translate(-50%, 0); }
+
+    #avatar-input { position: fixed; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+
+    @media (orientation: landscape) and (max-height: 520px) {
+      #dock { width: min(610px, calc(100% - 20px)); bottom: calc(6px + var(--safe-bottom)); }
+      .dock-button { min-height: 42px; }
+      #camera-shell { top: calc(48px + var(--safe-top)); width: min(18vw, 116px); }
+      #start-card { padding: 18px; }
+      #start-card h1 { font-size: 34px; }
+      #start-card p { font-size: 12px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .001ms !important; animation-duration: .001ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <main id="app">
+    <canvas id="stage" aria-label="Live three-dimensional avatar"></canvas>
+
+    <div id="camera-shell" class="mirrored hidden" aria-hidden="true">
+      <video id="camera-video" playsinline muted></video>
+      <canvas id="camera-overlay"></canvas>
+    </div>
+
+    <header id="topbar">
+      <div id="status" data-tone="idle" role="status" aria-live="polite">
+        <span id="status-dot" aria-hidden="true"></span>
+        <span id="status-text">Ready</span>
+      </div>
+      <button id="quality-badge" type="button" aria-label="Open capture diagnostics">AUTO</button>
+    </header>
+
+    <section id="drawer" aria-label="Capture diagnostics">
+      <h2>Capture state</h2>
+      <div id="drawer-grid">
+        <div class="metric"><span class="metric-label">Render</span><span class="metric-value" id="metric-fps">—</span></div>
+        <div class="metric"><span class="metric-label">Inference</span><span class="metric-value" id="metric-inference">—</span></div>
+        <div class="metric"><span class="metric-label">Body</span><span class="metric-value" id="metric-body">—</span></div>
+        <div class="metric"><span class="metric-label">Hands / face</span><span class="metric-value" id="metric-detail">—</span></div>
+        <div class="metric"><span class="metric-label">Avatar</span><span class="metric-value" id="metric-avatar">Procedural</span></div>
+        <div class="metric"><span class="metric-label">Recording</span><span class="metric-value" id="metric-recording">Off</span></div>
+      </div>
+      <div id="drawer-actions">
+        <select id="quality-select" aria-label="Tracking quality">
+          <option value="auto">Auto quality</option>
+          <option value="high">High detail</option>
+          <option value="balanced">Balanced</option>
+          <option value="economy">Economy</option>
+        </select>
+        <button id="swap-sides-button" type="button">Swap body sides</button>
+        <button id="reset-avatar-button" type="button">Reset avatar</button>
+        <button id="close-drawer-button" type="button">Close</button>
+      </div>
+    </section>
+
+    <nav id="dock" aria-label="Capture controls">
+      <button class="dock-button" id="capture-button" type="button">
+        <span class="dock-icon" aria-hidden="true">●</span>
+        <span class="dock-label">Capture</span>
+      </button>
+      <button class="dock-button" id="calibrate-button" type="button" disabled>
+        <span class="dock-icon" aria-hidden="true">◎</span>
+        <span class="dock-label">Calibrate</span>
+      </button>
+      <button class="dock-button" id="record-button" type="button" disabled>
+        <span class="dock-icon" aria-hidden="true">◉</span>
+        <span class="dock-label">Record</span>
+      </button>
+      <button class="dock-button" id="avatar-button" type="button">
+        <span class="dock-icon" aria-hidden="true">◇</span>
+        <span class="dock-label">Avatar</span>
+      </button>
+      <button class="dock-button" id="camera-view-button" type="button">
+        <span class="dock-icon" aria-hidden="true">▣</span>
+        <span class="dock-label">Camera</span>
+      </button>
+      <button class="dock-button" id="camera-switch-button" type="button" disabled>
+        <span class="dock-icon" aria-hidden="true">↻</span>
+        <span class="dock-label">Flip</span>
+      </button>
+    </nav>
+
+    <section id="start-layer">
+      <div id="start-card">
+        <h1>Move.<br />The avatar follows.</h1>
+        <p>One-camera body, hands, and face performance capture for a mobile browser.</p>
+        <div id="start-actions">
+          <button id="start-button" class="primary-action" type="button">Start live capture</button>
+          <button id="start-avatar-button" class="secondary-action" type="button">Load a VRM avatar</button>
+        </div>
+        <p id="privacy-note">Camera frames are processed inside this browser. The app does not intentionally upload or retain video. HTTPS or localhost is required.</p>
+      </div>
+    </section>
+
+    <input id="avatar-input" type="file" accept=".vrm,model/gltf-binary,application/octet-stream" />
+    <div id="toast" role="alert" aria-live="assertive"></div>
+  </main>
+
+  <script type="module">
+    import * as THREE from "three";
+    import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+    import { VRMLoaderPlugin, VRMUtils } from "@pixiv/three-vrm";
+
+    const APP_VERSION = "1.0.0";
+    const TASKS_VERSION = "0.10.35";
+    const MAX_RECORD_SECONDS = 300;
+    const MAX_RECORD_FRAMES = 9_000;
+    const MAX_TIMING_SAMPLES = 60;
+    const TRACKING_LOSS_MS = 1_100;
+    const NEUTRAL_BLEND_MS = 650;
+
+    const POSE_CONNECTIONS = Object.freeze([
+      [11,12], [11,13], [13,15], [12,14], [14,16], [11,23], [12,24], [23,24],
+      [23,25], [25,27], [24,26], [26,28], [27,29], [29,31], [28,30], [30,32]
+    ]);
+
+    const HAND_CONNECTIONS = Object.freeze([
+      [0,1],[1,2],[2,3],[3,4],
+      [0,5],[5,6],[6,7],[7,8],
+      [5,9],[9,10],[10,11],[11,12],
+      [9,13],[13,14],[14,15],[15,16],
+      [13,17],[17,18],[18,19],[19,20],[0,17]
+    ]);
+
+    const QUALITY_PROFILES = Object.freeze({
+      high: Object.freeze({
+        label: "HIGH",
+        width: 720,
+        poseIntervalMs: 50,
+        handIntervalMs: 67,
+        faceIntervalMs: 67,
+        pixelRatio: 1.5
+      }),
+      balanced: Object.freeze({
+        label: "BAL",
+        width: 640,
+        poseIntervalMs: 67,
+        handIntervalMs: 84,
+        faceIntervalMs: 84,
+        pixelRatio: 1.25
+      }),
+      economy: Object.freeze({
+        label: "ECO",
+        width: 480,
+        poseIntervalMs: 84,
+        handIntervalMs: 125,
+        faceIntervalMs: 125,
+        pixelRatio: 1
+      })
+    });
+
+    const MODEL_URLS = Object.freeze({
+      pose: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
+      hand: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+      face: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task"
+    });
+
+    const dom = Object.freeze({
+      stage: requiredElement("stage", HTMLCanvasElement),
+      video: requiredElement("camera-video", HTMLVideoElement),
+      overlay: requiredElement("camera-overlay", HTMLCanvasElement),
+      cameraShell: requiredElement("camera-shell", HTMLDivElement),
+      status: requiredElement("status", HTMLDivElement),
+      statusText: requiredElement("status-text", HTMLSpanElement),
+      qualityBadge: requiredElement("quality-badge", HTMLButtonElement),
+      drawer: requiredElement("drawer", HTMLElement),
+      startLayer: requiredElement("start-layer", HTMLElement),
+      startButton: requiredElement("start-button", HTMLButtonElement),
+      startAvatarButton: requiredElement("start-avatar-button", HTMLButtonElement),
+      captureButton: requiredElement("capture-button", HTMLButtonElement),
+      calibrateButton: requiredElement("calibrate-button", HTMLButtonElement),
+      recordButton: requiredElement("record-button", HTMLButtonElement),
+      avatarButton: requiredElement("avatar-button", HTMLButtonElement),
+      cameraViewButton: requiredElement("camera-view-button", HTMLButtonElement),
+      cameraSwitchButton: requiredElement("camera-switch-button", HTMLButtonElement),
+      avatarInput: requiredElement("avatar-input", HTMLInputElement),
+      qualitySelect: requiredElement("quality-select", HTMLSelectElement),
+      swapSidesButton: requiredElement("swap-sides-button", HTMLButtonElement),
+      resetAvatarButton: requiredElement("reset-avatar-button", HTMLButtonElement),
+      closeDrawerButton: requiredElement("close-drawer-button", HTMLButtonElement),
+      toast: requiredElement("toast", HTMLDivElement),
+      metricFps: requiredElement("metric-fps", HTMLSpanElement),
+      metricInference: requiredElement("metric-inference", HTMLSpanElement),
+      metricBody: requiredElement("metric-body", HTMLSpanElement),
+      metricDetail: requiredElement("metric-detail", HTMLSpanElement),
+      metricAvatar: requiredElement("metric-avatar", HTMLSpanElement),
+      metricRecording: requiredElement("metric-recording", HTMLSpanElement)
+    });
+
+    class RingBuffer {
+      constructor(capacity) {
+        assertIntegerInRange(capacity, 1, 10_000, "RingBuffer capacity");
+        this.capacity = capacity;
+        this.values = new Float64Array(capacity);
+        this.length = 0;
+        this.index = 0;
+      }
+
+      push(value) {
+        if (!Number.isFinite(value)) return;
+        this.values[this.index] = value;
+        this.index = (this.index + 1) % this.capacity;
+        this.length = Math.min(this.length + 1, this.capacity);
+      }
+
+      average() {
+        if (this.length === 0) return 0;
+        let sum = 0;
+        for (let i = 0; i < this.length; i += 1) sum += this.values[i];
+        return sum / this.length;
+      }
+
+      clear() {
+        this.values.fill(0);
+        this.length = 0;
+        this.index = 0;
+      }
+    }
+
+    class CameraController {
+      constructor(video) {
+        this.video = video;
+        this.stream = null;
+        this.facingMode = "user";
+      }
+
+      async start() {
+        this.stop();
+        if (!navigator.mediaDevices?.getUserMedia) {
+          throw new Error("This browser does not provide camera capture.");
+        }
+
+        const constraints = {
+          audio: false,
+          video: {
+            facingMode: { ideal: this.facingMode },
+            width: { ideal: 1280, max: 1920 },
+            height: { ideal: 720, max: 1080 },
+            frameRate: { ideal: 30, max: 30 }
+          }
+        };
+
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        this.stream = stream;
+        this.video.srcObject = stream;
+        await this.video.play();
+        await waitForVideoFrame(this.video, 4_000);
+      }
+
+      async switchFacingMode() {
+        this.facingMode = this.facingMode === "user" ? "environment" : "user";
+        await this.start();
+        return this.facingMode;
+      }
+
+      stop() {
+        if (this.stream !== null) {
+          for (const track of this.stream.getTracks()) track.stop();
+        }
+        this.stream = null;
+        this.video.srcObject = null;
+      }
+
+      isFrontFacing() {
+        return this.facingMode === "user";
+      }
+    }
+
+    class FrameSource {
+      constructor(video) {
+        this.video = video;
+        this.canvas = document.createElement("canvas");
+        this.context = this.canvas.getContext("2d", { alpha: false, desynchronized: true });
+        if (this.context === null) throw new Error("Could not create camera frame canvas.");
+      }
+
+      async capture(targetWidth) {
+        const sourceWidth = this.video.videoWidth;
+        const sourceHeight = this.video.videoHeight;
+        if (sourceWidth < 2 || sourceHeight < 2) return null;
+
+        const width = clamp(Math.round(targetWidth), 320, 960);
+        const height = Math.max(2, Math.round(width * sourceHeight / sourceWidth));
+
+        try {
+          return await createImageBitmap(this.video, 0, 0, sourceWidth, sourceHeight, {
+            resizeWidth: width,
+            resizeHeight: height,
+            resizeQuality: "low"
+          });
+        } catch (primaryError) {
+          this.canvas.width = width;
+          this.canvas.height = height;
+          this.context.drawImage(this.video, 0, 0, width, height);
+          try {
+            return await createImageBitmap(this.canvas);
+          } catch (fallbackError) {
+            console.error("Frame capture failed.", primaryError, fallbackError);
+            return null;
+          }
+        }
+      }
+    }
+
+    class TrackingWorkerClient {
+      constructor() {
+        this.worker = null;
+        this.readyForFrame = false;
+        this.initialized = false;
+        this.disposed = false;
+        this.onResult = null;
+        this.onStatus = null;
+        this.onError = null;
+      }
+
+      async initialize(profile) {
+        if (this.worker !== null) throw new Error("Tracking worker already exists.");
+        this.disposed = false;
+        const source = createTrackingWorkerSource();
+        const url = URL.createObjectURL(new Blob([source], { type: "text/javascript" }));
+        const worker = new Worker(url, { type: "module", name: "avatar-tracking" });
+        URL.revokeObjectURL(url);
+        this.worker = worker;
+
+        await new Promise((resolve, reject) => {
+          let settled = false;
+          const timeoutId = window.setTimeout(() => {
+            if (settled) return;
+            settled = true;
+            reject(new Error("Tracking models did not initialize before timeout."));
+          }, 45_000);
+
+          worker.onmessage = (event) => {
+            const message = event.data;
+            if (!message || typeof message.type !== "string") return;
+
+            if (message.type === "initialized") {
+              if (!settled) {
+                settled = true;
+                window.clearTimeout(timeoutId);
+                this.initialized = true;
+                this.readyForFrame = true;
+                resolve();
+              }
+              this.onStatus?.(message);
+              return;
+            }
+
+            if (message.type === "result") {
+              this.readyForFrame = true;
+              this.onResult?.(message.payload);
+              return;
+            }
+
+            if (message.type === "status") {
+              this.onStatus?.(message);
+              return;
+            }
+
+            if (message.type === "error") {
+              const error = new Error(message.message || "Tracking worker failed.");
+              if (!settled) {
+                settled = true;
+                window.clearTimeout(timeoutId);
+                reject(error);
+              }
+              this.readyForFrame = true;
+              this.onError?.(error);
+            }
+          };
+
+          worker.onerror = (event) => {
+            const error = new Error(event.message || "Tracking worker crashed.");
+            if (!settled) {
+              settled = true;
+              window.clearTimeout(timeoutId);
+              reject(error);
+            }
+            this.readyForFrame = true;
+            this.onError?.(error);
+          };
+
+          worker.postMessage({
+            type: "initialize",
+            payload: {
+              tasksVersion: TASKS_VERSION,
+              modelUrls: MODEL_URLS,
+              profile
+            }
+          });
+        });
+      }
+
+      submitFrame(bitmap, timestampMs) {
+        if (!this.initialized || this.worker === null || !this.readyForFrame || this.disposed) {
+          return false;
+        }
+        this.readyForFrame = false;
+        this.worker.postMessage({ type: "frame", payload: { bitmap, timestampMs } }, [bitmap]);
+        return true;
+      }
+
+      setProfile(profile) {
+        this.worker?.postMessage({ type: "set-profile", payload: { profile } });
+      }
+
+      dispose() {
+        if (this.disposed) return;
+        this.disposed = true;
+        this.readyForFrame = false;
+        this.initialized = false;
+        if (this.worker !== null) {
+          this.worker.postMessage({ type: "dispose" });
+          this.worker.terminate();
+        }
+        this.worker = null;
+      }
+    }
+
+    class MotionSolver {
+      constructor() {
+        this.swapSides = false;
+        this.calibration = null;
+        this.smoothed = createNeutralMotion();
+        this.target = createNeutralMotion();
+        this.neutral = createNeutralMotion();
+        this.lastTimestampMs = 0;
+      }
+
+      reset() {
+        this.calibration = null;
+        resetMotion(this.smoothed);
+        resetMotion(this.target);
+        resetMotion(this.neutral);
+        this.lastTimestampMs = 0;
+      }
+
+      toggleSides() {
+        this.swapSides = !this.swapSides;
+        return this.swapSides;
+      }
+
+      calibrate(trackingFrame) {
+        const pose = trackingFrame?.pose;
+        if (!pose || pose.landmarks.length !== 33) return false;
+        const leftHip = pose.landmarks[23];
+        const rightHip = pose.landmarks[24];
+        const leftShoulder = pose.landmarks[11];
+        const rightShoulder = pose.landmarks[12];
+        if (![leftHip,rightHip,leftShoulder,rightShoulder].every(isFiniteLandmark)) return false;
+
+        const hipCenter = midpointLandmark(leftHip, rightHip);
+        const shoulderWidth = distance2D(leftShoulder, rightShoulder);
+        if (!Number.isFinite(shoulderWidth) || shoulderWidth < 0.02) return false;
+
+        this.calibration = Object.freeze({
+          hipX: hipCenter.x,
+          hipY: hipCenter.y,
+          shoulderWidth
+        });
+        return true;
+      }
+
+      solve(trackingFrame, nowMs) {
+        const dt = clamp((nowMs - this.lastTimestampMs) / 1_000, 1 / 120, 0.1);
+        this.lastTimestampMs = nowMs;
+
+        const target = resetMotion(this.target);
+        this.bodyGlobals = null;
+        target.timestampMs = nowMs;
+        target.confidence = 0;
+
+        if (trackingFrame?.pose?.worldLandmarks?.length === 33) {
+          this.solveBody(target, trackingFrame.pose, trackingFrame.face);
+          target.confidence = trackingFrame.pose.confidence;
+        }
+
+        if (trackingFrame?.hands?.length) this.solveHands(target, trackingFrame.hands);
+        if (trackingFrame?.face) this.solveFace(target, trackingFrame.face);
+
+        this.smoothInto(target, dt);
+        this.smoothed.timestampMs = nowMs;
+        return this.smoothed;
+      }
+
+      solveBody(target, pose, face) {
+        const world = pose.worldLandmarks;
+        const image = pose.landmarks;
+        const side = this.swapSides ? -1 : 1;
+        const rigPoint = (index) => {
+          const p = world[index];
+          return new THREE.Vector3(-p.x * side, -p.y, -p.z);
+        };
+
+        const leftShoulder = rigPoint(this.swapSides ? 12 : 11);
+        const rightShoulder = rigPoint(this.swapSides ? 11 : 12);
+        const leftElbow = rigPoint(this.swapSides ? 14 : 13);
+        const rightElbow = rigPoint(this.swapSides ? 13 : 14);
+        const leftWrist = rigPoint(this.swapSides ? 16 : 15);
+        const rightWrist = rigPoint(this.swapSides ? 15 : 16);
+        const leftHip = rigPoint(this.swapSides ? 24 : 23);
+        const rightHip = rigPoint(this.swapSides ? 23 : 24);
+        const leftKnee = rigPoint(this.swapSides ? 26 : 25);
+        const rightKnee = rigPoint(this.swapSides ? 25 : 26);
+        const leftAnkle = rigPoint(this.swapSides ? 28 : 27);
+        const rightAnkle = rigPoint(this.swapSides ? 27 : 28);
+
+        const shoulderCenter = leftShoulder.clone().add(rightShoulder).multiplyScalar(0.5);
+        const hipCenter = leftHip.clone().add(rightHip).multiplyScalar(0.5);
+        const torsoUp = safeDirection(hipCenter, shoulderCenter, new THREE.Vector3(0,1,0));
+        const bodyRight = safeDirection(leftHip, rightHip, new THREE.Vector3(-1,0,0));
+        const torsoForward = new THREE.Vector3().crossVectors(bodyRight, torsoUp).normalize();
+        const orthogonalRight = new THREE.Vector3().crossVectors(torsoUp, torsoForward).normalize();
+        const hipsGlobal = quaternionFromBasis(orthogonalRight, torsoUp, torsoForward);
+
+        const identity = new THREE.Quaternion();
+        const spineGlobal = identity.clone().slerp(hipsGlobal, 0.45);
+        const chestGlobal = identity.clone().slerp(hipsGlobal, 0.75);
+        const upperChestGlobal = identity.clone().slerp(hipsGlobal, 0.9);
+        target.bones.hips.copy(hipsGlobal);
+        target.bones.spine.copy(localFromGlobal(hipsGlobal, spineGlobal));
+        target.bones.chest.copy(localFromGlobal(spineGlobal, chestGlobal));
+        target.bones.upperChest.copy(localFromGlobal(chestGlobal, upperChestGlobal));
+
+        const leftUpperGlobal = quaternionFromDirection(new THREE.Vector3(1,0,0), safeDirection(leftShoulder, leftElbow, new THREE.Vector3(1,0,0)));
+        const rightUpperGlobal = quaternionFromDirection(new THREE.Vector3(-1,0,0), safeDirection(rightShoulder, rightElbow, new THREE.Vector3(-1,0,0)));
+        const leftLowerGlobal = quaternionFromDirection(new THREE.Vector3(1,0,0), safeDirection(leftElbow, leftWrist, new THREE.Vector3(1,0,0)));
+        const rightLowerGlobal = quaternionFromDirection(new THREE.Vector3(-1,0,0), safeDirection(rightElbow, rightWrist, new THREE.Vector3(-1,0,0)));
+
+        target.bones.leftUpperArm.copy(localFromGlobal(upperChestGlobal, leftUpperGlobal));
+        target.bones.rightUpperArm.copy(localFromGlobal(upperChestGlobal, rightUpperGlobal));
+        target.bones.leftLowerArm.copy(localFromGlobal(leftUpperGlobal, leftLowerGlobal));
+        target.bones.rightLowerArm.copy(localFromGlobal(rightUpperGlobal, rightLowerGlobal));
+
+        const leftUpperLegGlobal = quaternionFromDirection(new THREE.Vector3(0,-1,0), safeDirection(leftHip, leftKnee, new THREE.Vector3(0,-1,0)));
+        const rightUpperLegGlobal = quaternionFromDirection(new THREE.Vector3(0,-1,0), safeDirection(rightHip, rightKnee, new THREE.Vector3(0,-1,0)));
+        const leftLowerLegGlobal = quaternionFromDirection(new THREE.Vector3(0,-1,0), safeDirection(leftKnee, leftAnkle, new THREE.Vector3(0,-1,0)));
+        const rightLowerLegGlobal = quaternionFromDirection(new THREE.Vector3(0,-1,0), safeDirection(rightKnee, rightAnkle, new THREE.Vector3(0,-1,0)));
+
+        target.bones.leftUpperLeg.copy(localFromGlobal(hipsGlobal, leftUpperLegGlobal));
+        target.bones.rightUpperLeg.copy(localFromGlobal(hipsGlobal, rightUpperLegGlobal));
+        target.bones.leftLowerLeg.copy(localFromGlobal(leftUpperLegGlobal, leftLowerLegGlobal));
+        target.bones.rightLowerLeg.copy(localFromGlobal(rightUpperLegGlobal, rightLowerLegGlobal));
+
+        const leftFootIndex = this.swapSides ? 32 : 31;
+        const rightFootIndex = this.swapSides ? 31 : 32;
+        const leftFootGlobal = quaternionFromDirection(new THREE.Vector3(0,0,1), safeDirection(leftAnkle, rigPoint(leftFootIndex), new THREE.Vector3(0,0,1)));
+        const rightFootGlobal = quaternionFromDirection(new THREE.Vector3(0,0,1), safeDirection(rightAnkle, rigPoint(rightFootIndex), new THREE.Vector3(0,0,1)));
+        target.bones.leftFoot.copy(localFromGlobal(leftLowerLegGlobal, leftFootGlobal));
+        target.bones.rightFoot.copy(localFromGlobal(rightLowerLegGlobal, rightFootGlobal));
+
+        target.bones.neck.identity();
+        const headGlobal = this.solveHeadFromPose(world, side);
+        target.bones.head.copy(localFromGlobal(upperChestGlobal, headGlobal));
+        this.bodyGlobals = { leftLowerArmGlobal, rightLowerArmGlobal, upperChestGlobal };
+
+        const leftImageHip = image[this.swapSides ? 24 : 23];
+        const rightImageHip = image[this.swapSides ? 23 : 24];
+        const leftImageShoulder = image[this.swapSides ? 12 : 11];
+        const rightImageShoulder = image[this.swapSides ? 11 : 12];
+        const hipImageCenter = midpointLandmark(leftImageHip, rightImageHip);
+        const shoulderWidth = distance2D(leftImageShoulder, rightImageShoulder);
+
+        if (this.calibration !== null && isFiniteLandmark(hipImageCenter) && shoulderWidth > 0.02) {
+          target.root.set(
+            (this.calibration.hipX - hipImageCenter.x) * 4.4 * side,
+            (this.calibration.hipY - hipImageCenter.y) * 3.4,
+            clamp((this.calibration.shoulderWidth / shoulderWidth - 1) * 1.4, -1.2, 1.2)
+          );
+        }
+
+        if (face?.matrix?.length === 16) {
+          const matrixHead = quaternionFromFaceMatrix(face.matrix);
+          if (matrixHead !== null) target.bones.head.slerp(localFromGlobal(upperChestGlobal, matrixHead), 0.7);
+        }
+      }
+
+      solveHeadFromPose(world, side) {
+        const leftEarIndex = this.swapSides ? 8 : 7;
+        const rightEarIndex = this.swapSides ? 7 : 8;
+        const point = (index) => new THREE.Vector3(-world[index].x * side, -world[index].y, -world[index].z);
+        const leftEar = point(leftEarIndex);
+        const rightEar = point(rightEarIndex);
+        const nose = point(0);
+        const earCenter = leftEar.clone().add(rightEar).multiplyScalar(0.5);
+        const headRight = safeDirection(leftEar, rightEar, new THREE.Vector3(-1,0,0));
+        const forward = safeDirection(earCenter, nose, new THREE.Vector3(0,0,1));
+        const up = new THREE.Vector3().crossVectors(forward, headRight).normalize();
+        if (up.lengthSq() < 0.25) return new THREE.Quaternion();
+        const correctedForward = new THREE.Vector3().crossVectors(headRight, up).normalize();
+        return quaternionFromBasis(headRight, up, correctedForward);
+      }
+
+      solveHands(target, hands) {
+        for (let i = 0; i < Math.min(hands.length, 2); i += 1) {
+          const hand = hands[i];
+          const semanticLeft = this.swapSides ? hand.label === "Right" : hand.label === "Left";
+          const prefix = semanticLeft ? "left" : "right";
+          const world = hand.worldLandmarks;
+          if (!Array.isArray(world) || world.length !== 21) continue;
+
+          const sideSign = semanticLeft ? 1 : -1;
+          const p = (index) => new THREE.Vector3(world[index].x, -world[index].y, -world[index].z);
+          const wrist = p(0);
+          const middleBase = p(9);
+          const indexBase = p(5);
+          const pinkyBase = p(17);
+          const palmForward = safeDirection(wrist, middleBase, new THREE.Vector3(0,1,0));
+          const palmAcross = safeDirection(pinkyBase, indexBase, new THREE.Vector3(sideSign,0,0));
+          const palmNormal = new THREE.Vector3().crossVectors(palmAcross, palmForward).normalize();
+          const correctedAcross = new THREE.Vector3().crossVectors(palmForward, palmNormal).normalize();
+          const wristGlobal = quaternionFromBasis(correctedAcross, palmForward, palmNormal);
+          const parentGlobal = semanticLeft ? this.bodyGlobals?.leftLowerArmGlobal : this.bodyGlobals?.rightLowerArmGlobal;
+          target.bones[`${prefix}Hand`].copy(parentGlobal ? localFromGlobal(parentGlobal, wristGlobal) : wristGlobal);
+
+          const fingers = [
+            { name: "Thumb", indices: [1,2,3,4], gain: 0.75 },
+            { name: "Index", indices: [5,6,7,8], gain: 0.95 },
+            { name: "Middle", indices: [9,10,11,12], gain: 0.95 },
+            { name: "Ring", indices: [13,14,15,16], gain: 0.95 },
+            { name: "Little", indices: [17,18,19,20], gain: 0.95 }
+          ];
+
+          for (const finger of fingers) {
+            const a = p(finger.indices[0]);
+            const b = p(finger.indices[1]);
+            const c = p(finger.indices[2]);
+            const d = p(finger.indices[3]);
+            const curl1 = bendAngle(a,b,c) * finger.gain;
+            const curl2 = bendAngle(b,c,d) * finger.gain;
+            const spread = finger.name === "Thumb" ? sideSign * 0.35 : 0;
+            setFingerCurl(target.bones, prefix, finger.name, curl1, curl2, sideSign, spread);
+          }
+        }
+      }
+
+      solveFace(target, face) {
+        const b = face.blendshapes || {};
+        const blinkLeft = clamp01(b.eyeBlinkLeft || 0);
+        const blinkRight = clamp01(b.eyeBlinkRight || 0);
+        const jaw = clamp01(b.jawOpen || 0);
+        const funnel = clamp01(b.mouthFunnel || 0);
+        const pucker = clamp01(b.mouthPucker || 0);
+        const smile = clamp01(((b.mouthSmileLeft || 0) + (b.mouthSmileRight || 0)) * 0.5);
+        const frown = clamp01(((b.mouthFrownLeft || 0) + (b.mouthFrownRight || 0)) * 0.5);
+        const browUp = clamp01(b.browInnerUp || 0);
+        const browDown = clamp01(((b.browDownLeft || 0) + (b.browDownRight || 0)) * 0.5);
+
+        target.expressions.blinkLeft = blinkLeft;
+        target.expressions.blinkRight = blinkRight;
+        target.expressions.aa = clamp01(jaw * (1 - funnel * 0.5));
+        target.expressions.oh = clamp01(Math.max(funnel, pucker) * 0.8 + jaw * 0.25);
+        target.expressions.happy = smile;
+        target.expressions.sad = frown * 0.85;
+        target.expressions.surprised = clamp01(Math.max(browUp, jaw * 0.45));
+        target.expressions.angry = browDown * 0.8;
+      }
+
+      smoothInto(target, dt) {
+        const rotationAlpha = 1 - Math.exp(-dt * 18);
+        const rootAlpha = 1 - Math.exp(-dt * 10);
+        const faceAlpha = 1 - Math.exp(-dt * 22);
+
+        for (const name of Object.keys(this.smoothed.bones)) {
+          const current = this.smoothed.bones[name];
+          const next = target.bones[name];
+          if (current.dot(next) < 0) next.set(-next.x, -next.y, -next.z, -next.w);
+          current.slerp(next, rotationAlpha).normalize();
+        }
+
+        this.smoothed.root.lerp(target.root, rootAlpha);
+        for (const name of Object.keys(this.smoothed.expressions)) {
+          this.smoothed.expressions[name] = THREE.MathUtils.lerp(
+            this.smoothed.expressions[name],
+            target.expressions[name],
+            faceAlpha
+          );
+        }
+        this.smoothed.confidence = THREE.MathUtils.lerp(this.smoothed.confidence, target.confidence, faceAlpha);
+      }
+
+      blendToNeutral(dt) {
+        const neutral = this.neutral;
+        const alpha = 1 - Math.exp(-dt * (1_000 / NEUTRAL_BLEND_MS));
+        for (const name of Object.keys(this.smoothed.bones)) this.smoothed.bones[name].slerp(neutral.bones[name], alpha);
+        this.smoothed.root.lerp(neutral.root, alpha);
+        for (const name of Object.keys(this.smoothed.expressions)) {
+          this.smoothed.expressions[name] = THREE.MathUtils.lerp(this.smoothed.expressions[name], 0, alpha);
+        }
+        this.smoothed.confidence = THREE.MathUtils.lerp(this.smoothed.confidence, 0, alpha);
+        return this.smoothed;
+      }
+    }
+
+    class ProceduralAvatar {
+      constructor(scene) {
+        this.scene = scene;
+        this.root = new THREE.Group();
+        this.root.name = "ProceduralAvatar";
+        this.bones = Object.create(null);
+        this.material = new THREE.MeshStandardMaterial({ color: 0xd8dad6, roughness: 0.72, metalness: 0.02 });
+        this.darkMaterial = new THREE.MeshStandardMaterial({ color: 0x22262b, roughness: 0.8 });
+        this.build();
+        scene.add(this.root);
+      }
+
+      build() {
+        const hips = this.makeBone("hips", this.root, new THREE.Vector3(0, 1.06, 0));
+        const spine = this.makeBone("spine", hips, new THREE.Vector3(0, .22, 0));
+        const chest = this.makeBone("chest", spine, new THREE.Vector3(0, .24, 0));
+        const upperChest = this.makeBone("upperChest", chest, new THREE.Vector3(0, .2, 0));
+        const neck = this.makeBone("neck", upperChest, new THREE.Vector3(0, .18, 0));
+        const head = this.makeBone("head", neck, new THREE.Vector3(0, .12, 0));
+
+        this.addCapsule(hips, new THREE.Vector3(0,.11,0), .17, .2, this.darkMaterial);
+        this.addCapsule(spine, new THREE.Vector3(0,.12,0), .14, .24, this.material);
+        this.addCapsule(chest, new THREE.Vector3(0,.10,0), .17, .22, this.material);
+        this.addSphere(head, new THREE.Vector3(0,.11,0), .14, this.material);
+
+        this.buildArm(upperChest, "left", 1);
+        this.buildArm(upperChest, "right", -1);
+        this.buildLeg(hips, "left", 1);
+        this.buildLeg(hips, "right", -1);
+      }
+
+      buildArm(parent, side, sign) {
+        const upper = this.makeBone(`${side}UpperArm`, parent, new THREE.Vector3(sign * .18, .12, 0));
+        const lower = this.makeBone(`${side}LowerArm`, upper, new THREE.Vector3(sign * .30, 0, 0));
+        const hand = this.makeBone(`${side}Hand`, lower, new THREE.Vector3(sign * .27, 0, 0));
+        this.addLimbAlongX(upper, .30, sign, .065);
+        this.addLimbAlongX(lower, .27, sign, .055);
+        this.addSphere(hand, new THREE.Vector3(sign * .055, 0, 0), .075, this.darkMaterial);
+      }
+
+      buildLeg(parent, side, sign) {
+        const upper = this.makeBone(`${side}UpperLeg`, parent, new THREE.Vector3(sign * .105, 0, 0));
+        const lower = this.makeBone(`${side}LowerLeg`, upper, new THREE.Vector3(0, -.43, 0));
+        const foot = this.makeBone(`${side}Foot`, lower, new THREE.Vector3(0, -.42, 0));
+        this.addLimbAlongY(upper, .43, -.055);
+        this.addLimbAlongY(lower, .42, -.048);
+        const footMesh = new THREE.Mesh(new THREE.CapsuleGeometry(.055, .17, 4, 8), this.darkMaterial);
+        footMesh.rotation.x = Math.PI / 2;
+        footMesh.position.set(0, -.035, .1);
+        foot.add(footMesh);
+      }
+
+      makeBone(name, parent, position) {
+        const bone = new THREE.Group();
+        bone.name = name;
+        bone.position.copy(position);
+        parent.add(bone);
+        this.bones[name] = bone;
+        return bone;
+      }
+
+      addLimbAlongX(parent, length, sign, radius) {
+        const mesh = new THREE.Mesh(new THREE.CapsuleGeometry(radius, Math.max(.01, length - radius * 2), 4, 8), this.material);
+        mesh.rotation.z = -sign * Math.PI / 2;
+        mesh.position.x = sign * length * .5;
+        mesh.castShadow = false;
+        parent.add(mesh);
+      }
+
+      addLimbAlongY(parent, length, radius) {
+        const mesh = new THREE.Mesh(new THREE.CapsuleGeometry(Math.abs(radius), Math.max(.01, length - Math.abs(radius) * 2), 4, 8), this.material);
+        mesh.position.y = -length * .5;
+        parent.add(mesh);
+      }
+
+      addCapsule(parent, position, radius, length, material) {
+        const mesh = new THREE.Mesh(new THREE.CapsuleGeometry(radius, length, 5, 10), material);
+        mesh.position.copy(position);
+        parent.add(mesh);
+      }
+
+      addSphere(parent, position, radius, material) {
+        const mesh = new THREE.Mesh(new THREE.SphereGeometry(radius, 18, 12), material);
+        mesh.position.copy(position);
+        parent.add(mesh);
+      }
+
+      apply(motion) {
+        this.root.position.set(motion.root.x, motion.root.y, motion.root.z);
+        for (const [name, quaternion] of Object.entries(motion.bones)) {
+          const bone = this.bones[name];
+          if (bone) bone.quaternion.copy(quaternion);
+        }
+      }
+
+      update() {}
+      setVisible(visible) { this.root.visible = visible; }
+      dispose() {
+        this.root.traverse((object) => {
+          if (object.geometry) object.geometry.dispose();
+          if (object.material && object.material !== this.material && object.material !== this.darkMaterial) object.material.dispose();
+        });
+        this.material.dispose();
+        this.darkMaterial.dispose();
+        this.root.removeFromParent();
+      }
+    }
+
+    class VRMAvatar {
+      constructor(scene) {
+        this.scene = scene;
+        this.vrm = null;
+        this.objectUrl = null;
+      }
+
+      async load(file) {
+        this.dispose();
+        const objectUrl = URL.createObjectURL(file);
+        this.objectUrl = objectUrl;
+        const loader = new GLTFLoader();
+        loader.register((parser) => new VRMLoaderPlugin(parser));
+
+        const gltf = await new Promise((resolve, reject) => {
+          loader.load(objectUrl, resolve, undefined, reject);
+        });
+
+        const vrm = gltf.userData.vrm;
+        if (!vrm) throw new Error("The selected file did not contain a VRM avatar.");
+
+        if (VRMUtils.rotateVRM0) VRMUtils.rotateVRM0(vrm);
+        if (VRMUtils.removeUnnecessaryVertices) VRMUtils.removeUnnecessaryVertices(vrm.scene);
+        if (VRMUtils.combineSkeletons) VRMUtils.combineSkeletons(vrm.scene);
+
+        vrm.scene.rotation.y = Math.PI;
+        vrm.scene.traverse((object) => {
+          object.frustumCulled = false;
+          if (object.isMesh) {
+            object.castShadow = false;
+            object.receiveShadow = false;
+          }
+        });
+
+        this.vrm = vrm;
+        this.scene.add(vrm.scene);
+      }
+
+      apply(motion) {
+        if (!this.vrm) return;
+        this.vrm.scene.position.set(motion.root.x, motion.root.y, motion.root.z);
+        for (const [name, quaternion] of Object.entries(motion.bones)) {
+          const node = this.vrm.humanoid.getNormalizedBoneNode(name);
+          if (node) node.quaternion.copy(quaternion);
+        }
+        const manager = this.vrm.expressionManager;
+        if (manager) {
+          for (const [name, value] of Object.entries(motion.expressions)) {
+            const result = manager.setValue(name, clamp01(value));
+            void result;
+          }
+        }
+      }
+
+      update(deltaSeconds) { this.vrm?.update(deltaSeconds); }
+      isLoaded() { return this.vrm !== null; }
+
+      dispose() {
+        if (this.vrm) {
+          this.vrm.scene.traverse((object) => {
+            if (object.geometry) object.geometry.dispose();
+            if (object.material) {
+              const materials = Array.isArray(object.material) ? object.material : [object.material];
+              for (const material of materials) material.dispose?.();
+            }
+          });
+          this.vrm.scene.removeFromParent();
+        }
+        this.vrm = null;
+        if (this.objectUrl) URL.revokeObjectURL(this.objectUrl);
+        this.objectUrl = null;
+      }
+    }
+
+    class AvatarStage {
+      constructor(canvas) {
+        this.canvas = canvas;
+        this.renderer = new THREE.WebGLRenderer({
+          canvas,
+          antialias: false,
+          alpha: false,
+          powerPreference: "high-performance",
+          preserveDrawingBuffer: false
+        });
+        this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+        this.renderer.setClearColor(0x08090b, 1);
+        this.scene = new THREE.Scene();
+        this.camera = new THREE.PerspectiveCamera(34, 1, .05, 100);
+        this.camera.position.set(0, 1.35, 4.1);
+        this.camera.lookAt(0, 1.05, 0);
+        this.procedural = new ProceduralAvatar(this.scene);
+        this.vrm = new VRMAvatar(this.scene);
+        this.active = this.procedural;
+        this.buildWorld();
+        this.resize();
+      }
+
+      buildWorld() {
+        const hemi = new THREE.HemisphereLight(0xf5f7ff, 0x222326, 2.1);
+        this.scene.add(hemi);
+        const key = new THREE.DirectionalLight(0xffffff, 2.2);
+        key.position.set(2, 4, 3);
+        this.scene.add(key);
+        const rim = new THREE.DirectionalLight(0x9cb5ff, 1.2);
+        rim.position.set(-3, 2, -3);
+        this.scene.add(rim);
+
+        const floor = new THREE.Mesh(
+          new THREE.CircleGeometry(1.45, 64),
+          new THREE.MeshBasicMaterial({ color: 0x111318, transparent: true, opacity: .9 })
+        );
+        floor.rotation.x = -Math.PI / 2;
+        floor.position.y = .01;
+        this.scene.add(floor);
+
+        const ring = new THREE.LineLoop(
+          new THREE.BufferGeometry().setFromPoints(
+            Array.from({ length: 96 }, (_, i) => {
+              const angle = i / 96 * Math.PI * 2;
+              return new THREE.Vector3(Math.cos(angle) * 1.46, .012, Math.sin(angle) * 1.46);
+            })
+          ),
+          new THREE.LineBasicMaterial({ color: 0x3c4149, transparent: true, opacity: .6 })
+        );
+        this.scene.add(ring);
+      }
+
+      setPixelRatio(ratio) {
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, ratio));
+        this.resize();
+      }
+
+      resize() {
+        const width = Math.max(1, window.innerWidth);
+        const height = Math.max(1, window.innerHeight);
+        this.renderer.setSize(width, height, false);
+        this.camera.aspect = width / height;
+        this.camera.updateProjectionMatrix();
+      }
+
+      apply(motion) { this.active.apply(motion); }
+      render(deltaSeconds) {
+        this.active.update(deltaSeconds);
+        this.renderer.render(this.scene, this.camera);
+      }
+
+      async loadAvatar(file) {
+        await this.vrm.load(file);
+        this.procedural.setVisible(false);
+        this.active = this.vrm;
+      }
+
+      useProcedural() {
+        this.vrm.dispose();
+        this.procedural.setVisible(true);
+        this.active = this.procedural;
+      }
+
+      getAvatarName() { return this.active === this.vrm ? "VRM" : "Procedural"; }
+
+      dispose() {
+        this.procedural.dispose();
+        this.vrm.dispose();
+        this.renderer.dispose();
+      }
+    }
+
+    class MotionRecorder {
+      constructor() {
+        this.frames = [];
+        this.active = false;
+        this.startedAtMs = 0;
+        this.lastFrameAtMs = Number.NEGATIVE_INFINITY;
+        this.stoppedReason = "";
+      }
+
+      start(nowMs) {
+        this.frames.length = 0;
+        this.active = true;
+        this.startedAtMs = nowMs;
+        this.lastFrameAtMs = Number.NEGATIVE_INFINITY;
+        this.stoppedReason = "";
+      }
+
+      append(motion, nowMs) {
+        if (!this.active) return false;
+        if (this.frames.length >= MAX_RECORD_FRAMES || nowMs - this.startedAtMs >= MAX_RECORD_SECONDS * 1_000) {
+          this.stop("Recording limit reached");
+          return false;
+        }
+        if (nowMs - this.lastFrameAtMs < 33) return true;
+        this.lastFrameAtMs = nowMs;
+        this.frames.push(serializeMotion(motion, nowMs - this.startedAtMs));
+        return true;
+      }
+
+      stop(reason = "Stopped") {
+        const wasActive = this.active;
+        this.active = false;
+        this.stoppedReason = reason;
+        return wasActive;
+      }
+
+      export() {
+        if (this.frames.length === 0) throw new Error("There is no recorded motion to export.");
+        const payload = {
+          format: "mobile-avatar-performance-v1",
+          appVersion: APP_VERSION,
+          createdAt: new Date().toISOString(),
+          frameCount: this.frames.length,
+          durationMs: this.frames.at(-1)?.timeMs || 0,
+          frames: this.frames
+        };
+        downloadBlob(
+          new Blob([JSON.stringify(payload)], { type: "application/json" }),
+          `performance-${timestampForFile()}.json`
+        );
+      }
+
+      durationMs(nowMs) { return this.active ? Math.max(0, nowMs - this.startedAtMs) : 0; }
+    }
+
+    class QualityController {
+      constructor(onChange) {
+        this.mode = "auto";
+        this.level = "balanced";
+        this.onChange = onChange;
+        this.inferenceTimes = new RingBuffer(MAX_TIMING_SAMPLES);
+        this.frameTimes = new RingBuffer(MAX_TIMING_SAMPLES);
+        this.lastEvaluationMs = 0;
+        this.goodSinceMs = 0;
+      }
+
+      setMode(mode) {
+        if (!["auto","high","balanced","economy"].includes(mode)) throw new Error("Invalid quality mode.");
+        this.mode = mode;
+        if (mode !== "auto") this.setLevel(mode);
+        else this.onChange(this.level, QUALITY_PROFILES[this.level]);
+      }
+
+      setLevel(level) {
+        if (!QUALITY_PROFILES[level] || this.level === level) return;
+        this.level = level;
+        this.inferenceTimes.clear();
+        this.frameTimes.clear();
+        this.goodSinceMs = 0;
+        this.onChange(level, QUALITY_PROFILES[level]);
+      }
+
+      pushInference(ms) { this.inferenceTimes.push(ms); }
+      pushFrame(ms) { this.frameTimes.push(ms); }
+
+      evaluate(nowMs) {
+        if (this.mode !== "auto" || nowMs - this.lastEvaluationMs < 4_000) return;
+        this.lastEvaluationMs = nowMs;
+        const inference = this.inferenceTimes.average();
+        const frameMs = this.frameTimes.average();
+        if (this.inferenceTimes.length < 10 || this.frameTimes.length < 10) return;
+
+        const overloaded = inference > 92 || frameMs > 38;
+        const healthy = inference < 52 && frameMs < 22;
+
+        if (overloaded) {
+          this.goodSinceMs = 0;
+          if (this.level === "high") this.setLevel("balanced");
+          else if (this.level === "balanced") this.setLevel("economy");
+          return;
+        }
+
+        if (healthy) {
+          if (this.goodSinceMs === 0) this.goodSinceMs = nowMs;
+          if (nowMs - this.goodSinceMs > 14_000) {
+            if (this.level === "economy") this.setLevel("balanced");
+            else if (this.level === "balanced") this.setLevel("high");
+            this.goodSinceMs = nowMs;
+          }
+        } else {
+          this.goodSinceMs = 0;
+        }
+      }
+
+      profile() { return QUALITY_PROFILES[this.level]; }
+      fps() {
+        const average = this.frameTimes.average();
+        return average > 0 ? 1_000 / average : 0;
+      }
+    }
+
+    class CaptureApplication {
+      constructor() {
+        this.state = "idle";
+        this.camera = new CameraController(dom.video);
+        this.frameSource = new FrameSource(dom.video);
+        this.worker = null;
+        this.stage = new AvatarStage(dom.stage);
+        this.solver = new MotionSolver();
+        this.recorder = new MotionRecorder();
+        this.latestTracking = null;
+        this.latestMotion = createNeutralMotion();
+        this.lastTrackingResultMs = 0;
+        this.lastRenderMs = performance.now();
+        this.lastFrameSubmitVideoTime = -1;
+        this.renderFrameId = null;
+        this.videoFrameHandle = null;
+        this.fallbackFrameId = null;
+        this.cameraVisible = false;
+        this.toastTimer = null;
+        this.resultCounts = { pose: 0, hands: 0, face: 0 };
+        this.quality = new QualityController((level, profile) => this.applyQuality(level, profile));
+        this.installEvents();
+        this.applyQuality("balanced", QUALITY_PROFILES.balanced);
+        this.renderLoop = this.renderLoop.bind(this);
+        this.stage.render(0);
+      }
+
+      installEvents() {
+        dom.startButton.addEventListener("click", () => void this.startCapture());
+        dom.captureButton.addEventListener("click", () => void this.toggleCapture());
+        dom.calibrateButton.addEventListener("click", () => this.calibrate());
+        dom.recordButton.addEventListener("click", () => this.toggleRecording());
+        dom.avatarButton.addEventListener("click", () => dom.avatarInput.click());
+        dom.startAvatarButton.addEventListener("click", () => dom.avatarInput.click());
+        dom.avatarInput.addEventListener("change", () => void this.loadSelectedAvatar());
+        dom.cameraViewButton.addEventListener("click", () => this.toggleCameraView());
+        dom.cameraSwitchButton.addEventListener("click", () => void this.switchCamera());
+        dom.qualityBadge.addEventListener("click", () => this.toggleDrawer());
+        dom.closeDrawerButton.addEventListener("click", () => this.toggleDrawer(false));
+        dom.qualitySelect.addEventListener("change", () => this.quality.setMode(dom.qualitySelect.value));
+        dom.swapSidesButton.addEventListener("click", () => {
+          const swapped = this.solver.toggleSides();
+          dom.swapSidesButton.textContent = swapped ? "Use normal sides" : "Swap body sides";
+          this.toast(swapped ? "Body sides swapped." : "Body sides restored.");
+        });
+        dom.resetAvatarButton.addEventListener("click", () => {
+          this.stage.useProcedural();
+          this.solver.reset();
+          dom.metricAvatar.textContent = "Procedural";
+          this.toast("Procedural avatar restored.");
+        });
+        window.addEventListener("resize", () => this.stage.resize(), { passive: true });
+        window.addEventListener("orientationchange", () => window.setTimeout(() => this.stage.resize(), 120), { passive: true });
+        document.addEventListener("visibilitychange", () => {
+          if (document.hidden && this.recorder.active) this.stopRecording("Paused when app left foreground");
+        });
+        window.addEventListener("beforeunload", () => this.dispose(), { once: true });
+      }
+
+      async toggleCapture() {
+        if (["starting","stopping"].includes(this.state)) return;
+        if (["tracking","degraded","lost"].includes(this.state)) await this.stopCapture();
+        else await this.startCapture();
+      }
+
+      async startCapture() {
+        if (!["idle","failed"].includes(this.state)) return;
+        if (!window.isSecureContext && location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
+          this.fail(new Error("Camera capture requires HTTPS or localhost."));
+          return;
+        }
+
+        this.state = "starting";
+        this.setStatus("Loading camera and tracking models…", "warn");
+        this.updateControls();
+
+        try {
+          await this.camera.start();
+          this.updateCameraMirroring();
+          const worker = new TrackingWorkerClient();
+          worker.onResult = (payload) => this.receiveTracking(payload);
+          worker.onStatus = (message) => {
+            if (message.delegate) this.toast(`Tracking ready on ${message.delegate}.`);
+          };
+          worker.onError = (error) => this.handleTrackingError(error);
+          await worker.initialize(this.quality.profile());
+          this.worker = worker;
+
+          this.latestTracking = null;
+          this.latestMotion = createNeutralMotion();
+          this.lastTrackingResultMs = performance.now();
+          this.lastRenderMs = performance.now();
+          this.resultCounts = { pose: 0, hands: 0, face: 0 };
+          this.state = "tracking";
+          dom.startLayer.classList.add("hidden");
+          dom.cameraShell.classList.toggle("hidden", !this.cameraVisible);
+          this.setStatus("Step back until your full body is visible", "warn");
+          this.updateControls();
+          this.startFramePump();
+          if (this.renderFrameId === null) this.renderFrameId = requestAnimationFrame(this.renderLoop);
+        } catch (error) {
+          this.camera.stop();
+          this.worker?.dispose();
+          this.worker = null;
+          this.fail(normalizeError(error));
+        }
+      }
+
+      async stopCapture() {
+        if (["idle","stopping"].includes(this.state)) return;
+        this.state = "stopping";
+        this.updateControls();
+        this.stopFramePump();
+        this.worker?.dispose();
+        this.worker = null;
+        this.camera.stop();
+        if (this.recorder.active) this.stopRecording("Capture stopped");
+        this.latestTracking = null;
+        this.latestMotion = createNeutralMotion();
+        this.solver.reset();
+        this.state = "idle";
+        this.setStatus("Ready", "idle");
+        this.updateControls();
+      }
+
+      startFramePump() {
+        this.stopFramePump();
+        if (typeof dom.video.requestVideoFrameCallback === "function") {
+          const callback = () => {
+            this.videoFrameHandle = null;
+            if (!this.isRunning()) return;
+            void this.submitLatestFrame();
+            this.videoFrameHandle = dom.video.requestVideoFrameCallback(callback);
+          };
+          this.videoFrameHandle = dom.video.requestVideoFrameCallback(callback);
+          return;
+        }
+
+        const fallback = () => {
+          this.fallbackFrameId = null;
+          if (!this.isRunning()) return;
+          void this.submitLatestFrame();
+          this.fallbackFrameId = requestAnimationFrame(fallback);
+        };
+        this.fallbackFrameId = requestAnimationFrame(fallback);
+      }
+
+      stopFramePump() {
+        if (this.videoFrameHandle !== null && typeof dom.video.cancelVideoFrameCallback === "function") {
+          dom.video.cancelVideoFrameCallback(this.videoFrameHandle);
+        }
+        if (this.fallbackFrameId !== null) cancelAnimationFrame(this.fallbackFrameId);
+        this.videoFrameHandle = null;
+        this.fallbackFrameId = null;
+      }
+
+      async submitLatestFrame() {
+        if (!this.worker?.readyForFrame || dom.video.currentTime === this.lastFrameSubmitVideoTime) return;
+        this.lastFrameSubmitVideoTime = dom.video.currentTime;
+        const bitmap = await this.frameSource.capture(this.quality.profile().width);
+        if (bitmap === null) return;
+        const accepted = this.worker.submitFrame(bitmap, performance.now());
+        if (!accepted) bitmap.close?.();
+      }
+
+      receiveTracking(payload) {
+        if (!this.isRunning() || !payload) return;
+        const previous = this.latestTracking;
+        const updated = payload.updated || { pose: true, hand: true, face: true };
+        this.latestTracking = {
+          timestampMs: payload.timestampMs,
+          pose: updated.pose ? payload.pose : previous?.pose || null,
+          hands: updated.hand ? (payload.hands || []) : (previous?.hands || []),
+          face: updated.face ? payload.face : previous?.face || null,
+          timings: payload.timings || { totalMs: 0 },
+          updated
+        };
+        if (updated.pose && payload.pose) this.lastTrackingResultMs = performance.now();
+        this.quality.pushInference(payload.timings?.totalMs || 0);
+        if (updated.pose && payload.pose) this.resultCounts.pose += 1;
+        if (updated.hand && payload.hands?.length) this.resultCounts.hands += 1;
+        if (updated.face && payload.face) this.resultCounts.face += 1;
+        this.drawTrackingOverlay(this.latestTracking);
+      }
+
+      handleTrackingError(error) {
+        console.error(error);
+        if (this.isRunning()) {
+          this.state = "degraded";
+          this.setStatus("Tracking recovered from an error", "warn");
+        }
+      }
+
+      renderLoop(nowMs) {
+        this.renderFrameId = null;
+        const deltaMs = clamp(nowMs - this.lastRenderMs, 0, 100);
+        const deltaSeconds = deltaMs / 1_000;
+        this.lastRenderMs = nowMs;
+        this.quality.pushFrame(deltaMs);
+        this.quality.evaluate(nowMs);
+
+        const trackingAge = nowMs - this.lastTrackingResultMs;
+        if (this.isRunning() && trackingAge < TRACKING_LOSS_MS && this.latestTracking) {
+          this.latestMotion = this.solver.solve(this.latestTracking, nowMs);
+          if (this.latestTracking.pose) {
+            this.state = "tracking";
+            this.setStatus(this.solver.calibration ? "Live performance" : "Live — tap Calibrate", this.solver.calibration ? "ok" : "warn");
+          }
+        } else if (this.isRunning()) {
+          this.state = "lost";
+          this.latestMotion = this.solver.blendToNeutral(Math.max(deltaSeconds, 1 / 60));
+          this.setStatus("Move back into the camera", "bad");
+        }
+
+        this.stage.apply(this.latestMotion);
+        this.stage.render(deltaSeconds);
+
+        if (this.recorder.active) {
+          const appended = this.recorder.append(this.latestMotion, nowMs);
+          if (!appended && !this.recorder.active) {
+            this.updateRecordingUi();
+            this.toast(this.recorder.stoppedReason);
+            this.recorder.export();
+          }
+        }
+
+        this.updateDiagnostics(nowMs);
+        this.renderFrameId = requestAnimationFrame(this.renderLoop);
+      }
+
+      calibrate() {
+        if (!this.latestTracking?.pose) {
+          this.toast("A full body must be visible before calibration.");
+          return;
+        }
+        if (this.solver.calibrate(this.latestTracking)) {
+          this.setStatus("Calibrated — perform", "ok");
+          this.toast("Calibration stored. Keep the camera still.");
+        } else {
+          this.toast("Calibration failed. Face the camera with shoulders and hips visible.");
+        }
+      }
+
+      toggleRecording() {
+        if (!this.isRunning()) return;
+        if (this.recorder.active) {
+          this.stopRecording("Stopped by performer");
+          try { this.recorder.export(); } catch (error) { this.toast(normalizeError(error).message); }
+        } else {
+          this.recorder.start(performance.now());
+          this.updateRecordingUi();
+          this.toast("Motion recording started. Camera video is not recorded.");
+        }
+      }
+
+      stopRecording(reason) {
+        this.recorder.stop(reason);
+        this.updateRecordingUi();
+      }
+
+      updateRecordingUi() {
+        dom.recordButton.classList.toggle("recording", this.recorder.active);
+        dom.recordButton.querySelector(".dock-label").textContent = this.recorder.active ? "Stop" : "Record";
+      }
+
+      async loadSelectedAvatar() {
+        const file = dom.avatarInput.files?.[0];
+        dom.avatarInput.value = "";
+        if (!file) return;
+        this.setStatus("Loading avatar…", "warn");
+        try {
+          await this.stage.loadAvatar(file);
+          dom.metricAvatar.textContent = file.name;
+          this.setStatus(this.isRunning() ? "Avatar loaded — calibrate" : "Avatar loaded", "ok");
+          this.toast("VRM avatar loaded.");
+        } catch (error) {
+          console.error(error);
+          this.stage.useProcedural();
+          dom.metricAvatar.textContent = "Procedural";
+          this.toast(normalizeError(error).message);
+          this.setStatus(this.isRunning() ? "Using procedural avatar" : "Ready", "warn");
+        }
+      }
+
+      toggleCameraView() {
+        this.cameraVisible = !this.cameraVisible;
+        dom.cameraShell.classList.toggle("hidden", !this.cameraVisible || !this.isRunning());
+        dom.cameraViewButton.classList.toggle("active", this.cameraVisible);
+      }
+
+      async switchCamera() {
+        if (!this.isRunning()) return;
+        dom.cameraSwitchButton.disabled = true;
+        this.setStatus("Switching camera…", "warn");
+        try {
+          await this.camera.switchFacingMode();
+          this.updateCameraMirroring();
+          this.solver.reset();
+          this.setStatus("Camera switched — calibrate", "warn");
+        } catch (error) {
+          this.toast(normalizeError(error).message);
+          this.setStatus("Could not switch camera", "bad");
+        } finally {
+          dom.cameraSwitchButton.disabled = false;
+        }
+      }
+
+      updateCameraMirroring() {
+        dom.cameraShell.classList.toggle("mirrored", this.camera.isFrontFacing());
+      }
+
+      applyQuality(level, profile) {
+        this.stage.setPixelRatio(profile.pixelRatio);
+        this.worker?.setProfile(profile);
+        dom.qualityBadge.textContent = this.quality.mode === "auto" ? `AUTO · ${profile.label}` : profile.label;
+        dom.qualitySelect.value = this.quality.mode;
+        if (this.isRunning()) this.toast(`Capture quality: ${level}.`);
+      }
+
+      drawTrackingOverlay(frame) {
+        const canvas = dom.overlay;
+        const width = Math.max(1, dom.cameraShell.clientWidth * Math.min(window.devicePixelRatio || 1, 2));
+        const height = Math.max(1, dom.cameraShell.clientHeight * Math.min(window.devicePixelRatio || 1, 2));
+        if (canvas.width !== width || canvas.height !== height) {
+          canvas.width = width;
+          canvas.height = height;
+        }
+        const context = canvas.getContext("2d");
+        if (!context) return;
+        context.clearRect(0, 0, width, height);
+        context.lineWidth = Math.max(1.5, width / 150);
+        context.strokeStyle = "rgba(240,242,236,.92)";
+        context.fillStyle = "rgba(184,255,191,.92)";
+
+        if (frame.pose?.landmarks?.length === 33) drawConnections(context, frame.pose.landmarks, POSE_CONNECTIONS, width, height);
+        for (const hand of frame.hands || []) {
+          if (hand.landmarks?.length === 21) drawConnections(context, hand.landmarks, HAND_CONNECTIONS, width, height);
+        }
+      }
+
+      toggleDrawer(force) {
+        const shouldOpen = typeof force === "boolean" ? force : !dom.drawer.classList.contains("open");
+        dom.drawer.classList.toggle("open", shouldOpen);
+        dom.qualityBadge.setAttribute("aria-expanded", String(shouldOpen));
+      }
+
+      updateDiagnostics(nowMs) {
+        const fps = this.quality.fps();
+        dom.metricFps.textContent = fps > 0 ? `${fps.toFixed(0)} fps` : "—";
+        dom.metricInference.textContent = `${this.quality.inferenceTimes.average().toFixed(0)} ms`;
+        dom.metricBody.textContent = this.latestTracking?.pose ? `${Math.round((this.latestTracking.pose.confidence || 0) * 100)}%` : "Lost";
+        const handCount = this.latestTracking?.hands?.length || 0;
+        dom.metricDetail.textContent = `${handCount} hands · ${this.latestTracking?.face ? "face" : "no face"}`;
+        dom.metricAvatar.textContent = this.stage.getAvatarName();
+        dom.metricRecording.textContent = this.recorder.active
+          ? `${formatDuration(this.recorder.durationMs(nowMs))} · ${this.recorder.frames.length} frames`
+          : this.recorder.frames.length > 0 ? `${this.recorder.frames.length} frames ready` : "Off";
+      }
+
+      setStatus(text, tone) {
+        if (dom.statusText.textContent !== text) dom.statusText.textContent = text;
+        dom.status.dataset.tone = tone;
+      }
+
+      updateControls() {
+        const running = this.isRunning();
+        const busy = ["starting","stopping"].includes(this.state);
+        dom.captureButton.disabled = busy;
+        dom.captureButton.classList.toggle("active", running);
+        dom.captureButton.querySelector(".dock-label").textContent = running ? "Stop" : "Capture";
+        dom.calibrateButton.disabled = !running;
+        dom.recordButton.disabled = !running;
+        dom.cameraSwitchButton.disabled = !running;
+      }
+
+      toast(message) {
+        if (this.toastTimer !== null) window.clearTimeout(this.toastTimer);
+        dom.toast.textContent = message;
+        dom.toast.classList.add("show");
+        this.toastTimer = window.setTimeout(() => {
+          dom.toast.classList.remove("show");
+          this.toastTimer = null;
+        }, 2_600);
+      }
+
+      fail(error) {
+        console.error(error);
+        this.state = "failed";
+        this.setStatus(error.message, "bad");
+        this.updateControls();
+        this.toast(error.message);
+      }
+
+      isRunning() { return ["tracking","degraded","lost"].includes(this.state); }
+
+      dispose() {
+        this.stopFramePump();
+        if (this.renderFrameId !== null) cancelAnimationFrame(this.renderFrameId);
+        this.renderFrameId = null;
+        this.worker?.dispose();
+        this.worker = null;
+        this.camera.stop();
+        this.stage.dispose();
+      }
+    }
+
+    function createTrackingWorkerSource() {
+      return String.raw`
+        let PoseLandmarker;
+        let HandLandmarker;
+        let FaceLandmarker;
+        let FilesetResolver;
+        let pose = null;
+        let hands = null;
+        let face = null;
+        let profile = null;
+        let disposed = false;
+        const clocks = {
+          pose: { lastMs: -Infinity },
+          hand: { lastMs: -Infinity },
+          face: { lastMs: -Infinity }
+        };
+
+        self.onmessage = async (event) => {
+          const message = event.data;
+          if (!message || typeof message.type !== "string") return;
+          try {
+            if (message.type === "initialize") {
+              await initialize(message.payload);
+              return;
+            }
+            if (message.type === "set-profile") {
+              profile = sanitizeProfile(message.payload.profile);
+              return;
+            }
+            if (message.type === "frame") {
+              await processFrame(message.payload);
+              return;
+            }
+            if (message.type === "dispose") {
+              disposeTasks();
+              self.close();
+            }
+          } catch (error) {
+            self.postMessage({ type: "error", message: error instanceof Error ? error.message : String(error) });
+          }
+        };
+
+        async function initialize(payload) {
+          if (disposed) throw new Error("Worker is disposed.");
+          const tasksVersion = String(payload.tasksVersion);
+          const moduleUrl = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@" + tasksVersion + "/vision_bundle.mjs";
+          const module = await import(moduleUrl);
+          PoseLandmarker = module.PoseLandmarker;
+          HandLandmarker = module.HandLandmarker;
+          FaceLandmarker = module.FaceLandmarker;
+          FilesetResolver = module.FilesetResolver;
+          profile = sanitizeProfile(payload.profile);
+
+          const vision = await FilesetResolver.forVisionTasks(
+            "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@" + tasksVersion + "/wasm"
+          );
+
+          let delegate = "GPU";
+          try {
+            await createTasks(vision, payload.modelUrls, delegate);
+          } catch (gpuError) {
+            closeTasks();
+            delegate = "CPU";
+            await createTasks(vision, payload.modelUrls, delegate);
+          }
+
+          self.postMessage({ type: "initialized", delegate });
+        }
+
+        async function createTasks(vision, modelUrls, delegate) {
+          pose = await PoseLandmarker.createFromOptions(vision, {
+            baseOptions: { modelAssetPath: modelUrls.pose, delegate },
+            runningMode: "VIDEO",
+            numPoses: 1,
+            minPoseDetectionConfidence: 0.45,
+            minPosePresenceConfidence: 0.45,
+            minTrackingConfidence: 0.45,
+            outputSegmentationMasks: false
+          });
+          hands = await HandLandmarker.createFromOptions(vision, {
+            baseOptions: { modelAssetPath: modelUrls.hand, delegate },
+            runningMode: "VIDEO",
+            numHands: 2,
+            minHandDetectionConfidence: 0.42,
+            minHandPresenceConfidence: 0.42,
+            minTrackingConfidence: 0.42
+          });
+          face = await FaceLandmarker.createFromOptions(vision, {
+            baseOptions: { modelAssetPath: modelUrls.face, delegate },
+            runningMode: "VIDEO",
+            numFaces: 1,
+            minFaceDetectionConfidence: 0.42,
+            minFacePresenceConfidence: 0.42,
+            minTrackingConfidence: 0.42,
+            outputFaceBlendshapes: true,
+            outputFacialTransformationMatrixes: true
+          });
+        }
+
+        async function processFrame(payload) {
+          const bitmap = payload.bitmap;
+          const timestampMs = Number(payload.timestampMs);
+          if (!bitmap || !Number.isFinite(timestampMs) || disposed) {
+            bitmap?.close?.();
+            return;
+          }
+
+          const result = {
+            timestampMs,
+            pose: null,
+            hands: [],
+            face: null,
+            updated: { pose: false, hand: false, face: false },
+            timings: { poseMs: 0, handMs: 0, faceMs: 0, totalMs: 0 }
+          };
+          const totalStart = performance.now();
+
+          try {
+            if (timestampMs - clocks.pose.lastMs >= profile.poseIntervalMs) {
+              const started = performance.now();
+              const raw = pose.detectForVideo(bitmap, timestampMs);
+              result.timings.poseMs = performance.now() - started;
+              clocks.pose.lastMs = timestampMs;
+              result.updated.pose = true;
+              result.pose = serializePose(raw);
+            }
+
+            if (timestampMs - clocks.hand.lastMs >= profile.handIntervalMs) {
+              const started = performance.now();
+              const raw = hands.detectForVideo(bitmap, timestampMs);
+              result.timings.handMs = performance.now() - started;
+              clocks.hand.lastMs = timestampMs;
+              result.updated.hand = true;
+              result.hands = serializeHands(raw);
+            }
+
+            if (timestampMs - clocks.face.lastMs >= profile.faceIntervalMs) {
+              const started = performance.now();
+              const raw = face.detectForVideo(bitmap, timestampMs);
+              result.timings.faceMs = performance.now() - started;
+              clocks.face.lastMs = timestampMs;
+              result.updated.face = true;
+              result.face = serializeFace(raw);
+            }
+          } finally {
+            result.timings.totalMs = performance.now() - totalStart;
+            bitmap.close();
+          }
+
+          self.postMessage({ type: "result", payload: result });
+        }
+
+        function serializePose(raw) {
+          const landmarks = raw?.landmarks?.[0];
+          const world = raw?.worldLandmarks?.[0];
+          if (!Array.isArray(landmarks) || landmarks.length !== 33 || !Array.isArray(world) || world.length !== 33) return null;
+          const confidence = averageVisibility(landmarks);
+          return {
+            confidence,
+            landmarks: landmarks.map(copyLandmark),
+            worldLandmarks: world.map(copyLandmark)
+          };
+        }
+
+        function serializeHands(raw) {
+          const output = [];
+          const landmarkSets = raw?.landmarks || [];
+          const worldSets = raw?.worldLandmarks || [];
+          const handednesses = raw?.handednesses || [];
+          const count = Math.min(2, landmarkSets.length, worldSets.length);
+          for (let i = 0; i < count; i += 1) {
+            if (landmarkSets[i]?.length !== 21 || worldSets[i]?.length !== 21) continue;
+            const category = handednesses[i]?.[0] || {};
+            output.push({
+              label: category.categoryName || category.displayName || "Unknown",
+              score: Number.isFinite(category.score) ? category.score : 0,
+              landmarks: landmarkSets[i].map(copyLandmark),
+              worldLandmarks: worldSets[i].map(copyLandmark)
+            });
+          }
+          return output;
+        }
+
+        function serializeFace(raw) {
+          const categories = raw?.faceBlendshapes?.[0]?.categories;
+          if (!Array.isArray(categories)) return null;
+          const blendshapes = {};
+          for (let i = 0; i < Math.min(categories.length, 64); i += 1) {
+            const category = categories[i];
+            const name = category.categoryName || category.displayName;
+            if (name) blendshapes[name] = Number.isFinite(category.score) ? category.score : 0;
+          }
+          const matrixObject = raw?.facialTransformationMatrixes?.[0];
+          const matrixData = matrixObject?.data || matrixObject;
+          const matrix = matrixData ? Array.from(matrixData).slice(0, 16) : [];
+          return { blendshapes, matrix };
+        }
+
+        function copyLandmark(item) {
+          return {
+            x: finiteOrZero(item?.x),
+            y: finiteOrZero(item?.y),
+            z: finiteOrZero(item?.z),
+            visibility: finiteOrZero(item?.visibility),
+            presence: finiteOrZero(item?.presence)
+          };
+        }
+
+        function averageVisibility(landmarks) {
+          let sum = 0;
+          for (let i = 0; i < landmarks.length; i += 1) {
+            const value = landmarks[i]?.visibility;
+            sum += Number.isFinite(value) ? value : 0;
+          }
+          return sum / landmarks.length;
+        }
+
+        function finiteOrZero(value) { return Number.isFinite(value) ? value : 0; }
+
+        function sanitizeProfile(value) {
+          return {
+            poseIntervalMs: clampNumber(value?.poseIntervalMs, 33, 500, 67),
+            handIntervalMs: clampNumber(value?.handIntervalMs, 33, 500, 84),
+            faceIntervalMs: clampNumber(value?.faceIntervalMs, 33, 500, 84)
+          };
+        }
+
+        function clampNumber(value, min, max, fallback) {
+          return Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback;
+        }
+
+        function closeTasks() {
+          pose?.close?.();
+          hands?.close?.();
+          face?.close?.();
+          pose = null;
+          hands = null;
+          face = null;
+        }
+
+        function disposeTasks() {
+          disposed = true;
+          closeTasks();
+        }
+      `;
+    }
+
+    function createNeutralMotion() {
+      const names = [
+        "hips","spine","chest","upperChest","neck","head",
+        "leftUpperArm","leftLowerArm","leftHand",
+        "rightUpperArm","rightLowerArm","rightHand",
+        "leftUpperLeg","leftLowerLeg","leftFoot",
+        "rightUpperLeg","rightLowerLeg","rightFoot",
+        "leftThumbMetacarpal","leftThumbProximal","leftThumbDistal",
+        "leftIndexProximal","leftIndexIntermediate","leftIndexDistal",
+        "leftMiddleProximal","leftMiddleIntermediate","leftMiddleDistal",
+        "leftRingProximal","leftRingIntermediate","leftRingDistal",
+        "leftLittleProximal","leftLittleIntermediate","leftLittleDistal",
+        "rightThumbMetacarpal","rightThumbProximal","rightThumbDistal",
+        "rightIndexProximal","rightIndexIntermediate","rightIndexDistal",
+        "rightMiddleProximal","rightMiddleIntermediate","rightMiddleDistal",
+        "rightRingProximal","rightRingIntermediate","rightRingDistal",
+        "rightLittleProximal","rightLittleIntermediate","rightLittleDistal"
+      ];
+      const bones = Object.create(null);
+      for (const name of names) bones[name] = new THREE.Quaternion();
+      return {
+        timestampMs: 0,
+        confidence: 0,
+        root: new THREE.Vector3(),
+        bones,
+        expressions: {
+          blinkLeft: 0, blinkRight: 0, aa: 0, oh: 0,
+          happy: 0, sad: 0, surprised: 0, angry: 0
+        }
+      };
+    }
+
+    function resetMotion(motion) {
+      motion.timestampMs = 0;
+      motion.confidence = 0;
+      motion.root.set(0, 0, 0);
+      for (const quaternion of Object.values(motion.bones)) quaternion.identity();
+      for (const name of Object.keys(motion.expressions)) motion.expressions[name] = 0;
+      return motion;
+    }
+
+    function cloneMotion(source) {
+      const output = createNeutralMotion();
+      output.timestampMs = source.timestampMs;
+      output.confidence = source.confidence;
+      output.root.copy(source.root);
+      for (const name of Object.keys(output.bones)) output.bones[name].copy(source.bones[name]);
+      Object.assign(output.expressions, source.expressions);
+      return output;
+    }
+
+    function serializeMotion(motion, timeMs) {
+      const bones = {};
+      for (const [name, q] of Object.entries(motion.bones)) {
+        bones[name] = [round6(q.x), round6(q.y), round6(q.z), round6(q.w)];
+      }
+      const expressions = {};
+      for (const [name, value] of Object.entries(motion.expressions)) expressions[name] = round6(value);
+      return {
+        timeMs: Math.round(timeMs),
+        confidence: round6(motion.confidence),
+        root: [round6(motion.root.x), round6(motion.root.y), round6(motion.root.z)],
+        bones,
+        expressions
+      };
+    }
+
+    function setFingerCurl(bones, prefix, finger, curl1, curl2, sideSign, spread) {
+      const firstName = finger === "Thumb" ? `${prefix}ThumbMetacarpal` : `${prefix}${finger}Proximal`;
+      const secondName = finger === "Thumb" ? `${prefix}ThumbProximal` : `${prefix}${finger}Intermediate`;
+      const thirdName = `${prefix}${finger}Distal`;
+      const axis = new THREE.Vector3(0, 0, -sideSign);
+      bones[firstName]?.setFromAxisAngle(axis, clamp(curl1 + spread, -0.2, 1.5));
+      bones[secondName]?.setFromAxisAngle(axis, clamp(curl2, 0, 1.7));
+      bones[thirdName]?.setFromAxisAngle(axis, clamp(curl2 * .8, 0, 1.5));
+    }
+
+    function quaternionFromDirection(base, target) {
+      const b = base.clone().normalize();
+      const t = target.clone().normalize();
+      if (b.lengthSq() < 0.5 || t.lengthSq() < 0.5) return new THREE.Quaternion();
+      return new THREE.Quaternion().setFromUnitVectors(b, t).normalize();
+    }
+
+    function quaternionFromBasis(right, up, forward) {
+      if (![right,up,forward].every((v) => v.lengthSq() > 0.5)) return new THREE.Quaternion();
+      const matrix = new THREE.Matrix4().makeBasis(right, up, forward);
+      return new THREE.Quaternion().setFromRotationMatrix(matrix).normalize();
+    }
+
+    function quaternionFromFaceMatrix(values) {
+      if (!Array.isArray(values) || values.length !== 16 || !values.every(Number.isFinite)) return null;
+      const matrix = new THREE.Matrix4().fromArray(values);
+      const position = new THREE.Vector3();
+      const scale = new THREE.Vector3();
+      const rotation = new THREE.Quaternion();
+      matrix.decompose(position, rotation, scale);
+      if (![rotation.x,rotation.y,rotation.z,rotation.w].every(Number.isFinite)) return null;
+      const euler = new THREE.Euler().setFromQuaternion(rotation, "YXZ");
+      euler.x = clamp(-euler.x, -1.0, 1.0);
+      euler.y = clamp(euler.y, -1.2, 1.2);
+      euler.z = clamp(-euler.z, -.8, .8);
+      return new THREE.Quaternion().setFromEuler(euler);
+    }
+
+    function localFromGlobal(parentGlobal, childGlobal) {
+      return parentGlobal.clone().invert().multiply(childGlobal).normalize();
+    }
+
+    function safeDirection(from, to, fallback) {
+      const direction = to.clone().sub(from);
+      if (!Number.isFinite(direction.lengthSq()) || direction.lengthSq() < 1e-8) return fallback.clone();
+      return direction.normalize();
+    }
+
+    function bendAngle(a, b, c) {
+      const first = a.clone().sub(b).normalize();
+      const second = c.clone().sub(b).normalize();
+      if (first.lengthSq() < .5 || second.lengthSq() < .5) return 0;
+      return clamp(Math.PI - first.angleTo(second), 0, Math.PI);
+    }
+
+    function drawConnections(context, landmarks, connections, width, height) {
+      context.beginPath();
+      for (const [aIndex,bIndex] of connections) {
+        const a = landmarks[aIndex];
+        const b = landmarks[bIndex];
+        if (!isFiniteLandmark(a) || !isFiniteLandmark(b)) continue;
+        context.moveTo(a.x * width, a.y * height);
+        context.lineTo(b.x * width, b.y * height);
+      }
+      context.stroke();
+      for (let i = 0; i < landmarks.length; i += 1) {
+        const point = landmarks[i];
+        if (!isFiniteLandmark(point)) continue;
+        context.beginPath();
+        context.arc(point.x * width, point.y * height, Math.max(1.6, width / 110), 0, Math.PI * 2);
+        context.fill();
+      }
+    }
+
+    function requiredElement(id, constructor) {
+      const element = document.getElementById(id);
+      if (!(element instanceof constructor)) throw new Error(`Required element missing: ${id}`);
+      return element;
+    }
+
+    function waitForVideoFrame(video, timeoutMs) {
+      return new Promise((resolve, reject) => {
+        if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && video.videoWidth > 0) {
+          resolve();
+          return;
+        }
+        let settled = false;
+        const timeout = window.setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          cleanup();
+          reject(new Error("The camera opened but did not produce a frame."));
+        }, timeoutMs);
+        const onLoaded = () => {
+          if (settled || video.videoWidth < 1) return;
+          settled = true;
+          cleanup();
+          resolve();
+        };
+        const cleanup = () => {
+          window.clearTimeout(timeout);
+          video.removeEventListener("loadeddata", onLoaded);
+          video.removeEventListener("resize", onLoaded);
+        };
+        video.addEventListener("loadeddata", onLoaded);
+        video.addEventListener("resize", onLoaded);
+      });
+    }
+
+    function isFiniteLandmark(point) {
+      return Boolean(point) && Number.isFinite(point.x) && Number.isFinite(point.y) && Number.isFinite(point.z ?? 0);
+    }
+
+    function midpointLandmark(a, b) {
+      return { x: (a.x + b.x) * .5, y: (a.y + b.y) * .5, z: ((a.z || 0) + (b.z || 0)) * .5 };
+    }
+
+    function distance2D(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+    function clamp(value, min, max) { return Math.min(max, Math.max(min, value)); }
+    function clamp01(value) { return clamp(Number.isFinite(value) ? value : 0, 0, 1); }
+    function round6(value) { return Math.round((Number.isFinite(value) ? value : 0) * 1_000_000) / 1_000_000; }
+    function assertIntegerInRange(value, min, max, name) {
+      if (!Number.isInteger(value) || value < min || value > max) throw new Error(`${name} is out of range.`);
+    }
+    function normalizeError(error) { return error instanceof Error ? error : new Error(String(error)); }
+
+    function downloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = filename;
+      anchor.rel = "noopener";
+      document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
+    }
+
+    function timestampForFile() {
+      return new Date().toISOString().replace(/[:.]/g, "-");
+    }
+
+    function formatDuration(milliseconds) {
+      const seconds = Math.floor(milliseconds / 1_000);
+      const minutes = Math.floor(seconds / 60);
+      return `${minutes}:${String(seconds % 60).padStart(2, "0")}`;
+    }
+
+    const application = new CaptureApplication();
+    void application;
+  </script>
+</body>
+</html>
